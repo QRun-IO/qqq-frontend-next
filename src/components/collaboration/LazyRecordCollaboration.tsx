@@ -18,7 +18,7 @@
 'use client'
 import type { ReactNode } from 'react'
 import dynamic from 'next/dynamic'
-import type { QTableMetaData } from '@/types'
+import type { QRecord, QTableMetaData } from '@/types'
 import { useCollaborationAvailable } from '@/lib/hooks/use-collaboration-core'
 
 const Panel = dynamic(
@@ -56,7 +56,7 @@ export function LazyRecordCollaborationLayout({
   children,
 }: Props & { children: ReactNode }) {
   const enabled = table.recordFeatures?.features?.some((feature) =>
-    ['COMMENTS', 'ATTACHMENTS', 'TIMELINE'].includes(feature)
+    ['COMMENTS', 'ATTACHMENTS', 'TIMELINE', 'TASKS'].includes(feature)
   )
   const available = useCollaborationAvailable(enabled)
   const show = enabled && available.data === true
@@ -105,4 +105,87 @@ export function LazyRecordFollow({ table, pk }: Props) {
   return enabled && available.data ? (
     <Follow key={`${table.name}/${pk}`} record={{ table: table.name, pk }} />
   ) : null
+}
+
+const Header = dynamic(
+  () => import('./RecordCollaborationHeader').then((m) => m.RecordCollaborationHeader),
+  { ssr: false }
+)
+const TableViewers = dynamic(
+  () => import('./RecordCollaborationHeader').then((m) => m.TablePresence),
+  { ssr: false }
+)
+const Access = dynamic(() => import('./RequestAccess').then((m) => m.RequestAccess), { ssr: false })
+const Edit = dynamic(() => import('./CollaborationEdit').then((m) => m.CollaborationEdit), {
+  ssr: false,
+})
+/** Enables core realtime for presence/follow, and qbit UI only when installed.
+ * @param props - Loaded record.
+ * @returns Lazy header.
+ */
+export function LazyCollaborationHeader({
+  table,
+  record,
+}: {
+  table: QTableMetaData
+  record: QRecord
+}) {
+  const available = useCollaborationAvailable()
+  const realtime = table.recordFeatures?.features?.some((f) => f === 'PRESENCE' || f === 'FOLLOW')
+  return realtime || available.data ? (
+    <Header table={table} record={record} available={available.data === true} />
+  ) : null
+}
+/** Table presence is loaded only for opted-in tables.
+ * @param props - Table metadata.
+ * @returns Count.
+ */
+export function LazyTablePresence({ table }: { table: QTableMetaData }) {
+  const enabled = table.recordFeatures?.features?.some((f) => f === 'PRESENCE' || f === 'FOLLOW')
+  const available = useCollaborationAvailable()
+  return enabled || available.data ? (
+    <TableViewers table={table} available={available.data === true} />
+  ) : null
+}
+/** The unavailable route keeps its target opaque.
+ * @param props - Table and attempted key.
+ * @returns Access form.
+ */
+export function LazyRequestAccess({ table, pk }: Props) {
+  const enabled = table.recordFeatures?.features?.includes('SHARING')
+  const available = useCollaborationAvailable(enabled)
+  return enabled && available.data ? <Access tableName={table.name} recordId={pk} /> : null
+}
+/** Lazy edit transport, including the 409 path on non-presence tables.
+ * @param props - Form bridge.
+ * @returns Edit collaboration layer.
+ */
+export function LazyCollaborationEdit(
+  props: Omit<import('./CollaborationEdit').CollaborationEditProps, 'available'>
+) {
+  const available = useCollaborationAvailable()
+  const enabled = props.table.recordFeatures?.features?.some(
+    (f) => f === 'PRESENCE' || f === 'FOLLOW'
+  )
+  return enabled || available.data || props.error ? (
+    <Edit {...props} available={available.data === true} />
+  ) : null
+}
+
+const FieldPreview = dynamic(
+  () => import('./FieldDefinitionPreview').then((m) => m.FieldDefinitionPreview),
+  { ssr: false }
+)
+/** Qbit designer extension slot on the standard record page.
+ * @param props - Definition identity and values.
+ * @returns Field preview for definition records.
+ */
+export function LazyFieldDefinitionPreview({
+  table,
+  record,
+}: {
+  table: QTableMetaData
+  record: QRecord
+}) {
+  return table.name === 'collaboration_field_definition' ? <FieldPreview record={record} /> : null
 }

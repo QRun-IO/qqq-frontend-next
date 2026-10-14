@@ -44,7 +44,7 @@ import type {
 export type CriteriaValue = QFilterCriteria['values'][number]
 
 /** Any backend-evaluated criteria value expression. */
-export type FilterExpression = FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression | StartOfPeriodExpression
+export type FilterExpression = { type: 'CurrentUser' } | FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression | StartOfPeriodExpression
 
 /**
  * Returns a blank {@link QQueryFilter} with no criteria, no sort, and the given page size.
@@ -1003,7 +1003,7 @@ export function isStartOfPeriodExpression(v: unknown): v is StartOfPeriodExpress
  * @returns Whether it is any backend-evaluated expression.
  */
 export function isFilterExpression(v: unknown): v is FilterExpression {
-  return isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isStartOfPeriodExpression(v) || isFilterVariableExpression(v)
+  return (typeof v === 'object' && v !== null && (v as { type?: string }).type === 'CurrentUser') || isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isStartOfPeriodExpression(v) || isFilterVariableExpression(v)
 }
 
 /**
@@ -1026,6 +1026,7 @@ function unitWord(unit: string, amount = 1): string {
  * @returns The description.
  */
 export function describeExpression(expression: FilterExpression, fieldType: QFieldType = 'DATE_TIME'): string {
+  if (expression.type === 'CurrentUser') return 'Me'
   if (isNowExpression(expression)) return fieldType === 'DATE' ? 'today' : 'now'
   if (isNowWithOffsetExpression(expression)) {
     return `${expression.amount} ${unitWord(expression.timeUnit, expression.amount)} ${expression.operator === 'MINUS' ? 'ago' : 'from now'}`

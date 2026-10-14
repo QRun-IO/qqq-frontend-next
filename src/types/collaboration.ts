@@ -449,6 +449,7 @@ export interface CollaborationTimelinePageV1 {
 
 /** Core RecordFeaturesV1: settings are extensible; capabilities are server decisions. */
 export interface RecordFeaturesV1 {
+  ownership?: { ownerFieldName?: string; assigneeFieldName?: string }
   features?: Array<
     | 'ATTACHMENTS'
     | 'TAGS'
@@ -499,4 +500,167 @@ export interface FollowState {
 export interface MentionCandidate {
   person: CollaborationPersonV1 & { userId: string; displayName: string }
   canRead: 'true' | 'false' | 'unknown'
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationAccessRequestCreateRequestV1 {
+  message?: string | null
+  recordId?: string | null
+  shareId?: number | null
+  tableName?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationAccessRequestListV1 {
+  items?: Array<CollaborationAccessRequestV1> | null
+  nextCursor?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationAssignmentRequestV1 {
+  assigneeUserId?: string | null
+  ownerUserId?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationAssignmentV1 {
+  assigneeUserId?: string | null
+  id?: number | null
+  ownerUserId?: string | null
+  recordId?: string | null
+  tableName?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationLinkV1 {
+  label?: string | null
+  url?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationMyWorkV1 {
+  assignedRecordsByTable?: Record<string, number> | null
+  openTaskCount?: number | null
+  tasks?: Array<CollaborationTaskV1> | null
+  unreadMentionCount?: number | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationShareListV1 {
+  items?: Array<CollaborationShareV1> | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationSharePreviewV1 {
+  recipients?: Array<CollaborationShareRecipientV1> | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationShareRequestV1 {
+  message?: string | null
+  toUserIds?: Array<string> | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationTaskCreateRequestV1 {
+  assigneeUserId?: string | null
+  dueAt?: string | null
+  notes?: string | null
+  remindAt?: string | null
+  title?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationTaskListV1 {
+  items?: Array<CollaborationTaskV1> | null
+  nextCursor?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationTaskPatchRequestV1 {
+  assigneeUserId?: string | null
+  dueAt?: string | null
+  notes?: string | null
+  remindAt?: string | null
+  status?: string | null
+  title?: string | null
+}
+
+/** Ephemeral viewer; the service merges a user's tabs, preferring EDITING. */
+export interface PresenceViewer {
+  userId: string
+  displayName: string
+  mode: 'VIEWING' | 'EDITING'
+  fieldName?: string | null
+}
+/** Presence target and client lease identity. */
+export interface PresenceTarget {
+  connectionId: string
+  table: string
+  pk?: string
+}
+/** Presence lease renewal. */
+export interface PresenceRequest extends PresenceTarget {
+  mode: 'VIEWING' | 'EDITING'
+  fieldName?: string
+}
+/** Snapshot also carried by presence.changed. */
+export interface PresenceSnapshot {
+  table: string
+  pk?: string
+  viewers: PresenceViewer[]
+}
+/** Core record feature summary, including qbit assignment fallback. */
+export interface RecordFeatureSummary {
+  capabilities?: Record<string, boolean>
+  owner?: string | null
+  assignee?: string | null
+  counts?: Record<string, number>
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationTaskV1 {
+  assigneeUserId?: string | null
+  completedAt?: string | null
+  completedByUserId?: string | null
+  createdByUserId?: string | null
+  dueAt?: string | null
+  id?: number | null
+  notes?: string | null
+  recordId?: string | null
+  remindAt?: string | null
+  status?: string | null
+  tableName?: string | null
+  title?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationShareV1 {
+  fromUserId?: string | null
+  id?: number | null
+  message?: string | null
+  recipientCouldRead?: boolean | null
+  recordId?: string | null
+  sentAt?: string | null
+  tableName?: string | null
+  toUserId?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationShareRecipientV1 {
+  canRead?: boolean | null
+  displayName?: string | null
+  userId?: string | null
+}
+
+/** Collaboration wire contract. */
+export interface CollaborationAccessRequestV1 {
+  handledAt?: string | null
+  id?: number | null
+  message?: string | null
+  note?: string | null
+  recordId?: string | null
+  requesterUserId?: string | null
+  status?: string | null
+  tableName?: string | null
 }

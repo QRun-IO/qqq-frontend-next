@@ -329,6 +329,10 @@ export interface QRelatedRecordPicker {
 export interface QTableMetaData {
   /** Effective collaboration features and session capabilities from core. */
   recordFeatures?: import('./collaboration').RecordFeaturesV1
+  /** Optional backend version column; empty disables optimistic checks. */
+  recordVersionField?: string
+  /** Server-supplied views; expression values are resolved by the backend. */
+  builtInViews?: Array<{ name: string; label: string; filter: Partial<QQueryFilter> }>
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */

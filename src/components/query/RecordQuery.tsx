@@ -69,6 +69,8 @@ import { HintTooltip } from './HintTooltip'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
+import { LazyTablePresence } from '@/components/collaboration/LazyRecordCollaboration'
+import { builtInViewHref } from '@/lib/utils/built-in-views'
 import { SavedViewsMenu } from './SavedViewsMenu'
 import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
@@ -614,6 +616,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </div>
       )}
 
+      <LazyTablePresence table={tableMetaData} />
       <RecordQueryToolbar
         onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
         tableName={tableName}
@@ -641,6 +644,14 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         tableVariant={tableVariant}
         savedViewsMenu={
           <SavedViewsMenu
+            builtInViews={tableMetaData.builtInViews}
+            onBuiltInView={(view) => {
+              setLocalSearchTerm('')
+              rq.filter.setQuickSearch('')
+              rq.filter.setUserFilter({ criteria: [], booleanOperator: 'AND', skip: 0, limit: rq.pagination.pageSize, ...view.filter })
+              rq.filter.setFilterMode('advanced')
+              if (savedViewId !== undefined) { clearStoredQueryState(tableName); router.push(builtInViewHref(tableName, view.filter)) }
+            }}
             savedViews={savedViews}
             currentView={currentView}
             viewDiffs={viewDiffs}

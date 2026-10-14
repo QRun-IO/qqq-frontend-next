@@ -340,3 +340,45 @@ export function useCreateTag(table: string) {
       client.invalidateQueries({ queryKey: queryKeys.collaborationVocabularyRoot(table) }),
   })
 }
+
+/** Record tasks, including done items, paged without losing cursor state.
+ * @param record - Parent identity.
+ * @param enabled - Feature enabled.
+ * @returns Query.
+ */
+export function useTasks(record: CollaborationRecord, enabled = true) {
+  return useRecordPages(record, 'tasks', api.listTasks, enabled)
+}
+/** Task writes refresh record panels and My work.
+ * @param record - Parent identity.
+ * @returns Create and edit operations.
+ */
+export function useTaskActions(record: CollaborationRecord) {
+  const client = useQueryClient()
+  const refreshWork = () => {
+    void client.invalidateQueries({ queryKey: queryKeys.collaborationMyWork() })
+  }
+  const create = useRecordWrite(
+    record,
+    async (input: import('@/types/collaboration').CollaborationTaskCreateRequestV1) => {
+      const result = await api.createTask(record, input)
+      refreshWork()
+      return result
+    }
+  )
+  const patch = useRecordWrite(
+    record,
+    async ({
+      id,
+      input,
+    }: {
+      id: number
+      input: import('@/types/collaboration').CollaborationTaskPatchRequestV1
+    }) => {
+      const result = await api.patchTask(id, input)
+      refreshWork()
+      return result
+    }
+  )
+  return { create, patch }
+}

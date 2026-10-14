@@ -39,7 +39,7 @@ import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-u
 import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
 import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
 
-import { LazyRecordTags, LazyRecordFollow } from '@/components/collaboration/LazyRecordCollaboration'
+import { LazyRecordTags, LazyRecordFollow, LazyCollaborationHeader } from '@/components/collaboration/LazyRecordCollaboration'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 
 import { RecordActions } from './RecordActions'
@@ -331,6 +331,7 @@ export function RecordViewHeader({
           </h1>
           <LazyFavoriteToggle target={{ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) }} label={record.recordLabel || tableMetaData.label} href={recordPath} />
           <LazyRecordFollow table={tableMetaData} pk={String(primaryKey)} />
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
           {/* D-V-5: Copy record ID to clipboard */}
           <button
             type="button"

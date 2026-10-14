@@ -26,7 +26,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
 import type { QFieldMetaData, QInstance, QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
-import { LazyRecordCollaborationLayout } from '@/components/collaboration/LazyRecordCollaboration'
+import { LazyRecordCollaborationLayout, LazyRequestAccess, LazyFieldDefinitionPreview } from '@/components/collaboration/LazyRecordCollaboration'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
@@ -104,6 +104,7 @@ interface RecordViewProps {
   /** Table metadata that describes sections, fields, and relationships. */
   tableMetaData: QTableMetaData
   /** The record to display; `undefined` while loading or after a non-error empty state. */
+  requestedPrimaryKey?: string
   record: QRecord | undefined
   /** `true` while the record data is being fetched. */
   isLoading?: boolean
@@ -148,6 +149,7 @@ interface RecordViewProps {
  *   rendered by {@link RecordViewContent}.
  */
 export function RecordView({
+  requestedPrimaryKey,
   instance,
   tableMetaData,
   record,
@@ -237,12 +239,13 @@ export function RecordView({
           data-qqq-id={`record-view-not-found-${tableMetaData.name}`}
           role="alert"
         >
+          {requestedPrimaryKey && <LazyRequestAccess table={tableMetaData} pk={requestedPrimaryKey} />}
           <FileQuestion className="mb-3 h-10 w-10 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-base font-semibold text-foreground">
             Record Not Found
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            The {tableMetaData.label} record you are looking for does not exist or has been deleted.
+            This link is unavailable. The record may be unavailable or you may not have access.
           </p>
           <button
             type="button"
@@ -611,6 +614,7 @@ function RecordViewContent({
               renderAssociation={renderAssociation} />
           ))}
 
+          <LazyFieldDefinitionPreview table={tableMetaData} record={record} />
           {/* Record errors/warnings */}
           {(record.errors?.length ?? 0) > 0 && (
             <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">

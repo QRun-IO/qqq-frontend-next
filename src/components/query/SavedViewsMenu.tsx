@@ -28,6 +28,7 @@ import Link from 'next/link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { BookmarkIcon, ChevronDown, X } from 'lucide-react'
 
+import type { QTableMetaData } from '@/types'
 import type { SavedView } from '@/lib/utils/saved-view-utils'
 import type { SavedViewsResult } from '@/lib/hooks/use-saved-views'
 
@@ -38,6 +39,8 @@ type DialogKind = 'saveAs' | 'rename' | 'update' | 'delete'
  * Props for the SavedViewsMenu component.
  */
 interface SavedViewsMenuCommonProps {
+  builtInViews?: QTableMetaData['builtInViews']
+  onBuiltInView?: (view: NonNullable<QTableMetaData['builtInViews']>[number]) => void
   /** Saved view lists and actions. */
   savedViews: SavedViewsResult
   /** The view the screen was loaded from, or null for a new view. */
@@ -69,14 +72,14 @@ type SavedViewsMenuProps = SavedViewsMenuCommonProps & ({
  * @param props - Component properties.
  * @returns The menu, or null when the backend has no saved views.
  */
-export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref, selectionOnly = false }: SavedViewsMenuProps) {
+export function SavedViewsMenu({ builtInViews, onBuiltInView, savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref, selectionOnly = false }: SavedViewsMenuProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind | null>(null)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  if (!savedViews.isAvailable) return null
+  if (!savedViews.isAvailable && !builtInViews?.length) return null
 
   const isOwner = currentView ? savedViews.isOwner(currentView) : true
   const notOwnerText = 'You may not save changes to this view, because you are not its owner.'
@@ -168,6 +171,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
             onCloseAutoFocus={(event) => { if (dialog) event.preventDefault() }}
             className="z-[160] w-80 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
             style={{ maxHeight: 'min(24rem, var(--radix-dropdown-menu-content-available-height))' }}>
+            {builtInViews?.map((view) => <DropdownMenuPrimitive.Item asChild key={view.name}><button type="button" className={menuItem} onClick={() => { setOpen(false); onBuiltInView?.(view) }} data-qqq-id={`built-in-view-${view.name}`}>{view.label}</button></DropdownMenuPrimitive.Item>)}
             {!selectionOnly && <>
             <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">View Actions</p>
             {savedViews.canStore && (
