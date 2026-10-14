@@ -28,7 +28,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
 import { Controller } from 'react-hook-form'
-import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
+import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
 
@@ -62,6 +62,12 @@ import { WidgetAdornmentField } from './WidgetAdornmentField'
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Read/clear dependent selections through the owning form. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** Complete sibling metadata for dependency hints. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit's enabled fields; disabled inputs do not supply dependencies. */
+  enabledFields?: Record<string, boolean>
   /** Surrounding values available to a field widget without making them editable. */
   contextValues?: Record<string, unknown>
   /** Optional hint supplied by an input block. */
@@ -275,6 +281,9 @@ export function DynamicFormField({
   placeholder,
   contextValues,
   idPrefix,
+  formMethods,
+  fieldsByName,
+  enabledFields,
   register,
   control,
   errors,
@@ -335,6 +344,9 @@ export function DynamicFormField({
       <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <PossibleValueSelect
+            formMethods={formMethods}
+            fieldsByName={fieldsByName}
+            enabledFields={enabledFields}
             id={fieldId}
             label={field.label}
             name={field.name}

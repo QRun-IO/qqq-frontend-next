@@ -303,3 +303,12 @@ export function realtimeClient(userId: string) {
   }
   return singleton.client
 }
+/** Closes and forgets the tab singleton, so the next {@link realtimeClient} call starts a fresh
+ * stream with no resume cursor. The test setup calls it after each case: a singleton kept
+ * across cases resumes the next case's stream with `Last-Event-ID`, and the replay-miss
+ * `resync` that answers it invalidates every active query in that case's cache.
+ */
+export function resetRealtimeClient() {
+  singleton?.client.close()
+  singleton = undefined
+}
