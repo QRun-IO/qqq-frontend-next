@@ -67,7 +67,7 @@ export function WidgetAdornmentField({ field, control, disabled = false, possibl
   const metadata = useMetaData()
   const widgetMetaData = metadata.data?.widgets?.[widgetName]
   const permitted = widgetMetaData ? canViewWidget(widgetMetaData) : false
-  const query = useWidget(widgetName, initialParams.current, { enabled: permitted })
+  const query = useWidget(widgetName, initialParams.current, { enabled: permitted, refreshSeconds: widgetMetaData?.defaultValues?.refreshSeconds })
 
   if (!widgetName) return <p role="alert">{`Field ${field.label} names no widget.`}</p>
   if (metadata.isError) return <p role="alert">{`Could not load widget metadata for ${field.label}.`}</p>
