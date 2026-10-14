@@ -26,8 +26,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { isCancel } from 'axios'
 
 import { searchRecords } from '@/lib/api/record-search'
+import { suggestRecords } from '@/lib/api/quick-search-suggest'
 import type { RecordSearchResult, RecordSearchSort, RecordSearchTableSummary } from '@/lib/api/record-search'
 import { queryKeys } from '@/lib/query-client'
 import { isRecordSearchTerm } from '@/lib/utils/record-search'
@@ -42,6 +44,8 @@ const NO_RESULTS: RecordSearchResult[] = []
 
 /** Optional request settings of {@link useRecordSearch}. */
 export interface UseRecordSearchOptions {
+  /** Use Quick Search suggestions, falling back to core search on non-abort errors. */
+  suggest?: boolean
   /** Records to skip per table (paging one table). */
   offset?: number
   /** Requested order. */
@@ -78,11 +82,11 @@ export interface RecordSearchState {
  * @param term - Current search text.
  * @param tables - Searchable tables (from `searchableTables`); empty disables search.
  * @param limitPerTable - Maximum results per table.
- * @param options - Offset, order and debounce.
+ * @param options - Offset, order, debounce and optional suggestion source.
  * @returns Search availability, results and status.
  */
 export function useRecordSearch(term: string, tables: SearchableTable[], limitPerTable: number, options: UseRecordSearchOptions = {}): RecordSearchState {
-  const { offset = 0, sort = 'relevance', debounceMs = RECORD_SEARCH_DEBOUNCE_MS } = options
+  const { offset = 0, sort = 'relevance', debounceMs = RECORD_SEARCH_DEBOUNCE_MS, suggest = false } = options
   const trimmed = term.trim()
   const [debounced, setDebounced] = useState(trimmed)
 
@@ -95,12 +99,22 @@ export function useRecordSearch(term: string, tables: SearchableTable[], limitPe
   const tableNames = useMemo(() => tables.map((table) => table.name), [tables])
   const available = tableNames.length > 0
   const searchable = available && isRecordSearchTerm(trimmed)
-  const enabled = available && isRecordSearchTerm(debounced)
+  const enabled = searchable && isRecordSearchTerm(debounced)
 
   const query = useQuery({
-    queryKey: queryKeys.recordSearch(debounced, tableNames, limitPerTable, offset, sort),
+    queryKey: queryKeys.recordSearch(debounced, tableNames, limitPerTable, offset, sort, suggest),
     // the signal aborts a request whose term was superseded
-    queryFn: ({ signal }) => searchRecords(debounced, { tableNames, limitPerTable, offset, sort, signal }),
+    queryFn: async ({ signal }) => {
+      if (suggest) {
+        try {
+          return await suggestRecords(debounced, { tableNames, limitPerTable, signal })
+        } catch (error) {
+          if (signal.aborted || isCancel(error) || (typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError')) throw error
+        }
+      }
+      signal.throwIfAborted()
+      return searchRecords(debounced, { tableNames, limitPerTable, offset, sort, signal })
+    },
     enabled,
     staleTime: 30_000,
     retry: false,

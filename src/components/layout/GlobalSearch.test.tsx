@@ -24,6 +24,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AxiosError, type AxiosResponse } from 'axios'
+import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 
 const pushMock = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -34,6 +36,10 @@ vi.mock('next/navigation', () => ({
 }))
 
 const searchRecordsMock = vi.fn()
+const suggestRecordsMock = vi.fn()
+vi.mock('@/lib/api/quick-search-suggest', () => ({
+  suggestRecords: (...args: unknown[]) => suggestRecordsMock(...args),
+}))
 vi.mock('@/lib/api/record-search', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/record-search')>()),
   searchRecords: (...args: unknown[]) => searchRecordsMock(...args),
@@ -95,6 +101,8 @@ describe('GlobalSearch', () => {
     localStorage.removeItem('qqq-recent-searches')
     fetchSpy.mockReset()
     searchRecordsMock.mockReset()
+    suggestRecordsMock.mockReset()
+    server.use(uiApiVersionHandler())
     vi.stubGlobal('fetch', fetchSpy)
     window.open = vi.fn() as unknown as typeof window.open
   })
@@ -268,6 +276,60 @@ describe('GlobalSearch', () => {
   })
 
   describe('with record search', () => {
+    it('uses core search and never suggests when the extension is absent', async () => {
+      searchRecordsMock.mockResolvedValue({ results: [{ tableName: 'person', recordId: '7', recordLabel: 'Zed Zulu' }] })
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'zed')
+      await findOption(/Zed Zulu/)
+      expect(searchRecordsMock).toHaveBeenCalled()
+      expect(suggestRecordsMock).not.toHaveBeenCalled()
+    })
+
+    it('shows grouped suggestions and subtitles, keeps combobox selection and navigates by keyboard', async () => {
+      server.use(uiApiVersionHandler('quick-search'))
+      suggestRecordsMock.mockResolvedValue({
+        results: [
+          { tableName: 'person', tableLabel: 'Person', recordId: '7', recordLabel: 'Zed Zulu', details: [{ fieldName: 'subtitle', displayValue: 'Springfield office' }] },
+          { tableName: 'pet', tableLabel: 'Pet', recordId: '4', recordLabel: 'Biscuit', details: [{ fieldName: 'subtitle', displayValue: 'Zed’s dog' }] },
+        ],
+        tables: [{ tableName: 'person', resultCount: 1, hasMore: false, source: 'PROVIDER' }, { tableName: 'pet', resultCount: 1, hasMore: false, source: 'PROVIDER' }],
+      })
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'zed')
+      expect(await findOption(/Zed Zulu/)).toHaveTextContent('Springfield office')
+      expect(screen.getByRole('group', { name: /^Pet/ })).toHaveTextContent('Zed’s dog')
+      expect(selected()).toHaveTextContent('Zed Zulu')
+      expect(recordInput()).toHaveAttribute('aria-controls', screen.getByRole('listbox').id)
+      await vi.waitFor(() => expect(recordInput()).toHaveAttribute('aria-activedescendant', selected()!.id))
+      expect(recordInput()).toHaveAttribute('aria-expanded', 'true')
+      await user.keyboard('{ArrowDown}')
+      expect(selected()).toHaveTextContent('Biscuit')
+      await user.keyboard('{ArrowUp}{Enter}')
+      expect(pushMock).toHaveBeenCalledWith('/app/person/7')
+      expect(suggestRecordsMock).toHaveBeenCalledWith('zed', expect.objectContaining({ tableNames: ['person', 'pet'], limitPerTable: 6 }))
+      expect(searchRecordsMock).not.toHaveBeenCalled()
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    it.each(['Control', 'Meta'])('opens suggestions in a new tab with %s+Enter; Shift+Enter opens all results', async (modifier) => {
+      server.use(uiApiVersionHandler('quick-search'))
+      suggestRecordsMock.mockResolvedValue({ results: [{ tableName: 'person', recordId: '7', recordLabel: 'Zed Zulu' }] })
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'zed')
+      await findOption(/Zed Zulu/)
+      await user.keyboard(`{${modifier}>}{Enter}{/${modifier}}`)
+      expect(window.open).toHaveBeenCalledWith('/app/person/7', '_blank', 'noopener,noreferrer')
+      expect(pushMock).not.toHaveBeenCalled()
+      await user.keyboard('{Escape}')
+      expect(recordInput()).toHaveAttribute('aria-expanded', 'false')
+      expect(recordInput()).not.toHaveAttribute('aria-activedescendant')
+      await user.keyboard('{ArrowDown}{Shift>}{Enter}{/Shift}')
+      expect(pushMock).toHaveBeenCalledWith('/app/search?q=zed')
+    })
+
     it('groups found records by table with counts, highlights matched fields and links to more', async () => {
       searchRecordsMock.mockResolvedValue({
         results: [
