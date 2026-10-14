@@ -59,7 +59,9 @@ test.describe('secured data screenshot matrix', () => {
         await page.goto('/app/person')
         await expect(page.locator('[data-qqq-id="masked-value"]').first()).toBeVisible()
         await capture(page, 'grid', theme, width)
-        await page.locator('[data-qqq-id="button-query-mode-advanced"]').click()
+        await page.locator('[data-qqq-id="button-filter"]').click()
+        await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+        await expect(page.locator('[data-qqq-id="filter-builder"]')).toBeVisible({ timeout: 10000 })
         await page.locator('[data-qqq-id="filter-add-criterion-0"]').click()
         await page.getByLabel('Filter field', { exact: true }).selectOption('email')
         await page.getByLabel('Filter value for Email', { exact: true }).fill('jane@example.test')
@@ -91,6 +93,7 @@ test.describe('secured data screenshot matrix', () => {
         )
         await page.reload()
         await expect(page.locator('[data-qqq-id="break-glass-banner"]')).toBeVisible()
+        await expect(page.locator('[data-qqq-id="masked-value"]').first()).toBeVisible()
         await capture(page, 'break-glass', theme, width)
       })
     }
