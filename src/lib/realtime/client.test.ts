@@ -227,6 +227,16 @@ it('replaces an ended singleton for the same user', async () => {
   expect(realtimeClient('u1')).toBe(second)
   second.close()
 })
+it('resets the singleton so the next session starts without a resume cursor', async () => {
+  const { realtimeClient, resetRealtimeClient } = await import('./client')
+  const first = realtimeClient('u2')
+  resetRealtimeClient()
+  expect(first.isEnded).toBe(true)
+  const second = realtimeClient('u2')
+  expect(second).not.toBe(first)
+  expect(second.isEnded).toBe(false)
+  resetRealtimeClient()
+})
 it('stops syncing when the server neither activates nor refuses a channel', async () => {
   const t = transport()
   t.update.mockImplementation(async () => ({ active: [], refused: [] }))
