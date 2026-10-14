@@ -26,11 +26,11 @@ import apiClient from './client'
 /**
  * The UI API versions this build works with: any server at or above `minimum` and below
  * `belowMajor`.0.0. `minimum` is the version of the vendored document
- * (`src/lib/api/openapi/qqq-v1.yaml`) minus the additions this build tolerates being absent.
+ * (`src/lib/api/openapi/qqq-v1.json`) minus the additions this build tolerates being absent.
  */
 export const SUPPORTED_UI_API = {
   /** Lowest server version this build runs against. */
-  minimum: '1.0.0',
+  minimum: '1.3.0',
   /** First major version this build does not support. */
   belowMajor: 2,
 } as const

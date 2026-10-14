@@ -55,7 +55,7 @@ vi.mock('@/lib/api/developer', () => ({
   getTableApis: vi.fn(async () => []),
   getApiVersions: vi.fn(),
   getApiTableSpec: vi.fn(),
-  apiTableSpecUrl: () => '/api/v1/person/openapi.json',
+  apiTableSpecUrl: () => '/qqq/v1/table/person/apis/siteApi/v1/openapi',
   apiMiddlewareBaseURL: () => '',
 }))
 

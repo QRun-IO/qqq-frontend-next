@@ -202,6 +202,8 @@ describe('UI API contract', () => {
   })
 
   it('normalises paths', () => {
+    expect(normalisePath(resolveConstants('${apiVersionPrefix(api)}/metaData/table/${tableName}', ''))).toBe('/{}/{}/metaData/table/{}')
+    expect(normalisePath('/qqq/v1/{applicationApiPath}/{applicationApiVersion}/metaData/table/{tableName}')).toBe('/{}/{}/metaData/table/{}')
     expect(normalisePath('/qqq/v1/table/{tableName}/query')).toBe('/table/{}/query')
     expect(normalisePath('/reports/${encodeURIComponent(name)}?${params}')).toBe('/reports/{}')
     expect(normalisePath('/table/${t}/${pk}/${f}/${file}${query}')).toBe('/table/{}/{}/{}/{}')

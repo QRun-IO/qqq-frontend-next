@@ -88,7 +88,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
     window.localStorage.clear()
     getTableApisMock.mockReset()
     getApiVersionsMock.mockReset()
-    getApiVersionsMock.mockImplementation(async (path: string) => versions[path])
+    getApiVersionsMock.mockImplementation((api) => versions[api.path])
   })
 
   it('selects the first API and its current version and embeds RapiDoc for the table spec', async () => {
@@ -108,7 +108,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
 
     await waitFor(() => expect(container.querySelector('rapi-doc')).not.toBeNull())
     const rapiDoc = container.querySelector('[data-qqq-id="table-dev-api-reference"] rapi-doc')!
-    expect(rapiDoc).toHaveAttribute('spec-url', '/person-api/2026.Q2/person/openapi.json')
+    expect(rapiDoc).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/person-api/2026.Q2/openapi')
     expect(rapiDoc).toHaveAttribute('primary-color', '#6366f1')
     expect(rapiDoc).toHaveAttribute('show-header', 'false')
     expect(rapiDoc).toHaveAttribute('render-style', 'view')
@@ -128,7 +128,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
 
     expect(await screen.findByLabelText('API')).toHaveValue('admin-api')
     expect(await screen.findByLabelText('Version')).toHaveValue('v2')
-    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/admin-api/v2/person/openapi.json'))
+    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi'))
   })
 
   it('falls back to the first API and the current version when the remembered ones are gone', async () => {
@@ -151,7 +151,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
     expect(await screen.findByLabelText('Version')).toHaveValue('v1')
     await user.selectOptions(screen.getByLabelText('Version'), 'v2')
 
-    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/admin-api/v2/person/openapi.json'))
+    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi'))
     expect(window.localStorage.getItem('qqq.tableDeveloperView.lastApiName')).toBe('admin-api')
     expect(window.localStorage.getItem('qqq.tableDeveloperView.lastApiVersion')).toBe('v2')
   })

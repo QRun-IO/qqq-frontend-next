@@ -26,7 +26,7 @@ const BASE = '/qqq/v1'
 export const authHandlers = [
   // GET /version
   http.get(`${BASE}/version`, () => {
-    return HttpResponse.json({ apiVersion: '1.1.0', basePath: BASE, supportedMajorVersions: [1], features: ['preferences'], extensions: ['collaboration', 'sql-workbench', 'esb'].map((name) => ({ name, version: '1.0.0' })) })
+    return HttpResponse.json({ apiVersion: '1.3.0', basePath: BASE, supportedMajorVersions: [1], features: ['preferences'], extensions: ['collaboration', 'sql-workbench', 'esb'].map((name) => ({ name, version: '1.0.0' })) })
   }),
 
   // GET /metaData/authentication

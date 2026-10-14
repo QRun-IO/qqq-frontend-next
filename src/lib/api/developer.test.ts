@@ -20,6 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
 
 vi.mock('./client', () => ({
+  apiUrl: (path: string) => `https://sample.invalid/context/qqq/v1${path}`,
   default: {
     get: vi.fn(),
     post: vi.fn(),
@@ -57,11 +58,11 @@ describe('Developer API', () => {
   })
 
   describe('getTableApis', () => {
-    it('reads /apis.json beside /qqq/v1 with the table name and keeps well-formed APIs', async () => {
+    it('reads the table API catalog through /qqq/v1 and keeps well-formed APIs', async () => {
       const { default: apiClient } = await import('./client')
       vi.mocked(apiClient.get).mockResolvedValue({
         apis: [
-          { name: 'person-api', path: '/person-api/', label: 'Person API' },
+          { name: 'person-api', path: '/person-api/', label: 'Person API', currentVersion: 'v1', versions: [{ version: 'v1', semanticVersion: '1.0.0', tableSpecPath: '/table/person/apis/person-api/v1/openapi' }, { version: 7 }] },
           { name: 'unlabelled', path: '/other/' },
           { name: 'broken' },
         ],
@@ -69,10 +70,10 @@ describe('Developer API', () => {
       const { getTableApis } = await import('./developer')
 
       expect(await getTableApis('person')).toEqual([
-        { name: 'person-api', path: '/person-api/', label: 'Person API' },
-        { name: 'unlabelled', path: '/other/', label: 'unlabelled' },
+        { name: 'person-api', path: '/person-api/', label: 'Person API', versions: [{ version: 'v1', semanticVersion: '1.0.0', tableSpecPath: '/table/person/apis/person-api/v1/openapi' }], currentVersion: 'v1' },
+        { name: 'unlabelled', path: '/other/', label: 'unlabelled', versions: [], currentVersion: undefined },
       ])
-      expect(apiClient.get).toHaveBeenCalledWith('/apis.json', { baseURL: API_MIDDLEWARE, params: { tableName: 'person' } })
+      expect(apiClient.get).toHaveBeenCalledWith('/table/person/apis')
     })
 
     it('treats a 404, a non-JSON body and a body without apis as no APIs', async () => {
@@ -89,9 +90,9 @@ describe('Developer API', () => {
       expect(await getTableApis('person')).toEqual([])
     })
 
-    it('rethrows other failures', async () => {
+    it.each([403, 500])('rethrows HTTP %s failures', async (status) => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockRejectedValueOnce(httpError(500, { error: 'boom' }))
+      vi.mocked(apiClient.get).mockRejectedValueOnce(httpError(status, { error: 'boom' }))
       const { getTableApis } = await import('./developer')
 
       await expect(getTableApis('person')).rejects.toThrow('failed')
@@ -99,27 +100,26 @@ describe('Developer API', () => {
   })
 
   describe('getApiVersions and apiTableSpecUrl', () => {
-    it('reads versions.json under the API path', async () => {
+    it('derives versions from the catalog without another request', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({ supportedVersions: ['2026.Q1', '2026.Q2', 3], currentVersion: '2026.Q2' })
       const { getApiVersions } = await import('./developer')
-
-      expect(await getApiVersions('/person-api/')).toEqual({ supportedVersions: ['2026.Q1', '2026.Q2'], currentVersion: '2026.Q2' })
-      expect(apiClient.get).toHaveBeenCalledWith('/person-api/versions.json', { baseURL: API_MIDDLEWARE })
+      expect(getApiVersions({ name: 'person-api', path: '/person-api/', label: 'Person API',
+        versions: [{ version: '2026.Q1' }, { version: '2026.Q2' }], currentVersion: '2026.Q2',
+      })).toEqual({ supportedVersions: ['2026.Q1', '2026.Q2'], currentVersion: '2026.Q2' })
+      expect(apiClient.get).not.toHaveBeenCalled()
     })
 
-    it('rejects a body without supported versions', async () => {
+    it('fetches the table spec through the UI API with encoded path segments', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({ currentVersion: 'v1' })
-      const { getApiVersions } = await import('./developer')
-
-      await expect(getApiVersions('/person-api/')).rejects.toThrow('Invalid API versions response')
+      const { getApiTableSpec } = await import('./developer')
+      await getApiTableSpec({ name: 'person/api', path: '/ignored/', label: 'Person API' }, 'v/1', 'person data')
+      expect(apiClient.get).toHaveBeenCalledWith('/table/person%20data/apis/person%2Fapi/v%2F1/openapi')
     })
 
     it('builds the per-table OpenAPI spec URL under the backend root', async () => {
       const { apiTableSpecUrl } = await import('./developer')
       expect(apiTableSpecUrl({ name: 'person-api', path: '/person-api/', label: 'Person API' }, '2026.Q2', 'person'))
-        .toBe(`${API_MIDDLEWARE}/person-api/2026.Q2/person/openapi.json`)
+        .toBe(`${API_MIDDLEWARE}/qqq/v1/table/person/apis/person-api/2026.Q2/openapi`)
     })
   })
 

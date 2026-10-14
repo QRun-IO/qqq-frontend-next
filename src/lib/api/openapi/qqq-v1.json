@@ -17,6 +17,16 @@
       },
       "type": "array"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the app."
@@ -915,6 +925,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this field.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "inlinePossibleValueSource": {
@@ -940,6 +953,9 @@
        },
        "enumValues": {
         "type": "array"
+       },
+       "helpContent": {
+        "type": "object"
        },
        "idType": {
         "enum": [
@@ -1191,6 +1207,53 @@
     },
     "type": "object"
    },
+   "FormAdjusterOutputV1": {
+    "description": "Changes a form adjuster asks the form to apply.  Absent or null properties mean no change.",
+    "properties": {
+     "fieldsToClear": {
+      "description": "Fields whose values should be cleared.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "formDisabledMessage": {
+      "description": "Why the form is disabled.",
+      "type": "string"
+     },
+     "isFormDisabled": {
+      "description": "Whether the form should be disabled.",
+      "type": "boolean"
+     },
+     "updatedFieldDisplayValues": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Display values for possible-value fields whose values changed, by field name.",
+      "type": "object"
+     },
+     "updatedFieldMetaData": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/FieldMetaData"
+      },
+      "description": "Replacement definitions for fields, by field name.",
+      "type": "object"
+     },
+     "updatedFieldValues": {
+      "additionalProperties": true,
+      "description": "New values for fields, by field name.",
+      "type": "object"
+     },
+     "updatedSectionMetaData": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/TableSection"
+      },
+      "description": "Replacement definitions for form sections, by section name.",
+      "type": "object"
+     }
+    },
+    "type": "object"
+   },
    "FrontendComponent": {
     "properties": {
      "type": {
@@ -1280,6 +1343,9 @@
      },
      "helpContents": {
       "description": "Help content shown on the step/screen.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "label": {
@@ -1303,6 +1369,169 @@
        "$ref": "#/components/schemas/FieldMetaData"
       },
       "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpContentV1": {
+    "properties": {
+     "content": {
+      "description": "Long help in the declared format.",
+      "type": "string"
+     },
+     "contentAsHtml": {
+      "description": "Rendered Markdown (raw HTML escaped, unsafe links removed). Explicit HTML is unchanged and clients must sanitize it.",
+      "type": "string"
+     },
+     "format": {
+      "description": "Format of the long help.",
+      "enum": [
+       "TEXT",
+       "HTML",
+       "MARKDOWN"
+      ],
+      "type": "string"
+     },
+     "roles": {
+      "description": "Screen roles covered by this entry.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "summary": {
+      "description": "Optional short plain-text tooltip.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageEntryV1": {
+    "properties": {
+     "hasContent": {
+      "description": "Whether visible help has long content.",
+      "type": "boolean"
+     },
+     "hasSummary": {
+      "description": "Whether visible help has an explicit summary.",
+      "type": "boolean"
+     },
+     "hidden": {
+      "description": "Whether the target is hidden in metadata.",
+      "type": "boolean"
+     },
+     "key": {
+      "description": "Canonical helpContent address.",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "label": {
+      "description": "User-facing target label.",
+      "type": "string"
+     },
+     "parentKey": {
+      "description": "Canonical parent address.",
+      "type": "string"
+     },
+     "roles": {
+      "description": "Screen roles covered by this entry.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageResponseV1": {
+    "properties": {
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/HelpCoverageEntryV1"
+      },
+      "type": "array"
+     },
+     "totals": {
+      "items": {
+       "$ref": "#/components/schemas/HelpCoverageTotalV1"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageTotalV1": {
+    "properties": {
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "total": {
+      "description": "Number of targets in the selected kind and parent scope.",
+      "type": "number"
+     },
+     "withHelp": {
+      "description": "Targets with a visible summary or long content.",
+      "type": "number"
+     }
+    },
+    "type": "object"
+   },
+   "HelpSearchResponseV1": {
+    "properties": {
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/HelpSearchResultV1"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpSearchResultV1": {
+    "properties": {
+     "contentAsHtml": {
+      "description": "Rendered Markdown (raw HTML escaped, unsafe links removed). Explicit HTML is unchanged and clients must sanitize it.",
+      "type": "string"
+     },
+     "href": {
+      "description": "Application-relative navigation link, when available.",
+      "type": "string"
+     },
+     "key": {
+      "description": "Canonical helpContent address.",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "label": {
+      "description": "User-facing target label.",
+      "type": "string"
+     },
+     "name": {
+      "description": "Target metadata name.",
+      "type": "string"
+     },
+     "process": {
+      "description": "Related process name, when applicable.",
+      "type": "string"
+     },
+     "summary": {
+      "description": "Optional short plain-text tooltip.",
+      "type": "string"
+     },
+     "table": {
+      "description": "Related table name, when applicable.",
+      "type": "string"
+     },
+     "text": {
+      "description": "Plain-text help excerpt, at most 600 characters.",
+      "type": "string"
      }
     },
     "type": "object"
@@ -1440,7 +1669,12 @@
       "type": "object"
      },
      "helpContents": {
-      "additionalProperties": true,
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Instance-level help content, by slot name (for example the query screen's bulkAddFilterValues and bulkAddFilterValuesPossibleValueSource slots).  Omitted when the instance defines none.",
       "type": "object"
      },
@@ -1463,6 +1697,16 @@
        "properties": {
         "hasPermission": {
          "description": "Whether the user may run the report.",
+         "type": "object"
+        },
+        "helpContents": {
+         "additionalProperties": {
+          "items": {
+           "$ref": "#/components/schemas/HelpContentV1"
+          },
+          "type": "array"
+         },
+         "description": "Help entries by slot, filtered for the current session.",
          "type": "object"
         },
         "iconName": {
@@ -1567,8 +1811,13 @@
          "type": "object"
         },
         "helpContent": {
-         "additionalProperties": true,
-         "description": "Help content by role.",
+         "additionalProperties": {
+          "items": {
+           "$ref": "#/components/schemas/HelpContentV1"
+          },
+          "type": "array"
+         },
+         "description": "Help content by slot.",
          "type": "object"
         },
         "icon": {
@@ -2044,6 +2293,14 @@
    },
    "ProcessMetaData": {
     "properties": {
+     "durableJobAlways": {
+      "description": "True when the process always runs as a durable background job (too large to run while the user waits).",
+      "type": "boolean"
+     },
+     "durableJobEligible": {
+      "description": "True when the process can run as a durable background job (POST /processes/{processName}/jobs): clients may offer \"Run in background\".",
+      "type": "boolean"
+     },
      "frontendSteps": {
       "description": "Frontend steps (aka, Screens) for this process.",
       "items": {
@@ -2054,6 +2311,16 @@
      "hasPermission": {
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
+     },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
      },
      "icon": {
       "$ref": "#/components/schemas/Icon",
@@ -2115,9 +2382,27 @@
    },
    "ProcessMetaDataLight": {
     "properties": {
+     "durableJobAlways": {
+      "description": "True when the process always runs as a durable background job (too large to run while the user waits).",
+      "type": "boolean"
+     },
+     "durableJobEligible": {
+      "description": "True when the process can run as a durable background job (POST /processes/{processName}/jobs): clients may offer \"Run in background\".",
+      "type": "boolean"
+     },
      "hasPermission": {
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
+     },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
      },
      "icon": {
       "$ref": "#/components/schemas/Icon",
@@ -2160,6 +2445,14 @@
    },
    "ProcessMetaDataResponseV1": {
     "properties": {
+     "durableJobAlways": {
+      "description": "True when the process always runs as a durable background job (too large to run while the user waits).",
+      "type": "boolean"
+     },
+     "durableJobEligible": {
+      "description": "True when the process can run as a durable background job (POST /processes/{processName}/jobs): clients may offer \"Run in background\".",
+      "type": "boolean"
+     },
      "frontendSteps": {
       "description": "Frontend steps (aka, Screens) for this process.",
       "items": {
@@ -2170,6 +2463,16 @@
      "hasPermission": {
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
+     },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
      },
      "icon": {
       "description": "Icon to display for the process.",
@@ -2251,6 +2554,13 @@
       "description": "Name of the next process step that needs to run (a frontend step).  If there are no more steps in the process, this field will not be included.  ",
       "type": "string"
      },
+     "oneTimeSecrets": {
+      "description": "Secrets shown once in synchronous init/step responses only. Never returned by status. Clients must not cache; response uses Cache-Control: no-store.",
+      "items": {
+       "$ref": "#/components/schemas/PreferenceSecretV1"
+      },
+      "type": "array"
+     },
      "processMetaDataAdjustment": {
       "description": "Changes to be made to the process's metaData.",
       "properties": {
@@ -2289,6 +2599,9 @@
           },
           "helpContents": {
            "description": "Help content shown on the step/screen.",
+           "items": {
+            "$ref": "#/components/schemas/HelpContentV1"
+           },
            "type": "array"
           },
           "label": {
@@ -2389,6 +2702,13 @@
         "description": "Name of the next process step that needs to run (a frontend step).  If there are no more steps in the process, this field will not be included.  ",
         "type": "string"
        },
+       "oneTimeSecrets": {
+        "description": "Secrets shown once in synchronous init/step responses only. Never returned by status. Clients must not cache; response uses Cache-Control: no-store.",
+        "items": {
+         "$ref": "#/components/schemas/PreferenceSecretV1"
+        },
+        "type": "array"
+       },
        "processMetaDataAdjustment": {
         "description": "Changes to be made to the process's metaData.",
         "properties": {
@@ -2427,6 +2747,9 @@
             },
             "helpContents": {
              "description": "Help content shown on the step/screen.",
+             "items": {
+              "$ref": "#/components/schemas/HelpContentV1"
+             },
              "type": "array"
             },
             "label": {
@@ -3572,6 +3895,16 @@
       "description": "Whether the user may run the report.",
       "type": "object"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "iconName": {
       "description": "Name of the report's icon.",
       "type": "string"
@@ -3606,6 +3939,73 @@
       "additionalProperties": true,
       "description": "The application theme from the instance's MaterialDashboardThemeMetaData supplemental meta-data, when the instance defines it.  Keys are MaterialDashboardThemeMetaData property names (for example primaryColor, fontFamily, typographyH1FontSize, borderRadiusGlobal, density, customCss, brandedHeaderEnabled, sidebarBackgroundColor, tableHeaderBackgroundColor); values are strings, numbers or booleans.  An explicit allow-list of the theme's visual properties; properties without a value are omitted.",
       "type": "object"
+     }
+    },
+    "type": "object"
+   },
+   "TableApiDocumentV1": {
+    "additionalProperties": true,
+    "description": "An OpenAPI 3 document (the application API's own format, not part of this API's schema).",
+    "type": "object"
+   },
+   "TableApiV1": {
+    "description": "An application API that exposes the table.",
+    "properties": {
+     "currentVersion": {
+      "description": "The version the API calls current.",
+      "nullable": true,
+      "type": "string"
+     },
+     "label": {
+      "description": "Label to show users.",
+      "type": "string"
+     },
+     "name": {
+      "description": "The API's name (a stable key).",
+      "type": "string"
+     },
+     "path": {
+      "description": "Root-relative base path of the API, e.g. `/api/`.",
+      "type": "string"
+     },
+     "versions": {
+      "description": "Every version the API serves.",
+      "items": {
+       "$ref": "#/components/schemas/TableApiVersionV1"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "TableApiVersionV1": {
+    "description": "One version of an API.",
+    "properties": {
+     "semanticVersion": {
+      "description": "Its semantic version, when the API declares one.",
+      "nullable": true,
+      "type": "string"
+     },
+     "tableSpecPath": {
+      "description": "Root-relative path of the table's OpenAPI document (JSON) in this version.",
+      "type": "string"
+     },
+     "version": {
+      "description": "The version, as it appears in the API's URLs.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "TableApisResponseV1": {
+    "description": "The APIs that expose a table.",
+    "properties": {
+     "apis": {
+      "description": "The APIs, by name.",
+      "items": {
+       "$ref": "#/components/schemas/TableApiV1"
+      },
+      "type": "array"
      }
     },
     "type": "object"
@@ -3838,6 +4238,12 @@
       "type": "boolean"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -3976,6 +4382,12 @@
       "type": "boolean"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -4075,6 +4487,12 @@
       "type": "boolean"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -4243,6 +4661,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this section table.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "icon": {
@@ -4499,6 +4920,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this field.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "inlinePossibleValueSource": {
@@ -4524,6 +4948,9 @@
        },
        "enumValues": {
         "type": "array"
+       },
+       "helpContent": {
+        "type": "object"
        },
        "idType": {
         "enum": [
@@ -5033,6 +5460,9 @@
            },
            "helpContents": {
             "description": "Help Contents for this field.",
+            "items": {
+             "$ref": "#/components/schemas/HelpContentV1"
+            },
             "type": "array"
            },
            "inlinePossibleValueSource": {
@@ -5058,6 +5488,9 @@
              },
              "enumValues": {
               "type": "array"
+             },
+             "helpContent": {
+              "type": "object"
              },
              "idType": {
               "enum": [
@@ -8179,6 +8612,116 @@
     ]
    }
   },
+  "/qqq/v1/help/coverage": {
+   "get": {
+    "description": "Requires INSERT or EDIT permission on helpContent. Includes hidden targets. Totals reflect kind and parent scope before missingOnly is applied.",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "missingOnly",
+      "required": false,
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "parentKey",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HelpCoverageResponseV1"
+        }
+       }
+      },
+      "description": "Help coverage results"
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "No INSERT or EDIT permission on helpContent"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Inspect application help coverage",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/help/search": {
+   "get": {
+    "description": "Search help visible to the session. Label hits weigh 3, summary hits 2 and content hits 1. Stable ties sort by kind and key. Limit defaults to 20 and is capped at 50.",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HelpSearchResponseV1"
+        }
+       }
+      },
+      "description": "Help search results"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Search visible application help",
+    "tags": [
+     "General"
+    ]
+   }
+  },
   "/qqq/v1/logout": {
    "post": {
     "description": "Invalidates the current session server-side, deleting it from the session store\nand clearing any cached data. The session cookie is also removed.\n\nFrontends should call this endpoint before performing client-side logout\n(clearing localStorage, redirecting to IdP logout, etc.) to ensure the\nsession cannot be resumed.",
@@ -8486,6 +9029,8 @@
            "metaDataGeneration": 0,
            "processes": {
             "person.bulkDelete": {
+             "durableJobAlways": false,
+             "durableJobEligible": false,
              "hasPermission": true,
              "isHidden": true,
              "label": "Person Bulk Delete",
@@ -8494,6 +9039,8 @@
              "tableName": "person"
             },
             "person.bulkEdit": {
+             "durableJobAlways": false,
+             "durableJobEligible": false,
              "hasPermission": true,
              "isHidden": true,
              "label": "Person Bulk Edit",
@@ -8502,6 +9049,8 @@
              "tableName": "person"
             },
             "person.bulkEditWithFile": {
+             "durableJobAlways": false,
+             "durableJobEligible": false,
              "hasPermission": true,
              "isHidden": true,
              "label": "Person Bulk Edit With File",
@@ -8510,6 +9059,8 @@
              "tableName": "person"
             },
             "person.bulkInsert": {
+             "durableJobAlways": false,
+             "durableJobEligible": false,
              "hasPermission": true,
              "icon": {
               "name": "library_add"
@@ -8522,6 +9073,8 @@
              "tableName": "person"
             },
             "samplePersonProcess": {
+             "durableJobAlways": false,
+             "durableJobEligible": false,
              "hasPermission": true,
              "icon": {
               "name": "person_add"
@@ -10409,6 +10962,102 @@
     ]
    }
   },
+  "/qqq/v1/table/{tableName}/apis": {
+   "get": {
+    "description": "The application APIs (served by the API middleware beside this one) that expose the table, with each API's versions and the root-relative path of the table's OpenAPI document in each version.  Empty when the application serves no APIs.  The caller must be allowed to read the table.",
+    "parameters": [
+     {
+      "description": "Name of the table.",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TableApisResponseV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "List the APIs that expose a table",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/apis/{apiName}/{version}/openapi": {
+   "get": {
+    "description": "The OpenAPI 3 document of the table in one version of an application API that exposes it (as listed by `GET /table/{tableName}/apis`).  The caller must be allowed to read the table.  Answers 404 when no API by that name exposes the table in that version.",
+    "parameters": [
+     {
+      "description": "Name of the table.",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "The API's name (`name` in `GET /table/{tableName}/apis`).",
+      "in": "path",
+      "name": "apiName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "The API version (`versions[].version`).",
+      "in": "path",
+      "name": "version",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TableApiDocumentV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Get a table's OpenAPI document in an application API",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
   "/qqq/v1/table/{tableName}/count": {
    "post": {
     "description": "Execute a query against a table, returning the number of records that match a filter.",
@@ -10572,6 +11221,92 @@
      }
     ],
     "summary": "Export records from a table",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/formAdjuster/{identifier}/{event}": {
+   "post": {
+    "description": "Run one of a table form's adjusters and return the changes to apply to the form.  The identifier is `table:{tableName}` for the table's on-load adjuster, or a field's `formAdjusterIdentifier` (from its `materialDashboard` supplemental metadata) for that field's adjusters.  The caller must be allowed to insert or edit records in the table.  Answers 404 when the application registers no form adjusters.",
+    "parameters": [
+     {
+      "description": "Name of the table whose form is being adjusted.",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "`table:{tableName}`, or a field's `formAdjusterIdentifier`.",
+      "in": "path",
+      "name": "identifier",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Which adjuster to run.",
+      "in": "path",
+      "name": "event",
+      "required": true,
+      "schema": {
+       "enum": [
+        "onLoad",
+        "onChange"
+       ],
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "description": "The form's state when the event fired.",
+        "properties": {
+         "allValues": {
+          "additionalProperties": true,
+          "description": "Every value of the form, by field name.",
+          "type": "object"
+         },
+         "fieldName": {
+          "description": "The field the event is for (field adjusters).",
+          "type": "string"
+         },
+         "newValue": {
+          "description": "The field's new value (field adjusters); sent to the adjuster as text."
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FormAdjusterOutputV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Run a form adjuster",
     "tags": [
      "Tables"
     ]

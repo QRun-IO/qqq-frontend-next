@@ -193,7 +193,7 @@ export function EntityForm(props: EntityFormProps) {
   const primaryKey = record?.values[tableMetaData.primaryKeyField]
   const adjusted = useQuery({
     queryKey: ['qqq', 'formAdjuster', 'table', tableMetaData.name, isEdit ? 'edit' : isCopy ? 'copy' : 'create', primaryKey ?? null, JSON.stringify(base.values)],
-    queryFn: () => runFormAdjuster(`table:${tableMetaData.name}`, 'onLoad', { allValues: { ...(record?.values ?? {}), ...base.values } }),
+    queryFn: () => runFormAdjuster(tableMetaData.name, `table:${tableMetaData.name}`, 'onLoad', { allValues: { ...(record?.values ?? {}), ...base.values } }),
     enabled: runsOnLoad,
     staleTime: Infinity,
     gcTime: 0,
@@ -531,7 +531,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     const disable = adjusters.fieldsToDisableWhileRunning
     if (disable.length > 0) setAdjustingFields((current) => [...current, ...disable])
     try {
-      const output = await runFormAdjuster(adjusters.identifier, event, { fieldName, newValue, allValues: { ...(record?.values ?? {}), ...getValues() } })
+      const output = await runFormAdjuster(tableMetaData.name, adjusters.identifier, event, { fieldName, newValue, allValues: { ...(record?.values ?? {}), ...getValues() } })
       applyFieldAdjusterOutput(output)
     } catch (error) {
       toast.error(`Could not update the form: ${getErrorMessage(error)}`)

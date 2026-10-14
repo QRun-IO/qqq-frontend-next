@@ -198,8 +198,8 @@ function AuthNote({ auth }: { auth: ApiAuth }) {
 function ApplicationApiOperations({ api, table, record, language }: { api: ApiInstance; table: QTableMetaData; record: QRecord; language: SnippetLanguage }) {
   const [versionChoice, setVersionChoice] = useState<string | null>(null)
   const versionsQuery = useQuery({
-    queryKey: queryKeys.apiVersions(api.path),
-    queryFn: () => getApiVersions(api.path),
+    queryKey: [...queryKeys.tableApis(table.name), api],
+    queryFn: () => getApiVersions(api),
     meta: HANDLES_OWN_ERRORS,
     retry: false,
   })

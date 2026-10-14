@@ -35,14 +35,7 @@ export interface OffSpecCall {
 }
 
 /** Off-spec calls, by owner. Remove entries as their owners move onto spec classes. */
-export const OFF_SPEC_CALLS: OffSpecCall[] = [
-  ...(['GET {}/metaData/table/{}', 'POST {}/table/{}/query', 'POST {}/table/{}/count'].map((c) => call(c, 'qqq-middleware-api ApiAwareMiddlewareVersionV1'))),
-  // legacy, outside /qqq/v1 (their own baseURL)
-  call('POST /material-dashboard-backend/form-adjuster/{}/{}', 'legacy material-dashboard backend'),
-  call('GET /apis.json', 'qqq-middleware-api discovery'),
-  call('GET {}versions.json', 'qqq-middleware-api discovery'),
-  call('GET {}', 'qqq-middleware-api table spec URL'),
-]
+export const OFF_SPEC_CALLS: OffSpecCall[] = []
 
 /**
  * The most off-spec calls allowed (QRun-IO/qqq-frontend-next#107). Lower it whenever an owner moves
@@ -50,7 +43,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * order: the qbit or module ships its UI API extension, its document is vendored into
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
-export const OFF_SPEC_CEILING = 7
+export const OFF_SPEC_CEILING = 0
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
@@ -59,25 +52,13 @@ export const OFF_SPEC_CEILING = 7
 export const DYNAMIC_CALL_SITES: Record<string, string[]> = {
   'lib/api/possible-values.ts#url': ['POST /table/{}/possibleValues/{}', 'POST /processes/{}/possibleValues/{}', 'POST /possibleValues/{}'],
   'lib/api/developer.ts#developerPath(tableName, primaryKey)': ['GET /table/{}/{}/developer'],
-  'lib/api/developer.ts#apiTableSpecUrl(api, version, tableName)': ['GET {}'],
   'lib/api/esb.ts#path': ['GET /esb/table/{}', 'GET /esb/process/{}', 'GET /esb/overview', 'GET /esb/messages/{}', 'GET /esb/deadLetters/{}'],
   'lib/api/assistant.ts#path': [],
 }
 
 /** Path helper functions used inside call templates (`${helper(...)}/rest`), to their paths. */
 export const PATH_HELPERS: Record<string, string> = {
+  apiVersionPrefix: '/{}/{}',
   developerPath: '/table/{}/{}/developer',
   recordPath: '/qbit/collaboration/records/{}/{}',
-}
-
-/**
- * Builds an off-spec entry from `METHOD path`.
- *
- * @param methodAndPath - e.g. `GET /alerts/inbox`.
- * @param owner - Who serves it.
- * @returns The entry.
- */
-function call(methodAndPath: string, owner: string): OffSpecCall {
-  const [method, path] = methodAndPath.split(' ') as [OffSpecCall['method'], string]
-  return { method, path, owner }
 }

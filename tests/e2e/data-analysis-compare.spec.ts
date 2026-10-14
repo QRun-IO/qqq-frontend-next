@@ -29,7 +29,7 @@ async function mockRelationships(page: Page) {
   await page.route('**/qqq/v1/version', (route) =>
     route.fulfill({
       json: {
-        apiVersion: '1.1.0',
+        apiVersion: '1.3.0',
         basePath: '/qqq/v1',
         supportedMajorVersions: [1],
         features: [],
