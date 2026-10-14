@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 import {
   APP_SCREEN_HELP_ROLES,
   TABLE_ACTION_MENU_HELP_ROLES,
+  helpPlainText,
   helpSummary,
   selectSlotHelp,
   selectSlotHelpContent,
@@ -57,5 +58,13 @@ describe('help selection', () => {
           '<p>Use <strong>names</strong> &amp; labels.</p><script>alert(1)</script><p>More.</p>',
       })
     ).toBe('Use names & labels.')
+  })
+})
+
+describe('helpPlainText', () => {
+  it('returns the whole text without markup', () => {
+    expect(helpPlainText({ content: '# Title\n\nFirst. **Second** [link](/x).', format: 'MARKDOWN' })).toBe('Title First. Second link.')
+    expect(helpPlainText({ contentAsHtml: '<p>A</p><p>B &amp; C</p>' })).toBe('A B & C')
+    expect(helpPlainText({ summary: 'Only a summary.' })).toBe('Only a summary.')
   })
 })
