@@ -77,6 +77,7 @@ export const DYNAMIC_CALL_SITES: Record<string, string[]> = {
 /** Path helper functions used inside call templates (`${helper(...)}/rest`), to their paths. */
 export const PATH_HELPERS: Record<string, string> = {
   developerPath: '/table/{}/{}/developer',
+  recordPath: '/qbit/collaboration/records/{}/{}',
 }
 
 /**
