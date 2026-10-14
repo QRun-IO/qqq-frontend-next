@@ -58,13 +58,15 @@ it('explains an application theme restriction and can reset a saved dark prefere
       <DisplayPreferencesPanel />
     </ThemeProvider>
   )
-  expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
+  // The application theme keeps the UI light, so Light is the active mode; the saved dark choice is kept
+  expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
   expect(screen.getByRole('radio', { name: 'Dark' })).toBeDisabled()
+  expect(localStorage.getItem('qqq-dark-mode')).toBe('true')
   expect(screen.getByText(/application theme requires light mode/i)).toBeVisible()
   expect(document.documentElement).toHaveAttribute('data-theme', 'light')
   await user.click(screen.getByRole('button', { name: 'Reset to Defaults' }))
   expect(localStorage.getItem('qqq-dark-mode')).toBeNull()
-  expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
+  expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
 })
 
 it('selects explicit Light and returns to the OS with System', async () => {

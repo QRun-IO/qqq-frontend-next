@@ -79,12 +79,16 @@ export function DisplayPreferencesPanel() {
       >
         <legend className="text-sm font-semibold text-foreground">Appearance</legend>
         <div className="flex gap-2">
-          {(['System', 'Light', 'Dark'] as const).map((mode) => (
+          {(['System', 'Light', 'Dark'] as const).map((mode) => {
+            const value = mode === 'System' ? null : mode === 'Dark'
+            // An application theme keeps the UI light, so Light shows as the active mode while it applies.
+            const checked = theme ? mode === 'Light' : darkModePreference === value
+            return (
             <label
               key={mode}
               className={cn(
                 'flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm font-medium',
-                darkModePreference === (mode === 'System' ? null : mode === 'Dark')
+                checked
                   ? 'border-primary/40 bg-primary/10'
                   : 'border-border',
                 theme ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-accent'
@@ -94,14 +98,15 @@ export function DisplayPreferencesPanel() {
                 type="radio"
                 name="appearance"
                 value={mode.toLowerCase()}
-                checked={darkModePreference === (mode === 'System' ? null : mode === 'Dark')}
-                onChange={() => setDarkMode(mode === 'System' ? null : mode === 'Dark')}
+                checked={checked}
+                onChange={() => setDarkMode(value)}
                 className="h-4 w-4 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 data-qqq-id={`pref-appearance-${mode.toLowerCase()}`}
               />
               {mode}
             </label>
-          ))}
+            )
+          })}
         </div>
         <p id="appearance-description" className="text-xs text-muted-foreground">
           {theme
