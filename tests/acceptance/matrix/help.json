@@ -51,6 +51,7 @@
     {
       "id": "HLP-003",
       "feature": "Query columns and table action help",
+      "desktopOnly": "Phones show query results as cards without column headers; table action help is covered on phones by HLP-004's record actions.",
       "source": [
         "src/components/help/HelpIcon.tsx",
         "src/components/help/HelpPanel.tsx",
