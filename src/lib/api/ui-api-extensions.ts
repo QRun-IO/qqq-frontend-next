@@ -64,6 +64,18 @@ export async function isUiApiExtensionInstalled(name: string): Promise<boolean> 
   }
 }
 
+/** Checks a core feature listed by `GET /version` (for example `preferences`), returning false if discovery fails.
+ * @param name - The core feature name.
+ * @returns Whether the server announces the feature.
+ */
+export async function isUiApiFeatureSupported(name: string): Promise<boolean> {
+  try {
+    return (await loadVersion()).features.includes(name)
+  } catch {
+    return false
+  }
+}
+
 /** Forgets discovery for tests or a server change; also clear the session's QueryClient on server changes. */
 export function resetUiApiExtensions(): void {
   version = null
