@@ -18,9 +18,10 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import { axe } from 'jest-axe'
 import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { NotificationSettingsButton } from './NotificationSettingsButton'
 import AlertsBellPopover from './AlertsBellPopover'
 import { AlertsBell } from './AlertsBell'
@@ -28,6 +29,8 @@ import type { QInstance } from '@/types/metadata'
 
 // The drawer and form are lazy chunks; give the first import time on a busy runner.
 vi.setConfig({ testTimeout: 15_000 })
+
+beforeEach(() => server.use(uiApiVersionHandler('alerts')))
 
 const summary = {
   unreadCount: 0,

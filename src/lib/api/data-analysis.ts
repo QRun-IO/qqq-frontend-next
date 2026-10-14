@@ -50,7 +50,7 @@ import type {
 } from '@/types/data-analysis'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
-import { getUiApiVersion } from './ui-api-version'
+import { isUiApiExtensionInstalled, resetUiApiExtensions, UI_API_EXTENSION } from './ui-api-extensions'
 
 const ROOT = '/qbit/data-analysis'
 
@@ -84,25 +84,17 @@ export async function getCapabilities(table: string): Promise<DataAnalysisCapabi
   }
 }
 
-let installed: Promise<boolean> | null = null
-
 /** Whether the server registers the `data-analysis` UI API extension (`GET /version`), asked once per page load.
  * @returns True when the extension is registered.
  */
 export function isDataAnalysisInstalled(): Promise<boolean> {
-  installed ??= getUiApiVersion()
-    .then((info) => info.extensions.some((extension) => extension?.name === 'data-analysis'))
-    .catch(() => {
-      installed = null
-      return false
-    })
-  return installed
+  return isUiApiExtensionInstalled(UI_API_EXTENSION.dataAnalysis)
 }
 
 /** Forgets the cached extension check (tests, and after signing in to another server).
  */
 export function resetDataAnalysisInstalled(): void {
-  installed = null
+  resetUiApiExtensions()
 }
 
 /** Profiles one readable field.

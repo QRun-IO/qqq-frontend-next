@@ -16,7 +16,7 @@
 
 /**
  * @file AlertsRecordPanelSlot — where a record view's "Open alerts" panel goes. It renders
- * nothing (sends no request and loads no panel code) unless the instance metadata announces
+ * nothing (sends no request and loads no panel code) unless the version endpoint announces
  * Alerts and the bell's inbox summary loads, and never on the Alerts qbit's own tables.
  */
 
@@ -25,18 +25,18 @@
 import React, { Suspense, lazy } from 'react'
 
 import type { QInstance } from '@/types/metadata'
-import { isAlertsInstalled, useAlertsInbox } from './AlertsBell'
+import { useAlertsInstalled, useAlertsInbox } from './AlertsBell'
 
 const AlertsRecordPanel = lazy(() => import('./AlertsRecordPanel'))
 
 /**
  * The slot.
  *
- * @param props - Instance metadata (which must announce Alerts), and the record's table and primary key.
+ * @param props - The record's table and primary key; metadata is retained for caller compatibility.
  * @returns The lazily loaded panel, or null.
  */
-export function AlertsRecordPanelSlot({ metaData, tableName, recordId }: { metaData: QInstance | undefined; tableName: string; recordId: string | undefined }) {
-  const { data } = useAlertsInbox(isAlertsInstalled(metaData))
+export function AlertsRecordPanelSlot({ tableName, recordId }: { metaData: QInstance | undefined; tableName: string; recordId: string | undefined }) {
+  const { data } = useAlertsInbox(useAlertsInstalled())
   if (!data || !recordId || tableName.startsWith('alerts_')) return null
   return (
     <Suspense fallback={null}>

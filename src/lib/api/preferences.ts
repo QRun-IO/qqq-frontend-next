@@ -23,23 +23,14 @@ import type {
   PreferenceActionResponse,
 } from '@/types/preferences'
 import apiClient from './client'
-import { getUiApiVersion } from './ui-api-version'
-import { preferencesSupportCache } from './preferences-support'
+import { isUiApiFeatureSupported } from './ui-api-extensions'
 
-export { resetPreferencesSupport } from './preferences-support'
-
-/** Whether the server lists the core `preferences` feature (`GET /version`), asked once per page load.
+/** Whether the server lists the core `preferences` feature (`GET /version`, shared discovery).
  * Older servers have no preferences operations, so the UI must not call them there.
  * @returns True when the server supports preferences.
  */
 export function arePreferencesSupported(): Promise<boolean> {
-  preferencesSupportCache.supported ??= getUiApiVersion()
-    .then((info) => info.features.includes('preferences'))
-    .catch(() => {
-      preferencesSupportCache.supported = null
-      return false
-    })
-  return preferencesSupportCache.supported
+  return isUiApiFeatureSupported('preferences')
 }
 
 /** Loads every visible preference section; none on a server without the preferences feature.

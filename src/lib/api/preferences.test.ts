@@ -22,17 +22,22 @@ import {
   runPreferenceAction,
 } from './preferences'
 import apiClient from './client'
+import { isUiApiFeatureSupported } from './ui-api-extensions'
 import { preferencesFixture } from '@/mocks/fixtures/preferences'
 
 vi.mock('./client', () => ({ default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() } }))
-beforeEach(() => vi.clearAllMocks())
+vi.mock('./ui-api-extensions', () => ({ isUiApiFeatureSupported: vi.fn() }))
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(isUiApiFeatureSupported).mockResolvedValue(true)
+})
 
 describe('preferences API', () => {
   it('skips the call on a server without the preferences feature', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({ apiVersion: '1.2.0', features: [], extensions: [] })
+    vi.mocked(isUiApiFeatureSupported).mockResolvedValue(false)
     expect(await getPreferences()).toEqual({ sections: [] })
-    expect(apiClient.get).toHaveBeenCalledTimes(1)
-    expect(apiClient.get).toHaveBeenCalledWith('/version')
+    expect(isUiApiFeatureSupported).toHaveBeenCalledWith('preferences')
+    expect(apiClient.get).not.toHaveBeenCalled()
   })
   it('POSTs encoded action names and the exact row/input body', async () => {
     const result = { section: preferencesFixture.sections[0], secrets: [] }
@@ -44,8 +49,7 @@ describe('preferences API', () => {
     expect(apiClient.post).toHaveBeenLastCalledWith('/preferences/tokens/actions/refresh', {})
   })
   it('loads the section index through the shared client', async () => {
-    vi.mocked(apiClient.get).mockImplementation(async (path: string) =>
-      path === '/version' ? { apiVersion: '1.2.0', features: ['preferences'], extensions: [] } : preferencesFixture)
+    vi.mocked(apiClient.get).mockResolvedValue(preferencesFixture)
     expect(await getPreferences()).toBe(preferencesFixture)
     expect(apiClient.get).toHaveBeenCalledWith('/preferences')
   })

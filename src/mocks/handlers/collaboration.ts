@@ -129,15 +129,6 @@ export const collaborationHandlers = [
     favorites = favorites.filter((row) => String(row.id) !== params.id)
     return HttpResponse.json({ success: true })
   }),
-  http.get('/qqq/v1/version', () =>
-    HttpResponse.json({
-      apiVersion: '1.0.0',
-      basePath: '/qqq/v1',
-      supportedMajorVersions: [1],
-      features: ['preferences'],
-      extensions: [{ name: 'collaboration', version: '1.0.0' }],
-    })
-  ),
   http.get(`${BASE}/favorites`, ({ request }) => {
     const params = new URL(request.url).searchParams
     const start = Number(params.get('cursor') ?? 0)

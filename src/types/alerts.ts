@@ -142,6 +142,18 @@ export interface AlertsInboxSummary {
   pollSeconds?: number
 }
 
+/** An open alert with permission-aware actions supplied by the server. */
+export interface AlertsRecordPanelAlert extends AlertItem {
+  /** Available actions; only actions with complete hrefs are rendered as links. */
+  actions?: Array<{
+    name: string
+    label: string
+    href?: string
+    processName?: string
+    operationId?: string
+  }>
+}
+
 /** `GET /alerts/record-panel`: the "Open alerts" panel for a record. */
 export interface AlertsRecordPanel {
   /** False when there is nothing to show (the panel is hidden). */
@@ -149,7 +161,7 @@ export interface AlertsRecordPanel {
   /** Open alerts that reference the record. */
   openCount: number
   /** The first few open alerts, most severe first. */
-  open: AlertItem[]
+  open: AlertsRecordPanelAlert[]
   /** Alerts about the record resolved in the last 30 days. */
   resolvedLast30Days: number
   /** The filtered Alerts list for every alert about the record. */
