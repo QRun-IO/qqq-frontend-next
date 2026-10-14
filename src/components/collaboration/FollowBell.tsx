@@ -21,6 +21,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { Bell, ChevronDown } from 'lucide-react'
 import type { CollaborationRecord } from '@/types/collaboration'
 import { useFollow, useUpdateFollow, useFollowers } from '@/lib/hooks/use-collaboration-record'
+import { pluralize } from '@/lib/utils/string-utils'
 
 /** Follow state and settings are shared and updated optimistically.
  * @param props - Parent identity.
@@ -31,6 +32,8 @@ export function FollowBell({ record }: { record: CollaborationRecord }) {
   const query = useFollow(record)
   const update = useUpdateFollow(record)
   const followers = useFollowers(record, open)
+  const followerCount =
+    followers.data?.pages.reduce((count, page) => count + page.items.length, 0) ?? 0
   const following = query.data?.following === true
   return (
     <div className="inline-flex items-center" data-qqq-id="record-follow">
@@ -83,7 +86,9 @@ export function FollowBell({ record }: { record: CollaborationRecord }) {
             <p className="text-xs text-muted-foreground">
               {followers.isPending
                 ? 'Loading followers…'
-                : `${followers.data?.pages.reduce((count, page) => count + page.items.length, 0) ?? 0}${followers.hasNextPage ? '+' : ''} followers`}
+                : followers.hasNextPage
+                  ? `${followerCount}+ followers`
+                  : pluralize(followerCount, 'follower')}
             </p>
             {followers.hasNextPage && (
               <button

@@ -18,6 +18,14 @@
 'use client'
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 
+/** Mention tokens are `@[Name](user:id)`; the chip draws its own "@", so the literal one goes.
+ * @param body - Comment markdown.
+ * @returns The body with each mention token's leading "@" removed.
+ */
+export function stripMentionAt(body: string): string {
+  return body.replace(/@(?=\[[^\]\n]*\]\(user:)/g, '')
+}
+
 /** Safe comment markdown; the shared renderer strips HTML and never loads embedded images.
  * @param props - Comment body.
  * @returns Sanitized markdown and mention chips.
@@ -25,7 +33,7 @@ import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 export function CollaborationMarkdown({ body }: { body: string }) {
   return (
     <div data-qqq-id="comment-markdown">
-      <AssistantMarkdown text={body} mentions />
+      <AssistantMarkdown text={stripMentionAt(body)} mentions />
     </div>
   )
 }

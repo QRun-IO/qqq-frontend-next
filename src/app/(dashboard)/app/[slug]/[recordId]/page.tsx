@@ -202,6 +202,7 @@ export default function RecordViewPage() {
       )}
       <AlertsRecordPanelSlot metaData={metaData} tableName={slug} recordId={recordId} />
       <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
+        requestedPrimaryKey={recordId}
         instance={metaData}
         tableMetaData={tableMetaData}
         record={displayRecord}

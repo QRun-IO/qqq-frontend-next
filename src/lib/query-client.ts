@@ -467,6 +467,11 @@ export const queryKeys = {
    */
   recordDeveloperPanels: (tableName: string, primaryKey: string | number) => [...queryKeys.all(), 'developerPanels', tableName, String(primaryKey)] as const,
 
+  /** Personal task and assignment summary.
+   * @returns Work key.
+   */
+  collaborationMyWork: () => ['qqq', 'collaboration', 'my-work'] as const,
+
   // Alerts
   /**
    * Key for all Alerts queries (the Alerts qbit's bell and record panel).

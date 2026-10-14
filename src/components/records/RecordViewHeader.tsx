@@ -39,7 +39,7 @@ import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-u
 import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
 import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
 
-import { LazyRecordTags, LazyRecordFollow } from '@/components/collaboration/LazyRecordCollaboration'
+import { LazyRecordTags, LazyRecordFollow, LazyCollaborationHeader } from '@/components/collaboration/LazyRecordCollaboration'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 
 import { RecordActions } from './RecordActions'
@@ -351,6 +351,9 @@ export function RecordViewHeader({
             }
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
+          {/* Presence, owner/assignee and Share take their own full-width row, so they never strand
+              the copy button (or the inline actions) on a line of its own */}
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
         </div>
         <LazyRecordTags table={tableMetaData} pk={String(primaryKey)} />
         {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
