@@ -71,7 +71,7 @@ async function mockEdi(page: Page, installed = true, status = 'DRAFT') {
 }
 
 async function createRule(page: Page, width: number) {
-  await page.getByText('BEG — Beginning').press('Enter')
+  await page.locator('summary', { hasText: 'BEG — Beginning' }).press('Enter')
   await page.getByRole('button', { name: /BEG03 — Purchase order number/ }).press('Enter')
   if (width < 1024) await page.getByRole('tab', { name: 'Fields', exact: true }).press('Enter')
   await page.getByRole('button', { name: /Order number \(required\)/ }).press('Enter')
