@@ -587,6 +587,10 @@ function RecordViewContent({
             <div className="min-w-0 space-y-5">
 
           {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
+          {tableMetaData.name === 'data_analysis_saved' && typeof record.values.table_name === 'string' && record.values.id != null && (
+            <Link href={`/app/${encodeURIComponent(record.values.table_name)}?${new URLSearchParams({ view: 'saved', saved: String(record.values.id) })}`}
+              className="inline-flex rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring" data-qqq-id="saved-open-analysis">Open analysis</Link>
+          )}
           <RecordViewHeader
             actionsPlacement={recordViewActionsPlacement(instance, tableMetaData)}
             tableMetaData={tableMetaData}

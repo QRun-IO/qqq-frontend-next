@@ -25,6 +25,7 @@ import {
   ComposedChart,
   Legend,
   Line,
+  ReferenceArea,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -72,7 +73,8 @@ const tooltipItemStyle = { color: 'var(--color-popover-foreground)' }
  * @param value - The average.
  * @returns The rounded average.
  */
-const round1 = (value: number | null | undefined) => (value == null ? null : Math.round(value * 10) / 10)
+const round1 = (value: number | null | undefined) =>
+  value == null ? null : Math.round(value * 10) / 10
 
 /** Computes complete seven-point trailing windows, leaving earlier points empty.
  * @param points - Ordered API points.
@@ -159,16 +161,22 @@ function BoxPlot({ metrics }: { metrics: DataAnalysisMetricV1[] }) {
  * @returns Chart controls and visualization.
  */
 export default function ProfileChart({
+  baselineBand,
+  initialKind,
+  onKindChange,
   chart,
   metrics = [],
 }: {
+  initialKind?: ChartKind
+  onKindChange?: (kind: ChartKind) => void
+  baselineBand?: [number, number]
   chart: NonNullable<DataAnalysisChartV1>
   metrics?: DataAnalysisMetricV1[]
 }) {
   const router = useRouter()
   const close = useContext(AnalysisNavigationContext)
   const applyDrill = useContext(AnalysisDrillContext)
-  const [chosen, setChosen] = useState<ChartKind | null>(null)
+  const [chosen, setChosen] = useState<ChartKind | null>(initialKind ?? null)
   const [asTable, setAsTable] = useState(false)
   const kinds = [
     ...new Set(
@@ -194,7 +202,11 @@ export default function ProfileChart({
           <select
             className={controlClass}
             value={kind}
-            onChange={(e) => setChosen(e.target.value as ChartKind)}
+            onChange={(e) => {
+              const value = e.target.value as ChartKind
+              setChosen(value)
+              onKindChange?.(value)
+            }}
             data-qqq-id="analysis-chart-kind"
           >
             {kinds.map((k) => (
@@ -345,6 +357,16 @@ export default function ProfileChart({
                         }
                       />
                       <YAxis tick={tickStyle} />
+                      {baselineBand && (
+                        <ReferenceArea
+                          y1={baselineBand[0]}
+                          y2={baselineBand[1]}
+                          ifOverflow="extendDomain"
+                          fill={DEFAULT_COLORS[0]}
+                          fillOpacity={0.15}
+                          strokeOpacity={0}
+                        />
+                      )}
                       <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} />
                       {kind === 'TIME_SERIES' && <Legend wrapperStyle={{ fontSize: '12px' }} />}
                       {kind === 'TIME_SERIES' && (
