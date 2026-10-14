@@ -52,6 +52,7 @@ import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
+import { useRecordRecentView } from '@/lib/hooks/use-collaboration-core'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
@@ -151,6 +152,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const appliedViewRef = useRef<string | null>(null)
   const viewLoading = savedViewId !== undefined && savedViews.isAvailable && savedViewQuery.isLoading
 
+  useRecordRecentView({ targetType: 'TABLE', targetName: tableName })
   const rq = useRecordQuery({
     tableName,
     tableMetaData,
