@@ -69,6 +69,59 @@
     },
     "type": "object"
    },
+   "AssistantActiveTurnsResponseV1": {
+    "description": "The caller's active runs, newest first; stale leases are reaped.",
+    "properties": {
+     "turns": {
+      "items": {
+       "description": "An active assistant run.",
+       "properties": {
+        "assistantMessageId": {
+         "type": "integer"
+        },
+        "concurrencyMode": {
+         "description": "SUPERSEDE or CONCURRENT.",
+         "type": "string"
+        },
+        "conversationId": {
+         "type": "integer"
+        },
+        "elapsedMs": {
+         "type": "integer"
+        },
+        "heartbeatAt": {
+         "description": "ISO-8601.",
+         "type": "string"
+        },
+        "live": {
+         "description": "Running on this replica.",
+         "type": "boolean"
+        },
+        "phase": {
+         "type": "string"
+        },
+        "startedAt": {
+         "description": "ISO-8601.",
+         "type": "string"
+        },
+        "status": {
+         "description": "RUNNING or CANCELLING.",
+         "type": "string"
+        },
+        "turnId": {
+         "type": "integer"
+        },
+        "userMessageId": {
+         "type": "integer"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
    "AssistantConfigResponseV1": {
     "description": "Whether the assistant is available to this user, and how.",
     "properties": {
@@ -248,11 +301,11 @@
     "type": "object"
    },
    "AssistantTurnEventV1": {
-    "description": "One server-sent event of a turn (event: <type>, id: <seq>, data: this object). Types: message.start, text.delta, tool.start, tool.result, ui.navigate, notice, usage, message.end, error, ping.",
+    "description": "One server-sent event of a turn (event: <type>, id: <seq>, data: this object). Types: message.start, turn.phase, text.delta, tool.start, tool.result, ui.navigate, notice, usage, message.end, error, ping.",
     "properties": {
      "data": {
       "additionalProperties": true,
-      "description": "The event's fields, by type.",
+      "description": "The event's fields, by type. message.start includes startedAt (ISO-8601). turn.phase includes phase (thinking, tool, writing), optional toolName and label.",
       "type": "object"
      },
      "seq": {
@@ -281,7 +334,7 @@
   },
   "description": "QQQ Assistant: conversations, streamed turns, feedback, pending actions and data access explanations",
   "title": "QQQ Middleware API extension: assistant",
-  "version": "1.0.0"
+  "version": "1.2.0"
  },
  "openapi": "3.0.3",
  "paths": {
@@ -305,6 +358,15 @@
       "required": false,
       "schema": {
        "type": "string"
+      }
+     },
+     {
+      "description": "Attribute this request to an owned turn.",
+      "in": "query",
+      "name": "turnId",
+      "required": false,
+      "schema": {
+       "type": "integer"
       }
      }
     ],
@@ -1308,6 +1370,10 @@
        "schema": {
         "description": "The user's text and the page context hint.",
         "properties": {
+         "concurrency": {
+          "description": "supersede or concurrent (case-insensitive); defaults to the host configuration.",
+          "type": "string"
+         },
          "pageContext": {
           "additionalProperties": true,
           "description": "Where the user is in the app.",
@@ -1525,6 +1591,91 @@
     "summary": "Thumbs up or down on an assistant message"
    }
   },
+  "/qqq/v1/assistant/turns/active": {
+   "get": {
+    "description": "Find the user's active assistant runs",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantActiveTurnsResponseV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "Invalid input"
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "No access to the assistant"
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "Not found (or not the user's own)"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "Already finished or decided"
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "Budget or rate limit"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantErrorV1"
+        }
+       }
+      },
+      "description": "Disabled, not configured, or the kill switch is on"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Find the user's active assistant runs"
+   }
+  },
   "/qqq/v1/assistant/turns/{turnId}/cancel": {
    "post": {
     "description": "Stop a running turn",
@@ -1540,7 +1691,7 @@
      }
     ],
     "responses": {
-     "202": {
+     "200": {
       "content": {
        "application/json": {
         "schema": {
@@ -1549,6 +1700,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssistantStatusResponseV1"
+        }
+       }
+      },
+      "description": "Legacy replica: cancellation accepted"
      },
      "400": {
       "content": {

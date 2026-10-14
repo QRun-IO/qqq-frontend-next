@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-export const AREAS = ['esb', 'navigation', 'performance', 'processes', 'query', 'records', 'security', 'widgets']
+export const AREAS = ['esb', 'help', 'navigation', 'performance', 'processes', 'query', 'records', 'security', 'widgets']
 export const SMOKE = [
   'navigation/landing.spec.ts',
   'navigation/navigation.spec.ts',
@@ -19,6 +19,7 @@ export const SMOKE = [
 ].map((file) => `tests/acceptance/specs/${file}`)
 
 const sourceAreas = [
+  [/help|commandmenu/, 'help'],
   [/widget|dashboard|report|chart|pivot/, 'widgets'],
   [/query|grid|table|filter|search/, 'query'],
   [/record|form|field|input|validation|attachment|preview/, 'records'],

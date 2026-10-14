@@ -51,6 +51,7 @@ import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm } from './DynamicForm'
@@ -995,11 +996,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
-          <div className="border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
             <h2 className="text-xl font-semibold text-foreground" aria-label={recordLabel && (isEdit || isCopy) ? `${heading}: ${recordLabel}` : undefined}
               data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>
               {heading}
             </h2>
+            <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};slot:help`} data-qqq-id={`table-help-${tableMetaData.name}`} />
           </div>
         </div>
       )}

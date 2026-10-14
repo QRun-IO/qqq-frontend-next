@@ -140,22 +140,19 @@ describe('Breadcrumbs', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('gives links a touch-sized hit area on coarse pointers and lets the trail scroll instead of wrapping', () => {
+  it('keeps every crumb a link in order, truncating long labels and wrapping instead of scrolling', () => {
+    currentPathname = '/app/person/7/edit'
     render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
-    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toHaveClass('pointer-coarse:flex-nowrap', 'pointer-coarse:overflow-x-auto')
-    expect(screen.getByRole('link', { name: 'People App' })).toHaveClass('pointer-coarse:py-3', 'pointer-coarse:min-w-11')
-  })
-
-  it('starts a trail that overflows at its end, where the current page is', () => {
-    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
-    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
-    try {
-      render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
-      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
-    } finally {
-      scrollWidth.mockRestore()
-      clientWidth.mockRestore()
-    }
+    const nav = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(nav).toHaveClass('min-w-0', 'flex-wrap')
+    expect(nav.className).not.toMatch(/overflow|nowrap/)
+    const links = screen.getAllByRole('link').filter((link) => link.getAttribute('aria-label') !== 'Home')
+    expect(links.map((link) => link.textContent)).toEqual(['People App', 'Greetings App', 'Person', '7'])
+    expect(links[0]).toHaveAttribute('title', 'People App')
+    expect(links[0]).toHaveClass('min-w-0', 'truncate', 'pointer-coarse:py-3', 'pointer-coarse:min-w-11')
+    expect(screen.getByText('Edit')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('Edit')).toHaveClass('truncate')
+    expect(screen.queryByRole('button', { name: /hidden breadcrumbs/i })).not.toBeInTheDocument()
   })
 
   it('renders nothing on the dashboard root', () => {
@@ -164,18 +161,11 @@ describe('Breadcrumbs', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('reveals the current page when metadata labels arrive after the route', () => {
+  it('shows the crumbs once metadata labels arrive after the route', () => {
     currentPathname = '/app/person'
-    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
-    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
-    try {
-      const { rerender } = render(<Breadcrumbs pathToLabelMap={{}} />)
-      rerender(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
-    } finally {
-      scrollWidth.mockRestore()
-      clientWidth.mockRestore()
-    }
+    const { rerender } = render(<Breadcrumbs pathToLabelMap={{}} />)
+    rerender(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
+    expect(screen.getByText('Person')).toHaveAttribute('aria-current', 'page')
   })
 })
 

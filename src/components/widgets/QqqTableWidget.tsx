@@ -33,16 +33,19 @@
 'use client'
 
 import React, { useState } from 'react'
+
 import { ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 import type { QHelpContent, QWidgetHelpContent, QWidgetMetaData } from '@/types'
-import { useHelpHelpActive } from '@/lib/context/q-context'
+import type { QqqCompositeData, WidgetComponentProps } from './widget-types'
+import type { TableWidgetColumn } from './table-widget-utils'
+
 import { useContainerWidth } from '@/lib/hooks/use-container-width'
 import { cn } from '@/lib/utils/cn'
 import { cssMaxWidth } from '@/lib/utils/responsive-grid'
-import { selectSlotHelpContent, WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
-import { HelpContent } from '@/components/records/HelpContent'
-import type { QqqCompositeData, WidgetComponentProps } from './widget-types'
+import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import { HoverTooltip } from './HoverTooltip'
 import { SafeHtml } from './SafeHtml'
@@ -54,7 +57,6 @@ import {
   DEFAULT_TABLE_MAX_WIDTH, DEFAULT_TABLE_PAGE_SIZE, HIDDEN_COLUMN_TYPE, MAX_NUMBERED_PAGES, minTableWidth, pageSizeOptions, resolveColumnWidths, tableCardBreakpointPx,
   tableExportCsv,
 } from './table-widget-utils'
-import type { TableWidgetColumn } from './table-widget-utils'
 
 /** A table row: accessor values, plus optional nested `subRows`. */
 type TableRow = Record<string, unknown>
@@ -193,7 +195,6 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
   const name = widgetMetaData.name
   const allColumns = asList<TableWidgetColumn>(table.columns)
   const rows = asList<TableRow>(table.rows)
-  const helpHelpActive = useHelpHelpActive()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<number | null>(null)
   const [pageDraft, setPageDraft] = useState<string | null>(null)
@@ -369,13 +370,10 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
               {columns.map((column, index) => {
                 // column-header help (Material TableWidget: the `columnHeader=<accessor>` slot)
                 const slot = `columnHeader=${column.accessor ?? ''}`
-                const help = selectSlotHelpContent(slotHelp(widgetMetaData.helpContent, slot), WIDGET_HELP_ROLES, `widget:${name};slot:${slot}`, helpHelpActive)
                 const text = column.header ?? column.accessor
                 return (
                   <th key={index} scope="col" className={cn(cellClass(column), 'sticky top-0 z-[1] bg-card align-bottom font-semibold text-muted-foreground')}>
-                    {help
-                      ? <HoverTooltip qqqId={`table-header-help-${name}${suffix}-${column.accessor ?? index}`} content={<HelpContent helpContent={help} />}>{text}</HoverTooltip>
-                      : text}
+                    {text}<HelpIcon label={String(text)} helpContents={slotHelp(widgetMetaData.helpContent, slot)} roles={WIDGET_HELP_ROLES} helpKey={`widget:${name};slot:${slot}`} data-qqq-id={`table-header-help-${name}${suffix}-${column.accessor ?? index}`} />
                   </th>
                 )
               })}

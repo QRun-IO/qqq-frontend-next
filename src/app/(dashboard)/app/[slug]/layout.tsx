@@ -11,6 +11,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { NestedAppRedirect } from '@/components/layout/NestedAppRedirect'
 import { EXPORT_PLACEHOLDER } from '@/lib/utils/export-placeholder'
 
 /**
@@ -23,12 +24,12 @@ export function generateStaticParams() {
 }
 
 /**
- * Pass-through layout that exists to carry generateStaticParams.
+ * Resolves app-prefixed URLs before rendering the resource route.
  *
  * @param props - Layout props.
  * @param props.children - Route content.
- * @returns The children unchanged.
+ * @returns The route content or its canonical redirect.
  */
 export default function Layout({ children }: { children: ReactNode }) {
-  return children
+  return <NestedAppRedirect>{children}</NestedAppRedirect>
 }

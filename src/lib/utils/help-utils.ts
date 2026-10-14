@@ -39,7 +39,7 @@ export const INSERT_SCREEN_HELP_ROLES = ['INSERT_SCREEN', 'WRITE_SCREENS', 'ALL_
  * @returns The entry to show, or `undefined` when none applies or it is empty.
  */
 export function selectHelpContent(helpContents: QHelpContent[] | undefined, roles: readonly string[]): QHelpContent | undefined {
-  const entries = (helpContents ?? []).filter((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
+  const entries = (helpContents ?? []).filter((entry) => Boolean(entry?.content?.trim() || entry?.contentAsHtml?.trim() || entry?.summary?.trim()))
   for (const role of roles) {
     const match = entries.find((entry) => entry.roles?.includes(role))
     if (match) return match
@@ -89,7 +89,48 @@ export function selectSlotHelpContent(
   const suffix = `[${helpKey ?? '?'}]`
   if (!selected) return { content: suffix, format: 'TEXT' }
   const format = selected.format ?? 'TEXT'
-  if (format === 'HTML') return { ...selected, content: `${selected.content} ${escapeHtml(suffix)}` }
-  if (format === 'MARKDOWN') return { ...selected, content: `${selected.content} ${suffix}`, contentAsHtml: `${selected.contentAsHtml ?? ''} ${escapeHtml(suffix)}` }
-  return { ...selected, content: `${selected.content} ${suffix}` }
+  if (format === 'HTML') return { ...selected, content: `${selected.content ?? ''} ${escapeHtml(suffix)}` }
+  if (format === 'MARKDOWN') return { ...selected, content: `${selected.content ?? ''} ${suffix}`, contentAsHtml: `${selected.contentAsHtml ?? ''} ${escapeHtml(suffix)}` }
+  return { ...selected, content: `${selected.content ?? ''} ${suffix}` }
+}
+
+/** Roles of application headers, most specific first. */
+export const APP_SCREEN_HELP_ROLES = ['APP_SCREEN', 'ALL_SCREENS'] as const
+/** Roles of record and table action items, most specific first. */
+export const TABLE_ACTION_MENU_HELP_ROLES = ['TABLE_ACTION_MENU', 'ALL_SCREENS'] as const
+
+/**
+ * Selects a role-specific entry from a named slot.
+ * @param map - Metadata slot map.
+ * @param slot - Slot name.
+ * @param roles - Screen roles in precedence order.
+ * @returns Applicable help, if any.
+ */
+export function selectSlotHelp(map: Record<string, QHelpContent[]> | undefined, slot: string, roles: readonly string[]): QHelpContent | undefined {
+  return selectHelpContent(map?.[slot], roles)
+}
+
+/**
+ * Derives a plain-text first sentence when no explicit summary is supplied.
+ * @param entry - Long help in its declared format.
+ * @returns Short tooltip text without HTML or Markdown markup.
+ */
+export function helpSummary(entry: QHelpContent): string {
+  if (entry.summary?.trim()) return entry.summary.trim()
+  const text = helpPlainText(entry)
+  return text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() || text
+}
+
+/**
+ * The whole help text as plain text (no HTML or Markdown markup), e.g. for an
+ * empty table's placeholder: what the table is for and how its rows get created.
+ * @param entry - Long help in its declared format.
+ * @returns Plain text, whitespace collapsed.
+ */
+export function helpPlainText(entry: QHelpContent): string {
+  const source = entry.contentAsHtml || entry.content || entry.summary || ''
+  return source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ').trim()
 }

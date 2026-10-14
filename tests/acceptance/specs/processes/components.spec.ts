@@ -6,7 +6,9 @@
  */
 
 import { readFileSync } from 'node:fs'
+
 import type { Page } from '@playwright/test'
+
 import { expect, test } from '../../support/fixtures'
 import { expectTouchTargets } from '../../support/touch'
 import { advance, choosePossibleValue, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
@@ -69,7 +71,8 @@ test.describe('Component Lab', () => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
-    await expect(mixed.locator('[data-qqq-id="process-step-help"]')).toHaveText('Complete every section before continuing.')
+    await mixed.locator('[data-qqq-id="process-step-help"]').focus()
+    await expect(page.getByRole('tooltip')).toContainText('Complete every section before continuing.')
   })
 
   test('[PRC-012] view form shows labels with values produced by the backend @mobile', async ({ page, diagnostics }) => {

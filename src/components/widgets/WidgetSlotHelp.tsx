@@ -23,8 +23,11 @@
 import React from 'react'
 
 import type { QHelpContent, QWidgetMetaData } from '@/types'
+
 import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { HelpContent } from '@/components/records/HelpContent'
 import { widgetHelpKey, widgetSlotHelp } from './widget-utils'
 
@@ -59,6 +62,7 @@ export function WidgetSlotHelp({ widgetMetaData, slot, roles = WIDGET_HELP_ROLES
       data-qqq-id={`widget-help-${slot}-${widgetMetaData.name}`}
     >
       <HelpContent helpContent={entry as QHelpContent} />
+      {helpHelpActive && <HelpIcon label={widgetMetaData.label} helpContent={widgetSlotHelp(widgetMetaData, slot, roles)} roles={roles} helpKey={widgetHelpKey(widgetMetaData.name, slot)} data-qqq-id={`widget-slot-author-${slot}-${widgetMetaData.name}`} />}
     </div>
   )
 }

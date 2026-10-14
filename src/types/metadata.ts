@@ -547,6 +547,8 @@ export interface QVirtualFieldMetaData extends QFieldMetaData {
  * list of frontend steps to render.
  */
 export interface QProcessMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
   /** Whether this process may be submitted as a durable background job. */
   durableJobEligible?: boolean
   /** Whether this process always executes as a durable background job. */
@@ -622,6 +624,8 @@ export interface QFrontendComponent {
  * navigation section in the sidebar.
  */
 export interface QAppMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
   /** Unique backend name for this app. */
   name: string
   /** Human-readable label shown in the sidebar and app home page heading. */
@@ -638,7 +642,7 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
-  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: label/counts; `nextUi.showChildGrid`: boolean override for automatic home grids). */
   supplementalAppMetaData?: Record<string, unknown>
 }
 
@@ -733,11 +737,7 @@ export interface QWidgetIcon {
 }
 
 /** One help-content entry as served by the full widget metadata route. */
-export interface QWidgetHelpContent {
-  content?: string
-  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
-  roles?: string[]
-}
+export type QWidgetHelpContent = QHelpContent
 
 /**
  * Metadata for a QQQ widget that can be placed on an app dashboard.
@@ -879,6 +879,8 @@ export interface QJoinMetaData {
  * Metadata for a QQQ report, which represents a pre-defined backend data export.
  */
 export interface QReportMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
   /** Unique backend name for this report. */
   name: string
   /** Human-readable label shown in navigation and page headings. */
@@ -901,6 +903,8 @@ export interface QReportMetaData {
  * Rendered as a popover or inline section near the element it annotates.
  */
 export interface QHelpContent {
+  /** Short plain-text tooltip, separate from the long body. */
+  summary?: string
   /** Optional heading text shown at the top of the help panel. */
   title?: string
   /** Main help body, in `format`. */

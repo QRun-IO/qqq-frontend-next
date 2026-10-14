@@ -20,6 +20,7 @@
 
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 
 /**
@@ -204,6 +205,8 @@ export const queryKeys = {
   collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
   collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
   collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
+  uiApiVersion: () => ['qqq', 'uiApiVersion'] as const,
+  helpSearch: (q: string) => ['qqq', 'helpSearch', q] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
@@ -615,8 +618,9 @@ export const queryKeys = {
    * @param limitPerTable - Maximum records per table.
    * @param offset - Records skipped per table.
    * @param sort - Requested order.
+   * @param suggest - Whether to use the optional typeahead provider.
    * @returns The record search query key tuple.
    */
-  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance') =>
-    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance', suggest = false) =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort, ...(suggest ? ['suggest'] : [])] as const,
 }

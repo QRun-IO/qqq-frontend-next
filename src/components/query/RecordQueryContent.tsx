@@ -37,6 +37,7 @@ import type { ColumnMenuActions } from './ColumnHeaderMenu'
 import { Pagination } from './Pagination'
 import { RecordCardView } from './RecordCardView'
 import { EmptyState } from '@/components/feedback/EmptyState'
+import { helpPlainText, QUERY_SCREEN_HELP_ROLES, selectSlotHelp } from '@/lib/utils/help-utils'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
@@ -222,8 +223,7 @@ export function RecordQueryContent({
       ============================================================ */}
       {!isLoading && !isError && records.length === 0 && (
         <EmptyState
-          title="No records found"
-          description="Try adjusting your filters or search term."
+          {...emptyStateText(tableMetaData, activeFilterCount > 0 || Boolean(quickSearchTerm))}
           action={
             activeFilterCount > 0 || quickSearchTerm
               ? { label: 'Clear Filters', onClick: onResetFilter }
@@ -310,4 +310,19 @@ export function RecordQueryContent({
       )}
     </>
   )
+}
+
+/**
+ * Title and description for an empty list. Unfiltered and with table help, it
+ * says what the table is for and how its rows get created (the table's `help`
+ * slot); otherwise it suggests changing the filters.
+ * @param tableMetaData - The table.
+ * @param filtered - Whether filters or a search term are active.
+ * @returns EmptyState title, description and width.
+ */
+export function emptyStateText(tableMetaData: QTableMetaData, filtered: boolean): { title: string; description: string; wideDescription?: boolean } {
+  const help = filtered ? undefined : selectSlotHelp(tableMetaData.helpContents, 'help', QUERY_SCREEN_HELP_ROLES)
+  const text = help ? helpPlainText(help) : ''
+  if (!text) return { title: 'No records found', description: 'Try adjusting your filters or search term.' }
+  return { title: `No ${tableMetaData.label || 'records'} yet`, description: text, wideDescription: true }
 }

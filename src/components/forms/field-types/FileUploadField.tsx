@@ -38,6 +38,8 @@ interface FileUploadFieldProps {
   id: string
   /** Human-readable field label. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** The React Hook Form field name used by the `Controller`. */
   name: string
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -72,6 +74,7 @@ interface FileUploadFieldProps {
 export function FileUploadField({
   id,
   label,
+  labelExtra,
   name,
   control,
   error,
@@ -91,10 +94,13 @@ export function FileUploadField({
 
   return (
     <div className="group flex flex-col gap-1">
-      <span id={labelId} className="text-sm font-medium text-foreground" data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}>
-        {label}
-        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
-      </span>
+      <div className="flex items-center">
+        <span id={labelId} className="text-sm font-medium text-foreground" data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}>
+          {label}
+          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
+        </span>
+        {labelExtra}
+      </div>
       <Controller
         name={name}
         control={control}

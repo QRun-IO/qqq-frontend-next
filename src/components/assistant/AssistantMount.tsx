@@ -16,31 +16,26 @@
 
 /**
  * @file AssistantMount — the panel's place in the dashboard shell. The panel code (markdown,
- * streaming, record renders) loads on first open, so the shell's first load stays small; once
- * loaded it stays mounted, so a running reply keeps streaming while the panel is closed.
+ * streaming, record renders) loads when the assistant becomes available. It stays mounted
+ * while closed so refresh discovery and the header's busy indicator keep working.
  */
 
 'use client'
 
-import React, { Suspense, lazy, useEffect, useState } from 'react'
+import React, { Suspense, lazy } from 'react'
 
 import { useAssistant } from './assistant-context'
 
 const AssistantPanel = lazy(() => import('./AssistantPanel'))
 
 /**
- * Mounts the lazily loaded assistant panel once it has been opened.
+ * Mounts the lazily loaded assistant panel when the assistant is available.
  *
- * @returns The panel, or null until the assistant is available and first opened.
+ * @returns The panel, or null until the assistant is available.
  */
 export function AssistantMount() {
   const assistant = useAssistant()
-  const [loaded, setLoaded] = useState(false)
-  const open = Boolean(assistant?.open)
-  useEffect(() => {
-    if (open) setLoaded(true)
-  }, [open])
-  if (!assistant?.enabled || (!loaded && !open)) return null
+  if (!assistant?.enabled) return null
   return (
     <Suspense fallback={null}>
       <AssistantPanel />

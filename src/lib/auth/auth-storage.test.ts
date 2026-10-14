@@ -43,6 +43,12 @@ afterEach(() => {
 })
 
 describe('auth-storage', () => {
+  it.each([null, 'true', 'false'])('preserves appearance preference %s on logout', (preference) => {
+    if (preference !== null) localStorage.setItem('qqq-dark-mode', preference)
+    clearUserClientData()
+    expect(localStorage.getItem('qqq-dark-mode')).toBe(preference)
+  })
+
   it('reads the displayed user from manageSession values (QRun-IO/qqq#332)', () => {
     expect(userFromSessionValues({ user: { name: 'Alice (sample)', email: 'sample:alice' } })).toEqual({ name: 'Alice (sample)', email: 'sample:alice' })
     expect(userFromSessionValues({ user: { name: '', email: 7 } })).toBeNull()

@@ -16,16 +16,24 @@
 
 /**
  * @file The policy document format of qbit-authentik (its docs/POLICY-FORMAT.md): a strict,
- * fail-closed parser and the canonical generator, byte-for-byte the same as the qbit's Java
- * `PolicyParser` and `PolicyGenerator`, so the editor's live preview is exactly what the
- * server validates and stores. The server checks everything again; this is for the preview.
+ * syntax parser and canonical generator. Unknown named actions survive editing so the widget
+ * can list them as "Not in this app"; the server validates catalog membership again on save.
  */
 
 /** The actions a statement can grant, in canonical statement order. */
 export const POLICY_ACTIONS = ['hasAccess', 'read', 'insert', 'edit', 'delete'] as const
 
+/** Symbolic full access; never expand this into today's catalog or treat it as an unknown resource. */
+export const FULL_ACCESS_PERMISSION = '*.*'
+
 /** One policy action. */
 export type PolicyAction = (typeof POLICY_ACTIONS)[number]
+
+/** Display labels shared by the matrix and effective permission preview. */
+export const ACTION_LABELS: Record<PolicyAction, string> = { hasAccess: 'Access', read: 'Read', insert: 'Insert', edit: 'Edit', delete: 'Delete' }
+
+/** Named feature actions, including names no longer present in the catalog. */
+export const ACTION_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
 
 /** A valid resource: a QQQ permission base name. */
 export const RESOURCE_PATTERN = /^[A-Za-z0-9_]+$/
@@ -56,7 +64,7 @@ export function isPolicyAction(value: string): value is PolicyAction {
  * @param action - Action.
  * @returns `{resource}.{action}`.
  */
-export function permissionName(resource: string, action: PolicyAction): string {
+export function permissionName(resource: string, action: string): string {
   return `${resource}.${action}`
 }
 
@@ -65,12 +73,12 @@ export function permissionName(resource: string, action: PolicyAction): string {
  * @param permission - `{resource}.{action}`.
  * @returns The parts, or null when it is not a valid policy permission.
  */
-export function splitPermission(permission: string): { resource: string; action: PolicyAction } | null {
+export function splitPermission(permission: string): { resource: string; action: string } | null {
   const dot = permission.lastIndexOf('.')
   if (dot <= 0 || dot === permission.length - 1) return null
   const resource = permission.slice(0, dot)
   const action = permission.slice(dot + 1)
-  if (!isPolicyAction(action) || !RESOURCE_PATTERN.test(resource)) return null
+  if (!ACTION_PATTERN.test(action) || !RESOURCE_PATTERN.test(resource)) return null
   return { resource, action }
 }
 
@@ -97,7 +105,8 @@ function strings(value: unknown, what: string): string[] | { error: string } {
 }
 
 /**
- * Parse a document, failing closed: any problem is reported and grants nothing.
+ * Parse document syntax, failing closed on malformed input. Catalog membership is checked
+ * by the widget, preserving unknown actions in its removable unknown-permissions list.
  * @param document - The document as JSON text or an object.
  * @param format - Expected spec and version.
  * @returns The permissions and resources, or the first problem.
@@ -130,20 +139,27 @@ export function parsePolicy(document: unknown, format: PolicyFormat): PolicyPars
     if (s.Effect !== 'Allow') return { ok: false, error: `Statement ${n}: Effect must be "Allow" (found ${describe(s.Effect)}); Deny is not supported yet` }
     const actionNames = strings(s.Action, `Statement ${n}: Action`)
     if (!Array.isArray(actionNames)) return { ok: false, error: actionNames.error }
-    const actions = new Set<PolicyAction>()
+    const actions = new Set<string>()
     for (const name of actionNames) {
       if (name === '*') POLICY_ACTIONS.forEach((action) => actions.add(action))
-      else if (isPolicyAction(name)) actions.add(name)
-      else return { ok: false, error: `Statement ${n}: unknown action "${name}"` }
+      else if (ACTION_PATTERN.test(name)) actions.add(name)
+      else return { ok: false, error: `Statement ${n}: invalid action "${name}"` }
     }
     const resourceNames = strings(s.Resource, `Statement ${n}: Resource`)
     if (!Array.isArray(resourceNames)) return { ok: false, error: resourceNames.error }
     for (const resource of resourceNames) {
+      if (resource === '*') {
+        if (actionNames.length !== 1 || actionNames[0] !== '*') return { ok: false, error: `Statement ${n}: Resource "*" requires Action ["*"]` }
+        permissions.add(FULL_ACCESS_PERMISSION)
+        continue
+      }
       if (!RESOURCE_PATTERN.test(resource)) return { ok: false, error: `Statement ${n}: resource "${resource}" must match [A-Za-z0-9_]+` }
       if (!resources.includes(resource)) resources.push(resource)
       actions.forEach((action) => permissions.add(permissionName(resource, action)))
     }
   }
+  // Validate every statement before discarding grants made redundant by full access.
+  if (permissions.has(FULL_ACCESS_PERMISSION)) return { ok: true, permissions: new Set([FULL_ACCESS_PERMISSION]), resources: ['*'] }
   return { ok: true, permissions, resources }
 }
 
@@ -169,18 +185,26 @@ function compareJava(a: string, b: string): number {
 
 /**
  * The canonical document for a set of permissions: one Allow statement per granted action in
- * the order hasAccess, read, insert, edit, delete; resources sorted; no `*`.
- * @param permissions - `{resource}.{action}` names; others are ignored.
+ * the order hasAccess, read, insert, edit, delete, then named actions sorted alphabetically;
+ * resources sorted. Full access replaces all grants with one wildcard statement.
+ * Unknown named actions are preserved for explicit removal.
+ * @param permissions - `{resource}.{action}` names or the full-access sentinel; others are ignored.
  * @param format - Spec and version to write.
  * @returns The document, compact and pretty.
  */
 export function generatePolicy(permissions: Iterable<string>, format: PolicyFormat): GeneratedPolicy {
-  const byAction = new Map<PolicyAction, Set<string>>(POLICY_ACTIONS.map((action) => [action, new Set<string>()]))
+  const byAction = new Map<string, Set<string>>(POLICY_ACTIONS.map((action) => [action, new Set<string>()]))
+  let fullAccess = false
   for (const permission of permissions) {
+    if (permission === FULL_ACCESS_PERMISSION) fullAccess = true
     const parts = splitPermission(permission)
-    if (parts) byAction.get(parts.action)?.add(parts.resource)
+    if (parts) {
+      if (!byAction.has(parts.action)) byAction.set(parts.action, new Set())
+      byAction.get(parts.action)?.add(parts.resource)
+    }
   }
-  const statements = POLICY_ACTIONS
+  const actions = [...POLICY_ACTIONS, ...[...byAction.keys()].filter((action) => !isPolicyAction(action)).sort(compareJava)]
+  const statements = fullAccess ? [{ action: '*', resources: ['*'] }] : actions
     .map((action) => ({ action, resources: [...(byAction.get(action) ?? [])].sort(compareJava) }))
     .filter((statement) => statement.resources.length > 0)
 

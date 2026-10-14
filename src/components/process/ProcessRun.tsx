@@ -26,11 +26,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import type { QAppTreeNode, QInstance, QProcessMetaData } from '@/types'
 import { processJob, type ProcessFiles, type ProcessInitRequest, type ProcessJobRequest } from '@/lib/api/processes'
+
+import { PROCESS_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { loadMetaData } from '@/lib/api/metadata'
 import { canAccessProcess } from '@/lib/auth/permissions'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
@@ -42,6 +45,7 @@ import { pickerRecordPath } from '@/lib/utils/record-picker'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import BannerComponent from '@/components/layout/Banner'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
@@ -260,6 +264,7 @@ export function ProcessRun({
       data-process-phase={boundsMessage ? 'error' : state.phase}
       data-embedded={isEmbedded || undefined}
     >
+      <div className="mb-3 flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold">{processMetaData.label}</h1><HelpIcon label={processMetaData.label} helpContents={processMetaData.helpContents?.help} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`process:${processName};slot:help`} data-qqq-id={`process-help-${processName}`} /></div>
       <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>
         {typeof state.values.durableJobId === 'number' && (
           <BannerComponent slot="QFMD_TOP_OF_BODY" banners={{ QFMD_TOP_OF_BODY: {

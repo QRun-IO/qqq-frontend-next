@@ -78,7 +78,7 @@ export interface HeaderProps {
  * search pill.
  *
  * @param props - Component properties.
- * @returns A `<header>` element with `height: var(--qqq-header-height)` that
+ * @returns A `<header>` element with `min-height: var(--qqq-header-height)` that
  *   contains the hamburger button + {@link Breadcrumbs} on the left and
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
@@ -91,18 +91,18 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
   return (
     <header
       ref={headerRef}
-      className="flex items-center justify-between border-b border-border bg-card px-4 md:px-6"
-      style={{ height: 'var(--qqq-header-height)' }}
+      className="flex items-center justify-between border-b border-border bg-card px-4 py-2 md:px-6"
+      style={{ minHeight: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + breadcrumbs (the trail scrolls sideways on its own when it is too long) */}
+      {/* Left: mobile menu + a breadcrumb trail that truncates long labels and wraps (the header grows) instead of scrolling */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
           ref={menuButtonRef}
           type="button"
           onClick={onMenuOpen}
-          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open navigation menu"
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
@@ -122,7 +122,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
             event.currentTarget.focus({ preventScroll: true })
             onSearchOpen?.()
           }}
-          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open search"
           data-qqq-id="button-mobile-search"
         >
