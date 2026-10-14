@@ -33,6 +33,7 @@ import {
 } from 'recharts'
 
 import type { ChartDataset } from '@/types'
+import { DEFAULT_COLORS } from '@/lib/utils/chart-colors'
 
 /**
  * A single item within a `seriesData` entry for Shape C multi-series data.
@@ -161,9 +162,6 @@ function normalizeChartData(
 
   return { entries: [], dataKeys: [] }
 }
-
-/** Default color palette cycled through when dataset entries do not specify an explicit color. */
-const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 /**
  * Renders a responsive bar chart using Recharts.

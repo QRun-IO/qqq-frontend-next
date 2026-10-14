@@ -80,6 +80,42 @@ jobs:
             test-results/
           retention-days: 14
 
+  collaboration-e2e:
+    name: Collaboration e2e (MSW; chromium, firefox, webkit, mobile, tablet)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+      - name: Installed Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: browser-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-all
+      - run: pnpm exec playwright install-deps chromium firefox webkit
+      - if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium firefox webkit
+      - name: Collaboration suite (mock API, every browser project)
+        run: pnpm exec playwright test --config playwright.collaboration.config.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: collaboration-e2e
+          path: |
+            test-results/collaboration/
+            test-results/collab-shots/
+          retention-days: 14
+
   storybook:
     name: Storybook build
     runs-on: ubuntu-24.04

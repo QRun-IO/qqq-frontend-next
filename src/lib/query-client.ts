@@ -179,6 +179,18 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
+  collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
+  collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,
+  collaborationVocabulary: (table: string, q: string) => [...queryKeys.collaborationVocabularyRoot(table), q] as const,
+  collaborationMentions: (table: string, pk: string, q: string) => [...queryKeys.collaborationRecord(table, pk), 'mentions', q] as const,
+  collaborationHistory: (id: number) => ['qqq', 'collaboration', 'history', id] as const,
+
+  collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
+  collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
+  collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
+  collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
+  collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
@@ -508,6 +520,12 @@ export const queryKeys = {
    */
   esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
     [...queryKeys.esb(), 'messages', kind, name, offset] as const,
+
+  /** Analysis namespace for a table.
+   * @param table - Metadata table name.
+   * @returns The query key.
+   */
+  dataAnalysis: (table: string) => [...queryKeys.all(), 'data-analysis', table] as const,
 
   // SQL Workbench
   /**

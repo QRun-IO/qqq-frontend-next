@@ -63,6 +63,8 @@ export interface HeaderProps {
   assistantButton?: React.ReactNode
   /** The notifications bell (the Alerts qbit's), shown last when Alerts is available. */
   notificationsButton?: React.ReactNode
+  /** Personal favorites menu when collaboration is installed. */
+  favoritesButton?: React.ReactNode
 }
 
 /**
@@ -81,7 +83,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton, notificationsButton }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton, notificationsButton, favoritesButton }: HeaderProps) {
   // toasts appear below the header, never over its controls
   const headerRef = useRef<HTMLElement>(null)
   useToastTopBelow(headerRef)
@@ -144,6 +146,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
           </button>
         )}
 
+        {favoritesButton}
         {assistantButton}
 
         {/* Keyboard shortcuts hint */}
