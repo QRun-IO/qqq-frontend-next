@@ -84,7 +84,7 @@ export function RecordCollaborationHeader({
   const capabilities = summary.data?.capabilities ?? features?.capabilities
   return (
     <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+      className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 text-sm"
       data-qqq-id="record-collaboration-header"
     >
       {presence.viewers.length > 0 && <PresenceAvatars viewers={presence.viewers} />}

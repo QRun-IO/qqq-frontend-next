@@ -331,7 +331,6 @@ export function RecordViewHeader({
           </h1>
           <LazyFavoriteToggle target={{ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) }} label={record.recordLabel || tableMetaData.label} href={recordPath} />
           <LazyRecordFollow table={tableMetaData} pk={String(primaryKey)} />
-          <LazyCollaborationHeader table={tableMetaData} record={record} />
           {/* D-V-5: Copy record ID to clipboard */}
           <button
             type="button"
@@ -352,6 +351,9 @@ export function RecordViewHeader({
             }
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
+          {/* Presence, owner/assignee and Share take their own full-width row, so they never strand
+              the copy button (or the inline actions) on a line of its own */}
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
         </div>
         <LazyRecordTags table={tableMetaData} pk={String(primaryKey)} />
         {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
