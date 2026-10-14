@@ -189,7 +189,7 @@ export default function RelationshipChart({ chart }: { chart: NonNullable<DataAn
       ) : (
         <div
           ref={chartRef}
-          className="h-80 w-full min-w-0"
+          className="h-80 w-full min-w-0 overflow-hidden"
           role="group"
           aria-label={
             chart.kind === 'SCATTER'

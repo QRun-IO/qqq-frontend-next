@@ -77,7 +77,7 @@ export default function PivotChart({
           >
             <h3 className="font-semibold">{measure.label}</h3>
             <div
-              className="h-72 min-w-0"
+              className="h-72 min-w-0 overflow-hidden"
               role="img"
               aria-label={`${kind === 'BAR' ? 'Grouped bar' : 'Time series'}: ${measure.label}. Values and drills are in the pivot results below.`}
             >

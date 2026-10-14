@@ -270,17 +270,28 @@ it('renders shift labels, PSI sentence and metric drills accessibly', async () =
   expect((await axe(container)).violations).toEqual([])
 })
 it('keeps heatmap text AA for negative, zero, positive and missing values in either theme', () => {
-  const luminance = (channel: number) => {
-    const v = channel / 255
-    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  const luminance = (rgb: number[]) =>
+    rgb
+      .map((channel) => {
+        const v = channel / 255
+        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+      })
+      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+  const contrast = (a: number[], b: number[]) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (hi + 0.05) / (lo + 0.05)
   }
+  // the translucent tint over each theme's background, read with that theme's text colour
+  const themes = [
+    { background: [255, 255, 255], text: [17, 24, 39] },
+    { background: [17, 19, 24], text: [249, 250, 251] },
+  ]
   for (const r of [-1, -0.5, 0, 0.5, 1, null]) {
-    const style = correlationColor(r),
-      rgb = style.backgroundColor.match(/\d+/g)!.map(Number).map(luminance)
-    expect(
-      (rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 + 0.05) / 0.05
-    ).toBeGreaterThanOrEqual(4.5)
-    expect(style.color).toBe('#000000')
+    const [red, green, blue, alpha] = correlationColor(r).backgroundColor.match(/[\d.]+/g)!.map(Number)
+    for (const { background, text } of themes) {
+      const composite = [red, green, blue].map((c, i) => c * alpha + background[i] * (1 - alpha))
+      expect(contrast(composite, text)).toBeGreaterThanOrEqual(4.5)
+    }
   }
   expect(correlationColor(-1).backgroundColor).not.toBe(correlationColor(1).backgroundColor)
 })

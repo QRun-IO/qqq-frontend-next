@@ -19,8 +19,7 @@
 // NotificationCenter.test.tsx.
 
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -123,8 +122,7 @@ describe('AlertsRecordPanelSlot', () => {
     expect(none.container).toBeEmptyDOMElement()
   })
 
-  it('shows open alerts with actions, recent resolutions, and watches the record', async () => {
-    let watched: unknown = null
+  it('shows open alerts with actions and recent resolutions; watching is read-only', async () => {
     let panel = PANEL
     server.use(
       http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json(SUMMARY)),
@@ -133,15 +131,9 @@ describe('AlertsRecordPanelSlot', () => {
         expect(url.searchParams.get('tableName')).toBe('blog_post')
         expect(url.searchParams.get('recordId')).toBe('5')
         return HttpResponse.json(panel)
-      }),
-      http.post('/qqq/v1/alerts/record-panel/watch', async ({ request }) => {
-        watched = await request.json()
-        panel = { ...PANEL, watching: true }
-        return HttpResponse.json({ watching: true, created: true })
       })
     )
-    const user = userEvent.setup()
-    renderWithClient(<AlertsRecordPanelSlot metaData={WITH_ALERTS} tableName="blog_post" recordId="5" />)
+    const view = renderWithClient(<AlertsRecordPanelSlot metaData={WITH_ALERTS} tableName="blog_post" recordId="5" />)
     const section = await screen.findByRole('region', { name: 'Open alerts (1)' })
     expect(await axe(section)).toHaveNoViolations()
     expect(within(section).getByRole('link', { name: 'Post has no excerpt' })).toHaveAttribute('href', '/app/alerts_alert/9')
@@ -149,8 +141,13 @@ describe('AlertsRecordPanelSlot', () => {
     expect(within(section).getByRole('link', { name: 'Snooze' })).toBeInTheDocument()
     expect(within(section).getByText('2 resolved in the last 30 days')).toBeInTheDocument()
 
-    await user.click(within(section).getByRole('button', { name: 'Watch alerts for this record' }))
-    await waitFor(() => expect(watched).toEqual({ tableName: 'blog_post', recordId: '5' }))
-    expect(await within(section).findByText("You watch this record's alerts")).toBeInTheDocument()
+    // the alerts extension (1.0.0) removed the watch operation: no button, only the legacy state
+    expect(within(section).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(section).queryByText("You watch this record's alerts")).not.toBeInTheDocument()
+    view.unmount()
+
+    panel = { ...PANEL, watching: true }
+    renderWithClient(<AlertsRecordPanelSlot metaData={WITH_ALERTS} tableName="blog_post" recordId="5" />)
+    expect(await screen.findByText("You watch this record's alerts")).toBeInTheDocument()
   })
 })

@@ -541,6 +541,10 @@ export interface QVirtualFieldMetaData extends QFieldMetaData {
  * list of frontend steps to render.
  */
 export interface QProcessMetaData {
+  /** Whether this process may be submitted as a durable background job. */
+  durableJobEligible?: boolean
+  /** Whether this process always executes as a durable background job. */
+  durableJobAlways?: boolean
   /** Unique backend name for this process (used in API calls). */
   name: string
   /** Human-readable label shown in navigation and page headings. */

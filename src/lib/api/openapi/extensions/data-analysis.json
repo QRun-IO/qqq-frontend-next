@@ -977,6 +977,10 @@
         },
         "type": "object"
       },
+      "DataAnalysisFileV1": {
+        "format": "binary",
+        "type": "string"
+      },
       "DataAnalysisLimitsV1": {
         "nullable": true,
         "properties": {
@@ -1471,6 +1475,161 @@
         },
         "type": "object"
       },
+      "DataAnalysisSavedEntryV1": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "tableName": {
+            "type": "string"
+          },
+          "tableLabel": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "updated": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "starred": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisSavedListV1": {
+        "properties": {
+          "analyses": {
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisSavedEntryV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisSavedRequestV1": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "COLUMN_PROFILE",
+              "TABLE_PROFILE",
+              "PIVOT",
+              "COMPARE",
+              "CORRELATION",
+              "CROSSTAB",
+              "SHIFT"
+            ],
+            "type": "string"
+          },
+          "tableName": {
+            "description": "Source QQQ table name; required for ad hoc export, supplied by the path for SQL.",
+            "type": "string"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataAnalysisColumnProfileRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisTableProfileRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisPivotRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisCompareRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisCorrelationRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisCrosstabRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisShiftRequestV1"
+              }
+            ],
+            "description": "Typed request matching kind. Field names, filters and dimensions use the existing analysis request contracts."
+          },
+          "format": {
+            "description": "Required for export; ignored for SQL.",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "request"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisSavedResultV1": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "COLUMN_PROFILE",
+              "TABLE_PROFILE",
+              "PIVOT",
+              "COMPARE",
+              "CORRELATION",
+              "CROSSTAB",
+              "SHIFT"
+            ],
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "columnProfile": {
+            "$ref": "#/components/schemas/DataAnalysisColumnProfileV1",
+            "nullable": true
+          },
+          "compare": {
+            "$ref": "#/components/schemas/DataAnalysisCompareV1",
+            "nullable": true
+          },
+          "correlation": {
+            "$ref": "#/components/schemas/DataAnalysisCorrelationV1",
+            "nullable": true
+          },
+          "crosstab": {
+            "$ref": "#/components/schemas/DataAnalysisCrosstabV1",
+            "nullable": true
+          },
+          "pivot": {
+            "$ref": "#/components/schemas/DataAnalysisPivotV1",
+            "nullable": true
+          },
+          "shift": {
+            "$ref": "#/components/schemas/DataAnalysisShiftV1",
+            "nullable": true
+          },
+          "tableProfile": {
+            "$ref": "#/components/schemas/DataAnalysisTableProfileV1",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
       "DataAnalysisScatterRequestV1": {
         "properties": {
           "tableName": {
@@ -1681,6 +1840,29 @@
             "description": "Cramer association strength computed on the pooled contingency table; null when invalid.",
             "nullable": true,
             "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisSqlV1": {
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "sql": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisStarV1": {
+        "properties": {
+          "starred": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -1917,6 +2099,82 @@
         },
         "type": "object"
       },
+      "DataAnalysisWatchBucketV1": {
+        "properties": {
+          "start": {
+            "description": "Calendar date or hour-start instant in the user's time zone.",
+            "type": "string"
+          },
+          "value": {
+            "nullable": true,
+            "type": "number"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisWatchPreviewV1": {
+        "properties": {
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisWatchBucketV1"
+            },
+            "type": "array"
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "TIME_SERIES with baseline band annotations."
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/DataAnalysisWatchVerdictV1"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisWatchVerdictV1": {
+        "properties": {
+          "evaluated": {
+            "description": "False for insufficient history or privacy suppression; must not resolve an alert.",
+            "type": "boolean"
+          },
+          "firing": {
+            "type": "boolean"
+          },
+          "value": {
+            "nullable": true,
+            "type": "number"
+          },
+          "baseline": {
+            "nullable": true,
+            "type": "number"
+          },
+          "baselineLow": {
+            "nullable": true,
+            "type": "number"
+          },
+          "baselineHigh": {
+            "nullable": true,
+            "type": "number"
+          },
+          "message": {
+            "type": "string"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
       "FilterCriteria": {
         "properties": {
           "fieldName": {
@@ -2025,12 +2283,283 @@
     "contact": {
       "email": "contact@kingsrook.com"
     },
-    "description": "Profiles, pivots, comparisons, distribution shifts, correlations, scatter samples and crosstabs as the signed-in user.",
+    "description": "Profiles, pivots, comparisons, distribution shifts, correlations, scatter samples, crosstabs and anomaly watch previews as the signed-in user.",
     "title": "QQQ Middleware API extension: data-analysis",
-    "version": "1.2.0"
+    "version": "1.4.0"
   },
   "openapi": "3.0.3",
   "paths": {
+    "/qqq/v1/qbit/data-analysis/saved/{id}/run": {
+      "post": {
+        "description": "Re-run a visible saved analysis as the signed-in viewer. Requires saved READ and source READ/Analyze. Drops unavailable fields with a warning and returns the result typed by kind; inaccessible required axes or predicates produce no result.",
+        "parameters": [
+          {
+            "description": "Owner-scoped analysis run or watch id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisSavedResultV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Run a saved analysis"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/saved": {
+      "get": {
+        "description": "List core-visible saved analyses with name, kind, source table label, owner, shared state, this viewer's starred flag and last update.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisSavedListV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "List visible saved analyses"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/saved/{id}/star": {
+      "delete": {
+        "description": "Remove the signed-in user's star on a visible saved analysis. Idempotent; uses standard saved delete permission and owner locks.",
+        "parameters": [
+          {
+            "description": "Owner-scoped analysis run or watch id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisStarV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Unstar a saved analysis"
+      },
+      "put": {
+        "description": "Star a visible saved analysis for the signed-in user. Idempotent; uses standard saved insert permission and the personal star record lock.",
+        "parameters": [
+          {
+            "description": "Owner-scoped analysis run or watch id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisStarV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Star a saved analysis"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/sql": {
+      "post": {
+        "description": "Execute a typed analysis as the viewer and capture the main RDBMS aggregate SQL from core QueryStat. Requires installed SQL Workbench and its access permission. Non-RDBMS backends report unavailable; SQL is for reading and record security remains enforced at runtime.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisSavedRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisSqlV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Read an analysis aggregate SQL statement"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/export": {
+      "post": {
+        "description": "Execute a typed analysis as the signed-in viewer and download its result table as CSV or XLSX. Requires source READ/Analyze and FULL fields; uses core report formats.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisSavedRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisFileV1"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisFileV1"
+                }
+              }
+            },
+            "description": "Analysis result file"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Export an analysis result"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/saved/{id}/export": {
+      "get": {
+        "description": "Re-run a visible saved analysis as the viewer, applying current source permissions and dropping unavailable fields, then download its result table as CSV or XLSX.",
+        "parameters": [
+          {
+            "description": "Visible saved analysis id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Result file format.",
+            "in": "query",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisFileV1"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisFileV1"
+                }
+              }
+            },
+            "description": "Analysis result file"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Export a saved analysis"
+      }
+    },
     "/qqq/v1/qbit/data-analysis/tables/{table}/capabilities": {
       "get": {
         "description": "Discover whether the current user can analyze this table, readable fields, chart defaults, limits and backend capabilities.",
@@ -2389,6 +2918,42 @@
         "summary": "Cross-tabulate two fields"
       }
     },
+    "/qqq/v1/qbit/data-analysis/watches/{id}/preview": {
+      "post": {
+        "description": "Compute complete time buckets and a detector verdict under the signed-in user's READ, Analyze and FULL-field permissions. Includes a baseline band annotation. Does not update the watch or raise alerts.",
+        "parameters": [
+          {
+            "description": "Owner-scoped analysis run or watch id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisWatchPreviewV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Preview an anomaly watch"
+      }
+    },
     "/qqq/v1/qbit/data-analysis/tables/{table}/pivot": {
       "post": {
         "description": "Group records by up to 3 row and 2 column fields (with date or numeric buckets) and compute counts, sums, averages, min/max, distinct counts or percentiles per cell; every cell has a drill-through filter.",
@@ -2567,7 +3132,7 @@
         "description": "Read status, timestamps and the typed columnProfile or tableProfile result of an owner-scoped run. Completed results are rechecked against current permissions.",
         "parameters": [
           {
-            "description": "Owner-scoped analysis run id.",
+            "description": "Owner-scoped analysis run or watch id.",
             "in": "path",
             "name": "runId",
             "required": true,

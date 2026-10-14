@@ -21,7 +21,11 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import type { QQueryFilter } from '@/types'
-import type { DataAnalysisValueCountV1 } from '@/types/data-analysis'
+import type {
+  DataAnalysisChartV1,
+  DataAnalysisValueCountV1,
+  DataAnalysisCapabilityFieldV1,
+} from '@/types/data-analysis'
 import { columnProfile, distinctValues } from '@/lib/api/data-analysis'
 import { analysisFilter } from '@/lib/utils/data-analysis'
 import { normalizeFilter } from '@/lib/utils/filter-utils'
@@ -38,6 +42,9 @@ import {
 } from './ProfileParts'
 import { useExactRun } from './use-exact-run'
 import { ExactRun } from './ExactRun'
+import { AnalysisActions } from './AnalysisActions'
+import { WatchDialog } from './WatchDialog'
+import type { DataAnalysisColumnProfileV1 } from '@/types/data-analysis'
 
 const ProfileChart = dynamic(() => import('./ProfileChart'), {
   ssr: false,
@@ -48,11 +55,15 @@ const ProfileChart = dynamic(() => import('./ProfileChart'), {
 export interface ColumnProfilePanelProps {
   tableName: string
   tableLabel: string
+  fields?: DataAnalysisCapabilityFieldV1[]
   fieldName: string
   fieldLabel: string
   filter: Partial<QQueryFilter>
   onClose: () => void
   unavailableReason?: string
+  sqlAvailable?: boolean
+  savedChartKind?: NonNullable<NonNullable<DataAnalysisChartV1>['kind']>
+  savedResult?: DataAnalysisColumnProfileV1
 }
 
 /** Renders a chart for date pattern buckets using their semantic labels and drills.
@@ -93,12 +104,18 @@ function BucketChart({
 export default function ColumnProfilePanel({
   tableName,
   tableLabel,
+  fields = [],
   fieldName,
   fieldLabel,
   filter,
   onClose,
   unavailableReason,
+  sqlAvailable = false,
+  savedResult,
+  savedChartKind,
 }: ColumnProfilePanelProps) {
+  const [chartKind, setChartKind] =
+    useState<NonNullable<NonNullable<DataAnalysisChartV1>['kind']>>()
   const [showAll, setShowAll] = useState(false)
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
@@ -114,11 +131,13 @@ export default function ColumnProfilePanel({
   const profile = useQuery({
     queryKey: [...queryKeys.dataAnalysis(tableName), 'column', request],
     queryFn: () => columnProfile(tableName, request),
-    enabled: !filterError,
+    enabled: savedResult === undefined && !filterError,
     retry: false,
   })
   const exact = useExactRun({ operation: 'COLUMN_PROFILE', tableName, request })
-  const data = exact.run.data?.status === 'COMPLETE' ? exact.run.data.columnProfile : profile.data
+  const data =
+    savedResult ??
+    (exact.run.data?.status === 'COMPLETE' ? exact.run.data.columnProfile : profile.data)
   const values = useQuery({
     queryKey: [...queryKeys.dataAnalysis(tableName), 'distinct', request, page, search],
     queryFn: () => distinctValues(tableName, { ...request, page, pageSize: 50, search }),
@@ -128,11 +147,12 @@ export default function ColumnProfilePanel({
   const conditions = countFilterConditions(normalizeFilter(filter), () => undefined)
   return (
     <ProfileSheet
+      inline={savedResult !== undefined}
       title={fieldLabel}
       description={`${tableLabel} · ${conditions ? `Filtered: ${conditions} conditions` : 'All records'}`}
       onClose={onClose}
     >
-      {filterError || profile.error ? (
+      {filterError || (savedResult === undefined && profile.error) ? (
         <ProfileError
           error={filterError ?? profile.error}
           retry={
@@ -143,14 +163,30 @@ export default function ColumnProfilePanel({
                 }
           }
         />
-      ) : profile.isPending ? (
+      ) : savedResult === undefined && profile.isPending ? (
         <ProfileLoading />
       ) : !data ? (
         <p>No profile data is available.</p>
       ) : (
         <>
+          {savedResult === undefined && (
+            <div className="space-y-2">
+              <AnalysisActions
+                definition={{ kind: 'COLUMN_PROFILE', request }}
+                tableName={tableName}
+                chartKind={chartKind ?? data.chart?.kind}
+                sqlAvailable={sqlAvailable}
+              />
+              <WatchDialog
+                tableName={tableName}
+                fields={fields}
+                filter={requestFilter}
+                fieldName={fieldName}
+              />
+            </div>
+          )}
           <ProfileBadges profile={data} />
-          {data.estimate === true && <ExactRun exact={exact} />}
+          {savedResult === undefined && data.estimate === true && <ExactRun exact={exact} />}
           {!data.counts?.length &&
             !data.numeric &&
             !data.dates &&
@@ -158,7 +194,14 @@ export default function ColumnProfilePanel({
             !data.booleans?.length &&
             !data.topValues?.length && <p>No profile data is available.</p>}
           <Metrics metrics={data.counts} />
-          {data.chart && <ProfileChart chart={data.chart} metrics={data.numeric?.metrics ?? []} />}
+          {data.chart && (
+            <ProfileChart
+              initialKind={savedChartKind}
+              onKindChange={setChartKind}
+              chart={data.chart}
+              metrics={data.numeric?.metrics ?? []}
+            />
+          )}
           {data.numeric && (
             <section aria-label="Numeric statistics" className="space-y-3">
               <h3 className="font-semibold">Numeric statistics</h3>
@@ -195,14 +238,16 @@ export default function ColumnProfilePanel({
             </section>
           )}
           <Values label="Top values" values={data.topValues} />
-          <button
-            className={controlClass}
-            aria-expanded={showAll}
-            onClick={() => setShowAll(!showAll)}
-            data-qqq-id="analysis-all-values"
-          >
-            {showAll ? 'Hide all values' : 'Show all values'}
-          </button>
+          {savedResult === undefined && (
+            <button
+              className={controlClass}
+              aria-expanded={showAll}
+              onClick={() => setShowAll(!showAll)}
+              data-qqq-id="analysis-all-values"
+            >
+              {showAll ? 'Hide all values' : 'Show all values'}
+            </button>
+          )}
           {showAll && (
             <section className="space-y-3" aria-label="All distinct values">
               <label className="block">
