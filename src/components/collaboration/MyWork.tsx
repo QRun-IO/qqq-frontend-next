@@ -26,6 +26,7 @@ import { queryRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { collaborationButton } from './CollaborationDialog'
 import { builtInViewHref } from '@/lib/utils/built-in-views'
+import { pluralize } from '@/lib/utils/string-utils'
 /** Loads visible assignment rows through the metadata-supplied view.
  * @param props - Table count and display label.
  * @returns Record links plus the full table view.
@@ -162,7 +163,7 @@ export function MyWork() {
               className="text-sm underline"
               data-qqq-id="work-mentions"
             >
-              {work.data.unreadMentionCount ?? 0} unread mentions
+              {pluralize(work.data.unreadMentionCount ?? 0, 'unread mention')}
             </Link>
           </section>
         </>

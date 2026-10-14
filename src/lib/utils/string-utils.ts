@@ -59,3 +59,16 @@ export const isEmail = (s: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test
  */
 export const isSafeRedirectPath = (s: string): boolean =>
   typeof s === 'string' && s.startsWith('/') && !s.startsWith('//')
+
+/**
+ * Formats a count with the singular or plural form of its noun ("1 person", "3 people").
+ *
+ * English only; the plural defaults to the singular plus "s".
+ *
+ * @param count - The number to show.
+ * @param singular - The noun for exactly one.
+ * @param plural - The noun for any other count; defaults to `${singular}s`.
+ * @returns The count and the agreeing noun.
+ */
+export const pluralize = (count: number, singular: string, plural = `${singular}s`): string =>
+  `${count} ${count === 1 ? singular : plural}`

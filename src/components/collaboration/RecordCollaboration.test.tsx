@@ -256,6 +256,6 @@ it('follows and exposes notification preferences and follower count', async () =
   fireEvent.click(bell)
   await waitFor(() => expect(bell).toHaveAttribute('aria-pressed', 'true'))
   fireEvent.click(screen.getByRole('button', { name: 'Follow preferences' }))
-  expect(await screen.findByText('1 followers')).toBeVisible()
+  expect(await screen.findByText('1 follower')).toBeVisible()
   expect(within(screen.getByRole('dialog')).getByLabelText('Notify me about changes')).toBeChecked()
 })

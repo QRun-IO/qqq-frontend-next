@@ -24,6 +24,7 @@ import { useCollaborationPresence } from '@/lib/hooks/use-collaboration-presence
 import { useRealtimeChannel } from '@/lib/hooks/use-realtime-channel'
 import { getRecordFeatures, putAssignment } from '@/lib/api/collaboration'
 import { queryKeys } from '@/lib/query-client'
+import { pluralize } from '@/lib/utils/string-utils'
 import { PresenceAvatars } from './PresenceAvatars'
 import { CollaborationDialog, collaborationButton } from './CollaborationDialog'
 import { PeoplePicker } from './PeoplePicker'
@@ -175,7 +176,7 @@ export function TablePresence({ table, available }: { table: QTableMetaData; ava
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm" data-qqq-id="table-presence">
       <PresenceAvatars viewers={presence.viewers} />
-      <span>{presence.viewers.length} people viewing</span>
+      <span>{pluralize(presence.viewers.length, 'person', 'people')} viewing</span>
     </div>
   )
 }
