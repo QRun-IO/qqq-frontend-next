@@ -22,6 +22,8 @@
  */
 
 import type {
+  ActiveAssistantTurn,
+  AssistantConcurrency,
   AssistantConversation,
   AssistantConversationDetail,
   AssistantConversationUpdate,
@@ -30,29 +32,34 @@ import type {
   AssistantPendingAction,
   AssistantStreamEvent,
 } from '@/types/assistant'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
 const KNOWN_EVENTS = new Set<AssistantStreamEvent['type']>([
-  'message.start', 'text.delta', 'presentation', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
+  'message.start', 'turn.phase', 'text.delta', 'presentation', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
 ])
 
 /** An HTTP error from a streamed request, with the backend's `{ error }` message. */
 export class AssistantHttpError extends Error {
   /** The HTTP status code. */
   readonly status: number
+  /** Machine-readable backend error code, when supplied. */
+  readonly code?: string
 
   /**
    * Creates the error.
    *
    * @param status - The HTTP status code.
    * @param message - The backend's message, or a generic one.
+   * @param code - The backend error code.
    */
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.name = 'AssistantHttpError'
     this.status = status
+    this.code = code
   }
 }
 
@@ -63,7 +70,7 @@ export class AssistantStreamLostError extends Error {
    *
    * @param message - What happened, for the user.
    */
-  constructor(message = 'The connection to the assistant was lost.') {
+  constructor(message = 'Lost connection to the assistant. It may still be answering - reopen the panel to check.') {
     super(message)
     this.name = 'AssistantStreamLostError'
   }
@@ -134,7 +141,27 @@ export async function deleteAssistantConversation(id: number): Promise<void> {
  * @returns The server's acknowledgement.
  */
 export async function cancelAssistantTurn(turnId: number): Promise<{ status: string }> {
-  return apiClient.post<{ status: string }>(`/assistant/turns/${turnId}/cancel`)
+  try {
+    return await apiClient.post<{ status: string }>(`/assistant/turns/${turnId}/cancel`)
+  } catch (error) {
+    if (getErrorStatusCode(error) === 409) return { status: 'FINISHED' }
+    throw error
+  }
+}
+
+/**
+ * Finds running answers, including turns owned by another backend replica.
+ *
+ * @returns Active turns; an older backend's 404 means no discovery information.
+ */
+export async function listActiveAssistantTurns(): Promise<ActiveAssistantTurn[]> {
+  try {
+    const data = await apiClient.get<{ turns: ActiveAssistantTurn[] }>('/assistant/turns/active')
+    return Array.isArray(data.turns) ? data.turns : []
+  } catch (error) {
+    if (getErrorStatusCode(error) === 404) return []
+    throw error
+  }
 }
 
 /**
@@ -209,9 +236,9 @@ export interface AssistantStreamOptions {
   onEvent: (event: AssistantStreamEvent) => void
   /** Aborts the request (not the turn: use {@link cancelAssistantTurn} for that). */
   signal?: AbortSignal
-  /** Resume attempts after a dropped connection without progress (default 3). */
-  maxResumeAttempts?: number
-  /** Base delay before a resume attempt, multiplied by the attempt number (default 1000 ms). */
+  /** Total recovery budget, including resumed connections (default six minutes). */
+  resumeBudgetMs?: number
+  /** Base exponential delay before a resume attempt, capped at 5000 ms (default 1000 ms). */
   resumeDelayMs?: number
 }
 
@@ -238,6 +265,7 @@ interface StreamState {
  * @param conversationId - The conversation.
  * @param body - The user's text and the page context hint.
  * @param body.text - The user's message.
+ * @param body.concurrency - Replace an earlier answer or let both continue.
  * @param body.pageContext - Where the user is, when they have not dismissed it.
  * @param options - Event callback, abort signal and resume tuning.
  * @returns How the turn ended.
@@ -246,16 +274,26 @@ interface StreamState {
  */
 export async function streamAssistantTurn(
   conversationId: number,
-  body: { text: string; pageContext?: AssistantPageContext },
+  body: { text: string; pageContext?: AssistantPageContext; concurrency?: AssistantConcurrency },
   options: AssistantStreamOptions
 ): Promise<AssistantTurnResult> {
   const state: StreamState = { turnId: null, lastSeq: 0, endStatus: null }
   try {
-    const response = await openStream(`/assistant/conversations/${conversationId}/turns`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, options.signal)
+    let response: Response
+    for (let retry = 0; ; retry++) {
+      try {
+        response = await openStream(`/assistant/conversations/${conversationId}/turns`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }, options.signal)
+        break
+      } catch (error) {
+        // SHUTTING_DOWN guarantees that the POST inserted nothing; other failures are ambiguous.
+        if (!(error instanceof AssistantHttpError) || error.status !== 503 || error.code !== 'SHUTTING_DOWN' || retry >= 3) throw error
+        await delay((retry + 1) * 1000, options.signal)
+      }
+    }
     await readStream(response, state, options)
   } catch (error) {
     if (isAbort(error, options.signal)) return result(state, 'ABORTED')
@@ -282,7 +320,7 @@ export async function resumeAssistantTurn(turnId: number, after: number, options
 }
 
 /**
- * Resumes until `message.end` arrives, the request is aborted, or attempts run out.
+ * Resumes until `message.end` arrives, the request is aborted, or the recovery budget runs out.
  *
  * @param state - Stream progress.
  * @param options - Stream options.
@@ -290,33 +328,43 @@ export async function resumeAssistantTurn(turnId: number, after: number, options
  * @returns How the turn ended.
  */
 async function finishWithResume(state: StreamState, options: AssistantStreamOptions, immediate = false): Promise<AssistantTurnResult> {
-  const maxAttempts = options.maxResumeAttempts ?? 3
+  if (state.endStatus) return result(state, state.endStatus)
+  if (options.signal?.aborted) return result(state, 'ABORTED')
+  if (state.turnId === null) throw new AssistantStreamLostError()
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  options.signal?.addEventListener('abort', abort, { once: true })
+  const timer = setTimeout(abort, options.resumeBudgetMs ?? 6 * 60_000)
+  const recoveryOptions = { ...options, signal: controller.signal }
   const baseDelay = options.resumeDelayMs ?? 1000
   let attempts = 0
   let first = immediate
-  while (!state.endStatus) {
-    if (options.signal?.aborted) return result(state, 'ABORTED')
-    if (state.turnId === null || attempts >= maxAttempts) throw new AssistantStreamLostError()
-    attempts++
-    if (!first) {
+  try {
+    while (!state.endStatus) {
+      if (controller.signal.aborted) throw new AssistantStreamLostError()
+      if (!first) await delay(Math.min(baseDelay * 2 ** Math.min(attempts, 10), 5000), controller.signal)
+      first = false
+      const before = state.lastSeq
       try {
-        await delay(baseDelay * attempts, options.signal)
-      } catch {
-        return result(state, 'ABORTED')
+        const response = await openStream(`/assistant/turns/${state.turnId}/events?after=${state.lastSeq}`, { method: 'GET' }, controller.signal)
+        await readStream(response, state, recoveryOptions)
+      } catch (error) {
+        if (controller.signal.aborted) throw error
+        if (error instanceof AssistantHttpError && error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) throw error
       }
+      // Pings keep the transport alive, but never advance the persisted event cursor or budget.
+      attempts = state.lastSeq > before ? 0 : attempts + 1
     }
-    first = false
-    const before = state.lastSeq
-    try {
-      const response = await openStream(`/assistant/turns/${state.turnId}/events?after=${state.lastSeq}`, { method: 'GET' }, options.signal)
-      await readStream(response, state, options)
-    } catch (error) {
-      if (isAbort(error, options.signal)) return result(state, 'ABORTED')
-      if (error instanceof AssistantHttpError && error.status !== 503 && error.status < 500) throw error
-    }
-    if (state.lastSeq > before) attempts = 0
+    return result(state, state.endStatus)
+  } catch (error) {
+    if (options.signal?.aborted) return result(state, 'ABORTED')
+    if (controller.signal.aborted) throw new AssistantStreamLostError()
+    throw error
+  } finally {
+    clearTimeout(timer)
+    options.signal?.removeEventListener('abort', abort)
+    controller.abort()
   }
-  return result(state, state.endStatus)
 }
 
 /**
@@ -350,7 +398,8 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
   })
   if (!response.ok) {
     if (response.status === 401) apiClient.notifyUnauthorized()
-    throw new AssistantHttpError(response.status, await errorMessage(response))
+    const failure = await errorMessage(response)
+    throw new AssistantHttpError(response.status, failure.message, failure.code)
   }
   if (!response.body) throw new AssistantStreamLostError('This browser cannot read streamed responses.')
   return response
@@ -362,14 +411,14 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
  * @param response - The failed response.
  * @returns The message, or a generic one with the status.
  */
-async function errorMessage(response: Response): Promise<string> {
+async function errorMessage(response: Response): Promise<{ message: string; code?: string }> {
   try {
-    const body = (await response.json()) as { error?: unknown }
-    if (typeof body?.error === 'string' && body.error.trim()) return body.error.trim()
+    const body = (await response.json()) as { error?: unknown; code?: unknown }
+    if (typeof body?.error === 'string' && body.error.trim()) return { message: body.error.trim(), code: typeof body.code === 'string' ? body.code : undefined }
   } catch {
     // not JSON
   }
-  return `The assistant request failed (HTTP ${response.status}).`
+  return { message: `The assistant request failed (HTTP ${response.status}).` }
 }
 
 /**
@@ -381,6 +430,9 @@ async function errorMessage(response: Response): Promise<string> {
  */
 async function readStream(response: Response, state: StreamState, options: AssistantStreamOptions): Promise<void> {
   const reader = (response.body as ReadableStream<Uint8Array>).getReader()
+  const abort = () => { void reader.cancel().catch(() => undefined) }
+  options.signal?.addEventListener('abort', abort, { once: true })
+  if (options.signal?.aborted) abort()
   const decoder = new TextDecoder()
   const parser = new SseParser()
   try {
@@ -394,6 +446,7 @@ async function readStream(response: Response, state: StreamState, options: Assis
       if (done) return
     }
   } finally {
+    options.signal?.removeEventListener('abort', abort)
     parser.end()
     reader.cancel().catch(() => undefined)
   }

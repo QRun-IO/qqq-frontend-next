@@ -32,6 +32,7 @@ import {
   getAssistantConfig,
   getAssistantConversation,
   listAssistantConversations,
+  listActiveAssistantTurns,
   resumeAssistantTurn,
   sendAssistantFeedback,
   streamAssistantTurn,
@@ -268,7 +269,7 @@ describe('streamAssistantTurn', () => {
     expect(result.status).toBe('COMPLETE')
   })
 
-  it('retries a failing resume and gives up after the attempts without progress', async () => {
+  it('retries a failing resume and gives up after the recovery budget without progress', async () => {
     let calls = 0
     server.use(
       http.post(`${BASE}/conversations/4/turns`, () => streamResponse(sse(START))),
@@ -277,9 +278,9 @@ describe('streamAssistantTurn', () => {
         return calls === 1 ? HttpResponse.error() : HttpResponse.json({ error: 'unavailable' }, { status: 503 })
       })
     )
-    await expect(streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn(), resumeDelayMs: 1, maxResumeAttempts: 2 }))
+    await expect(streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn(), resumeDelayMs: 1, resumeBudgetMs: 100 }))
       .rejects.toBeInstanceOf(AssistantStreamLostError)
-    expect(calls).toBe(2)
+    expect(calls).toBeGreaterThan(1)
   })
 
   it('does not resume a stream that dropped before the turn id was known', async () => {
@@ -341,5 +342,110 @@ describe('resumeAssistantTurn', () => {
     const controller = new AbortController()
     controller.abort()
     await expect(resumeAssistantTurn(9, 0, { onEvent: vi.fn(), signal: controller.signal })).resolves.toMatchObject({ status: 'ABORTED' })
+  })
+})
+
+
+describe('turn recovery contracts', () => {
+  it('discovers active turns and silently supports an older backend', async () => {
+    const turn = { turnId: 9, conversationId: 4, assistantMessageId: 11, userMessageId: 10, status: 'RUNNING', phase: 'thinking', startedAt: '2026-10-14T12:00:00Z', heartbeatAt: '2026-10-14T12:00:10Z', elapsedMs: 10000, live: true, concurrencyMode: 'supersede' }
+    server.use(http.get(`${BASE}/turns/active`, () => HttpResponse.json({ turns: [turn] })))
+    await expect(listActiveAssistantTurns()).resolves.toEqual([turn])
+    server.use(http.get(`${BASE}/turns/active`, () => HttpResponse.json({ error: 'Not found' }, { status: 404 })))
+    await expect(listActiveAssistantTurns()).resolves.toEqual([])
+    server.use(http.get(`${BASE}/turns/active`, () => HttpResponse.json({ error: 'Denied' }, { status: 403 })))
+    await expect(listActiveAssistantTurns()).rejects.toThrow('Denied')
+  })
+
+  it('treats old cancel 409 as finished, without swallowing other errors', async () => {
+    server.use(http.post(`${BASE}/turns/9/cancel`, () => HttpResponse.json({ error: 'already finished' }, { status: 409 })))
+    await expect(cancelAssistantTurn(9)).resolves.toEqual({ status: 'FINISHED' })
+    server.use(http.post(`${BASE}/turns/9/cancel`, () => HttpResponse.json({ error: 'Denied' }, { status: 403 })))
+    await expect(cancelAssistantTurn(9)).rejects.toThrow('Denied')
+  })
+
+  it('resumes across a pod switch and a 503 without duplicate text', async () => {
+    let calls = 0
+    const texts: string[] = []
+    const cursors: string[] = []
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => streamResponse(sse(START, DELTA_A))),
+      http.get(`${BASE}/turns/9/events`, ({ request }) => {
+        cursors.push(new URL(request.url).searchParams.get('after') ?? '')
+        return ++calls === 1 ? HttpResponse.json({ error: 'Restarting' }, { status: 503 }) : streamResponse(sse(START, DELTA_A, DELTA_B, END))
+      }),
+    )
+    await expect(streamAssistantTurn(4, { text: 'Hi' }, {
+      resumeDelayMs: 1, onEvent: (event) => { if (event.type === 'text.delta') texts.push(event.text) },
+    })).resolves.toMatchObject({ status: 'COMPLETE' })
+    expect(texts.join('')).toBe('Hello world')
+    expect(cursors).toEqual(['2', '2'])
+  })
+
+  it('continues beyond three empty resumes and accepts phase events', async () => {
+    let calls = 0
+    const phases: string[] = []
+    server.use(http.get(`${BASE}/turns/9/events`, () => ++calls <= 4 ? streamResponse(sse(['ping', {}])) : streamResponse(sse(
+      ['turn.phase', { seq: 1, phase: 'tool', toolName: 'query_records', label: 'Search records' }], END,
+    ))))
+    await expect(resumeAssistantTurn(9, 0, { resumeDelayMs: 1, onEvent: (event) => { if (event.type === 'turn.phase') phases.push(event.label ?? '') } })).resolves.toMatchObject({ status: 'COMPLETE' })
+    expect(calls).toBe(5)
+    expect(phases).toEqual(['Search records'])
+  })
+
+  it('ends ping-only reconnects at the budget without moving the replay cursor', async () => {
+    const cursors: string[] = []
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => streamResponse(sse(START, ['ping', { seq: 99 }]))),
+      http.get(`${BASE}/turns/9/events`, ({ request }) => {
+        cursors.push(new URL(request.url).searchParams.get('after') ?? '')
+        return streamResponse(sse(['ping', { seq: 100 }]))
+      }),
+    )
+    await expect(streamAssistantTurn(4, { text: 'Hi' }, { resumeDelayMs: 1, resumeBudgetMs: 100, onEvent: vi.fn() })).rejects.toThrow('Lost connection to the assistant.')
+    expect(cursors.length).toBeGreaterThan(1)
+    expect(new Set(cursors)).toEqual(new Set(['1']))
+  })
+
+  it('also bounds a resumed connection that never closes', async () => {
+    server.use(http.get(`${BASE}/turns/9/events`, () => new HttpResponse(new ReadableStream({
+      start(controller) { controller.enqueue(new TextEncoder().encode(sse(['ping', {}]))) },
+    }), { headers: { 'Content-Type': 'text/event-stream' } })))
+    await expect(resumeAssistantTurn(9, 0, { resumeBudgetMs: 50, onEvent: vi.fn() })).rejects.toBeInstanceOf(AssistantStreamLostError)
+  })
+
+  it.each([408, 429])('retries resumable HTTP %i', async (status) => {
+    let calls = 0
+    server.use(http.get(`${BASE}/turns/9/events`, () => ++calls === 1 ? HttpResponse.json({ error: 'Try again' }, { status }) : streamResponse(sse(END))))
+    await expect(resumeAssistantTurn(9, 0, { resumeDelayMs: 1, onEvent: vi.fn() })).resolves.toMatchObject({ status: 'COMPLETE' })
+    expect(calls).toBe(2)
+  })
+
+  it('retries a shutdown start and preserves the concurrency choice', async () => {
+    const requests: unknown[] = []
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      requests.push(await request.json())
+      return requests.length === 1 ? HttpResponse.json({ error: 'Restarting', code: 'SHUTTING_DOWN' }, { status: 503 }) : streamResponse(sse(START, END))
+    }))
+    await expect(streamAssistantTurn(4, { text: 'Hi', concurrency: 'concurrent' }, { onEvent: vi.fn() })).resolves.toMatchObject({ status: 'COMPLETE' })
+    expect(requests).toEqual([{ text: 'Hi', concurrency: 'concurrent' }, { text: 'Hi', concurrency: 'concurrent' }])
+  })
+
+  it('limits shutdown retries to three with one, two and three second delays', async () => {
+    const times: number[] = []
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => {
+      times.push(Date.now())
+      return HttpResponse.json({ error: 'Restarting', code: 'SHUTTING_DOWN' }, { status: 503 })
+    }))
+    await expect(streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn() })).rejects.toThrow('Restarting')
+    expect(times).toHaveLength(4)
+    for (let i = 1; i < times.length; i++) expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(i * 1000 - 10)
+  }, 10_000)
+
+  it('does not retry an ambiguous start failure', async () => {
+    const post = vi.fn(() => HttpResponse.json({ error: 'Unknown failure' }, { status: 503 }))
+    server.use(http.post(`${BASE}/conversations/4/turns`, post))
+    await expect(streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn() })).rejects.toThrow('Unknown failure')
+    expect(post).toHaveBeenCalledTimes(1)
   })
 })
