@@ -115,6 +115,15 @@ it('sanitizes HTML, active links and remote images in markdown preview', () => {
   expect(screen.getByText('Safe').tagName).toBe('STRONG')
   expect(container.querySelector('[data-qqq-id="mention-chip"]')).toHaveTextContent('Sam')
 })
+it('renders each mention as one unbreakable @Name chip with no stray @', () => {
+  const { container } = mount(
+    <CollaborationMarkdown body={'Thanks @[Alice Morgan](user:alice), and [Bob](user:bob).'} />
+  )
+  const chips = container.querySelectorAll('[data-qqq-id="mention-chip"]')
+  expect([...chips].map((chip) => chip.textContent)).toEqual(['@Alice Morgan', '@Bob'])
+  expect(chips[0]).toHaveClass('whitespace-nowrap')
+  expect(container.textContent).toBe('Thanks @Alice Morgan, and @Bob.')
+})
 it('rejects oversized files before uploading', async () => {
   mount(<FilesTab record={record} features={features} />)
   await screen.findByText('No files yet.')
