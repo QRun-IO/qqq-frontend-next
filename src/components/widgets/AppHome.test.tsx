@@ -67,14 +67,15 @@ describe('AppHome', () => {
   })
 
   it.each([
-    { widgets: ['navigation'], hint: undefined, visible: false },
-    { widgets: undefined, hint: undefined, visible: true },
-    { widgets: [], hint: undefined, visible: true },
-    { widgets: ['navigation'], hint: true, visible: true },
-    { widgets: [], hint: false, visible: false },
-    { widgets: ['navigation'], hint: 'true', visible: false },
-    { widgets: [], hint: 'false', visible: true },
-  ])('sets both automatic grids to $visible for widgets=$widgets and hint=$hint', ({ widgets, hint, visible }) => {
+    { widgets: ['navigation'], hint: undefined, apps: false, sections: true },
+    { widgets: undefined, hint: undefined, apps: true, sections: true },
+    { widgets: [], hint: undefined, apps: true, sections: true },
+    { widgets: ['navigation'], hint: true, apps: true, sections: true },
+    { widgets: [], hint: false, apps: false, sections: false },
+    { widgets: ['navigation'], hint: false, apps: false, sections: false },
+    { widgets: ['navigation'], hint: 'true', apps: false, sections: true },
+    { widgets: [], hint: 'false', apps: true, sections: true },
+  ])('shows Apps=$apps and sections=$sections for widgets=$widgets and hint=$hint', ({ widgets, hint, apps, sections }) => {
     renderHome({
       name: 'parent', label: 'Parent', widgets,
       children: [{ name: 'childApp', label: 'Child App', type: 'APP' }],
@@ -82,16 +83,15 @@ describe('AppHome', () => {
       supplementalAppMetaData: { nextUi: { showChildGrid: hint } },
     }, instance, { navigation: { name: 'navigation', label: 'Navigation', hasPermission: true } })
 
-    for (const region of ['Apps', 'App Data']) {
-      expect(Boolean(screen.queryByRole('region', { name: region }))).toBe(visible)
-    }
+    expect(Boolean(screen.queryByRole('region', { name: 'Apps' }))).toBe(apps)
+    expect(Boolean(screen.queryByRole('region', { name: 'App Data' }))).toBe(sections)
     expect(Boolean(screen.queryByText('App navigation widget'))).toBe(Boolean(widgets?.length))
-    expect(Boolean(screen.queryByText('No dashboard content configured for this app'))).toBe(!visible && !widgets?.length)
+    expect(Boolean(screen.queryByText('No dashboard content configured for this app'))).toBe(!apps && !sections && !widgets?.length)
   })
 
-  it('hides automatic grids for declared widgets absent from the registry, including leaf-child sections', () => {
+  it('hides automatic grids for declared widgets absent from the registry when the hint turns them off', () => {
     renderHome({
-      name: 'parent', label: 'Parent', widgets: ['unavailable'],
+      name: 'parent', label: 'Parent', widgets: ['unavailable'], supplementalAppMetaData: { nextUi: { showChildGrid: false } },
       children: [
         { name: 'childApp', label: 'Child App', type: 'APP' },
         { name: 'uncountable', label: 'Uncountable', type: 'TABLE' },

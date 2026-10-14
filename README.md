@@ -65,13 +65,14 @@ Served from the jar there is nothing to configure in the frontend: it calls the 
 
 ### App home navigation grids
 
-App homes show automatic child-app ("Apps") and section ("Actions", "Reports", "Data")
-card grids only when the app declares no widgets (`widgets` is omitted or empty).
-Declaring one or more widgets hides both grids, even if a declared widget is unavailable
-to the current user, so widget-based navigation is not duplicated.
+App homes show automatic section ("Actions", "Reports", "Data") and child-app ("Apps")
+card grids. When the app declares one or more widgets, the "Apps" grid is left out (even if
+a declared widget is unavailable to the current user), so widget-based navigation is not
+duplicated; the section grids stay.
 
 Set `supplementalAppMetaData.nextUi.showChildGrid` on the app to override this default:
-`true` shows both grids alongside widgets; `false` hides both grids even without widgets.
+`true` shows both grids alongside widgets; `false` hides both grids, for a home whose
+widgets already cover its sections and child apps.
 Only boolean values override the default. Existing visibility and permission rules still apply.
 
 ### Known limitations
