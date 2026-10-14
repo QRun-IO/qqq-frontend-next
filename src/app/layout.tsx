@@ -29,6 +29,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Providers from './providers'
+import { themeScript } from '@/lib/theme/theme-script'
 import '@/styles/globals.css'
 
 /** Inter font configuration with the CSS variable `--font-inter`. */
@@ -71,6 +72,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <Providers>{children}</Providers>
       </body>
     </html>

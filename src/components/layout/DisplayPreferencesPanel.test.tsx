@@ -15,15 +15,21 @@
  */
 
 import React from 'react'
-import { beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { DisplayPreferencesPanel } from './DisplayPreferencesPanel'
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+    matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  }))
+})
+afterEach(() => vi.unstubAllGlobals())
 
-it('applies the selected appearance immediately, restores it on remount, and resets to light', async () => {
+it('applies the selected appearance immediately, restores it on remount, and resets to System', async () => {
   const user = userEvent.setup()
   const dialog = (
     <ThemeProvider>
@@ -31,7 +37,7 @@ it('applies the selected appearance immediately, restores it on remount, and res
     </ThemeProvider>
   )
   const first = render(dialog)
-  expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
+  expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
   await user.click(screen.getByRole('radio', { name: 'Dark' }))
   expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
   expect(localStorage.getItem('qqq-dark-mode')).toBe('true')
@@ -39,8 +45,9 @@ it('applies the selected appearance immediately, restores it on remount, and res
   render(dialog)
   expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
   await user.click(screen.getByRole('button', { name: 'Reset to Defaults' }))
-  expect(document.documentElement).toHaveAttribute('data-theme', 'light')
-  expect(localStorage.getItem('qqq-dark-mode')).toBe('false')
+  expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  expect(localStorage.getItem('qqq-dark-mode')).toBeNull()
+  expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
 })
 
 it('explains an application theme restriction and can reset a saved dark preference', async () => {
@@ -51,10 +58,24 @@ it('explains an application theme restriction and can reset a saved dark prefere
       <DisplayPreferencesPanel />
     </ThemeProvider>
   )
-  expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
+  expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
   expect(screen.getByRole('radio', { name: 'Dark' })).toBeDisabled()
   expect(screen.getByText(/application theme requires light mode/i)).toBeVisible()
   expect(document.documentElement).toHaveAttribute('data-theme', 'light')
   await user.click(screen.getByRole('button', { name: 'Reset to Defaults' }))
+  expect(localStorage.getItem('qqq-dark-mode')).toBeNull()
+  expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
+})
+
+it('selects explicit Light and returns to the OS with System', async () => {
+  const user = userEvent.setup()
+  render(<ThemeProvider><DisplayPreferencesPanel /></ThemeProvider>)
+  expect(screen.getByRole('button', { name: 'Reset to Defaults' })).toBeDisabled()
+  await user.click(screen.getByRole('radio', { name: 'Light' }))
   expect(localStorage.getItem('qqq-dark-mode')).toBe('false')
+  expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+  expect(screen.getByRole('button', { name: 'Reset to Defaults' })).toBeEnabled()
+  await user.click(screen.getByRole('radio', { name: 'System' }))
+  expect(localStorage.getItem('qqq-dark-mode')).toBeNull()
+  expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
 })

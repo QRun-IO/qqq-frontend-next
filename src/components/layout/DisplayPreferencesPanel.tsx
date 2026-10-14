@@ -60,10 +60,10 @@ const RECORD_VIEW_OPTIONS = [
 export function DisplayPreferencesPanel() {
   const { preferences, updatePreference, resetPreferences, defaults } = useUserPreferences()
 
-  const { theme, isDarkMode, darkModePreference, setDarkMode } = useTheme()
+  const { theme, darkModePreference, setDarkMode } = useTheme()
 
   const isDefault =
-    !darkModePreference &&
+    darkModePreference === null &&
     preferences.tableDefaultPageSize === defaults.tableDefaultPageSize &&
     preferences.tableDefaultDensity === defaults.tableDefaultDensity &&
     preferences.tableDefaultViewMode === defaults.tableDefaultViewMode &&
@@ -79,12 +79,12 @@ export function DisplayPreferencesPanel() {
       >
         <legend className="text-sm font-semibold text-foreground">Appearance</legend>
         <div className="flex gap-2">
-          {(['Light', 'Dark'] as const).map((mode) => (
+          {(['System', 'Light', 'Dark'] as const).map((mode) => (
             <label
               key={mode}
               className={cn(
                 'flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm font-medium',
-                isDarkMode === (mode === 'Dark')
+                darkModePreference === (mode === 'System' ? null : mode === 'Dark')
                   ? 'border-primary/40 bg-primary/10'
                   : 'border-border',
                 theme ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-accent'
@@ -94,8 +94,8 @@ export function DisplayPreferencesPanel() {
                 type="radio"
                 name="appearance"
                 value={mode.toLowerCase()}
-                checked={isDarkMode === (mode === 'Dark')}
-                onChange={() => setDarkMode(mode === 'Dark')}
+                checked={darkModePreference === (mode === 'System' ? null : mode === 'Dark')}
+                onChange={() => setDarkMode(mode === 'System' ? null : mode === 'Dark')}
                 className="h-4 w-4 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 data-qqq-id={`pref-appearance-${mode.toLowerCase()}`}
               />
@@ -106,7 +106,7 @@ export function DisplayPreferencesPanel() {
         <p id="appearance-description" className="text-xs text-muted-foreground">
           {theme
             ? 'This application theme requires light mode. Your saved appearance choice is kept for when the theme is removed.'
-            : 'Saved automatically for this site in this browser. Other browsers and devices keep their own choice.'}
+            : 'System follows your device appearance. Saved automatically for this site in this browser. Other browsers and devices keep their own choice.'}
         </p>
       </fieldset>
 
@@ -193,7 +193,7 @@ export function DisplayPreferencesPanel() {
           type="button"
           onClick={() => {
             resetPreferences()
-            setDarkMode(false)
+            setDarkMode(null)
           }}
           disabled={isDefault}
           className={cn(
