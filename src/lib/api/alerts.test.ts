@@ -25,7 +25,7 @@ import { getAlertsInbox, getAlertsInboxSummary, getAlertsRecordPanel, normalizeI
 describe('getAlertsInboxSummary', () => {
   it('returns the summary, with defaults filled in', async () => {
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json({ unreadCount: 1, items: [] })))
-    await expect(getAlertsInboxSummary()).resolves.toEqual({ unreadCount: 1, highestUnreadSeverity: null, items: [], banners: [], notificationsHref: '/app/notifications', pollSeconds: undefined })
+    await expect(getAlertsInboxSummary()).resolves.toEqual({ unreadCount: 1, highestUnreadSeverity: null, items: [], banners: [], notificationsHref: '/app/notifications', preferencesSection: null, pollSeconds: undefined })
   })
 
   it('normalizes items and banners, and keeps an app notificationsHref', async () => {
@@ -33,6 +33,7 @@ describe('getAlertsInboxSummary', () => {
       unreadCount: 1,
       highestUnreadSeverity: 'SUCCESS',
       notificationsHref: '/app/inbox',
+      preferencesSection: 'notifications',
       pollSeconds: 30,
       items: [{ id: 3, title: 'Hi', severity: 'SUCCESS', category: 'JOB', source: 'Jobs', unread: true }, { title: '' }, null],
       banners: [{ id: 4, title: 'Down tonight', severity: 'WARNING', body: '**soon**', sticky: true }],
@@ -41,6 +42,7 @@ describe('getAlertsInboxSummary', () => {
     expect(summary?.highestUnreadSeverity).toBe('SUCCESS')
     expect(summary?.notificationsHref).toBe('/app/inbox')
     expect(summary?.pollSeconds).toBe(30)
+    expect(summary?.preferencesSection).toBe('notifications')
     expect(summary?.items).toEqual([expect.objectContaining({ key: 'n3', id: 3, title: 'Hi', category: 'JOB', source: 'Jobs', unread: true })])
     expect(summary?.banners).toEqual([expect.objectContaining({ key: 'n4', body: '**soon**', sticky: true, unread: false })])
 
