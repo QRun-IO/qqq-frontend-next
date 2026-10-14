@@ -192,6 +192,11 @@ export const queryKeys = {
    * @returns The section key.
    */
   preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
+  collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
+  collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
+  collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
+  collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
+  collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
@@ -521,6 +526,12 @@ export const queryKeys = {
    */
   esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
     [...queryKeys.esb(), 'messages', kind, name, offset] as const,
+
+  /** Analysis namespace for a table.
+   * @param table - Metadata table name.
+   * @returns The query key.
+   */
+  dataAnalysis: (table: string) => [...queryKeys.all(), 'data-analysis', table] as const,
 
   // SQL Workbench
   /**

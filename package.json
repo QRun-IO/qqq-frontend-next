@@ -1,6 +1,6 @@
 {
   "name": "qqq-frontend-next",
-  "version": "1.0.0-RC.19",
+  "version": "1.0.0-RC.20",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
@@ -63,6 +63,8 @@
     "react-markdown": "10.1.0",
     "recharts": "^2.15.4",
     "rehype-sanitize": "6.0.0",
+    "remark-breaks": "4.0.0",
+    "remark-gfm": "4.0.1",
     "sonner": "^2.0.7",
     "sql-formatter": "15.6.6",
     "tailwind-merge": "^3.5.0",

@@ -35,7 +35,7 @@ import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
 const KNOWN_EVENTS = new Set<AssistantStreamEvent['type']>([
-  'message.start', 'text.delta', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
+  'message.start', 'text.delta', 'presentation', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
 ])
 
 /** An HTTP error from a streamed request, with the backend's `{ error }` message. */

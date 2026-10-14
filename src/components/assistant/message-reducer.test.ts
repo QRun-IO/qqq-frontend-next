@@ -40,6 +40,13 @@ function apply(...events: AssistantStreamEvent[]): { messages: AssistantMessage[
 const START: AssistantStreamEvent = { type: 'message.start', seq: 1, turnId: 9, conversationId: 4, userMessageId: 10, messageId: 11 }
 
 describe('reduceStreamEvent', () => {
+  it('appends a presentation to its message and makes its summary available to announcements', () => {
+    const part = { type: 'presentation' as const, summary: '101 images.', markdown: '101 images.', blocks: [] }
+    const { messages } = apply(START, { type: 'presentation', seq: 2, messageId: 11, part })
+    expect(messages[1].parts).toEqual([part])
+    expect(messageText(messages[1])).toBe('\n101 images.\n')
+  })
+
   it('swaps temporary ids for the server ids on message.start', () => {
     const { messages, ids } = apply(START)
     expect(messages.map((message) => [message.id, message.turnId])).toEqual([[10, 9], [11, 9]])

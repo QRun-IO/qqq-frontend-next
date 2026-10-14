@@ -1,0 +1,499 @@
+/*
+ * Copyright 2026 QRun.IO, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/** @file Types transcribed from qbit-data-analysis OpenAPI data-analysis.yaml. Optionality, enums and nullability follow the contract, including nullable array items. */
+
+/** DataAnalysisAxisV1 wire schema. */
+export type DataAnalysisAxisV1 = {
+  /** Field. */
+  field?: string | null
+  /** Label. */
+  label?: string | null
+  /** Value type. */
+  valueType?: 'COUNT' | 'DECIMAL' | 'PERCENT' | 'DATE' | 'DATE_TIME' | 'DURATION' | 'TEXT' | null
+} | null
+
+/** DataAnalysisCandidateKeyV1 wire schema. */
+export type DataAnalysisCandidateKeyV1 = {
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields?: Array<string> | null
+  /** Row count. */
+  rowCount?: number | null
+  /** Open the matching records using this table and QueryFilter; null when suppressed. */
+  drill?: DataAnalysisDrillV1 | null
+} | null
+
+/** DataAnalysisCapabilitiesV1 wire schema. */
+export type DataAnalysisCapabilitiesV1 = {
+  /** Whether this session may analyze the table; false responses expose no fields. */
+  canAnalyze?: boolean | null
+  /** Table name. */
+  tableName?: string | null
+  /** Table label. */
+  tableLabel?: string | null
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields?: Array<DataAnalysisCapabilityFieldV1> | null
+  /** Limits. */
+  limits?: DataAnalysisLimitsV1 | null
+  /** Backend capabilities. */
+  backendCapabilities?: Array<string> | null
+  /** Whether SQL Workbench metadata is installed in this instance. */
+  sqlWorkbenchAvailable?: boolean | null
+} | null
+
+/** DataAnalysisCapabilityFieldV1 wire schema. */
+export type DataAnalysisCapabilityFieldV1 = {
+  /** Name. */
+  name?: string | null
+  /** Label. */
+  label?: string | null
+  /** Type. */
+  type?: string | null
+  /** Semantic field kind: NUMERIC, DATE, DATE_TIME, TEXT, BOOLEAN or CATEGORY. */
+  kind?: string | null
+  /** Default chart kind. */
+  defaultChartKind?:
+    | 'HISTOGRAM'
+    | 'BOX'
+    | 'BAR'
+    | 'PARETO'
+    | 'TIME_SERIES'
+    | 'SCATTER'
+    | 'HEATMAP'
+    | null
+} | null
+
+/** DataAnalysisChartV1 wire schema. */
+export type DataAnalysisChartV1 = {
+  /** Semantic field kind: NUMERIC, DATE, DATE_TIME, TEXT, BOOLEAN or CATEGORY. */
+  kind?: 'HISTOGRAM' | 'BOX' | 'BAR' | 'PARETO' | 'TIME_SERIES' | 'SCATTER' | 'HEATMAP' | null
+  /** Alternatives. */
+  alternatives?: Array<
+    'HISTOGRAM' | 'BOX' | 'BAR' | 'PARETO' | 'TIME_SERIES' | 'SCATTER' | 'HEATMAP'
+  > | null
+  /** X. */
+  x?: DataAnalysisAxisV1 | null
+  /** Y. */
+  y?: DataAnalysisAxisV1 | null
+  /** Series. */
+  series?: Array<DataAnalysisSeriesV1> | null
+  /** Annotations. */
+  annotations?: Array<string> | null
+} | null
+
+/** DataAnalysisColumnProfileRequestV1 wire schema. */
+export type DataAnalysisColumnProfileRequestV1 = {
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter
+  /** Request exact computation instead of the configured estimate. */
+  exact?: boolean
+  /** Readable field name to profile or enumerate. */
+  fieldName: string
+}
+
+/** DataAnalysisColumnProfileV1 wire schema. */
+export type DataAnalysisColumnProfileV1 = {
+  /** Table name. */
+  tableName?: string | null
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter | null
+  /** True when statistics describe a sample rather than the entire filtered population. */
+  estimate?: boolean | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+  /** True when the row limit prevented a complete scan. */
+  truncated?: boolean | null
+  /** Number of source rows included in computation. */
+  rowsScanned?: number | null
+  /** As of. */
+  asOf?: string | null
+  /** Data version. */
+  dataVersion?: string | null
+  /** Warnings. */
+  warnings?: Array<string> | null
+  /** Readable field name to profile or enumerate. */
+  fieldName?: string | null
+  /** Field label. */
+  fieldLabel?: string | null
+  /** Field type. */
+  fieldType?: string | null
+  /** Counts. */
+  counts?: Array<DataAnalysisMetricV1> | null
+  /** Numeric. */
+  numeric?: DataAnalysisNumericProfileV1 | null
+  /** Dates. */
+  dates?: DataAnalysisDateProfileV1 | null
+  /** Text. */
+  text?: DataAnalysisTextProfileV1 | null
+  /** Booleans. */
+  booleans?: Array<DataAnalysisMetricV1> | null
+  /** Top values. */
+  topValues?: Array<DataAnalysisValueCountV1> | null
+  /** Chart. */
+  chart?: DataAnalysisChartV1 | null
+} | null
+
+/** DataAnalysisDateProfileV1 wire schema. */
+export type DataAnalysisDateProfileV1 = {
+  /** Metrics. */
+  metrics?: Array<DataAnalysisMetricV1> | null
+  /** Unit. */
+  unit?: string | null
+  /** Buckets. */
+  buckets?: Array<DataAnalysisValueCountV1> | null
+  /** Gaps. */
+  gaps?: Array<DataAnalysisValueCountV1> | null
+  /** Day of week. */
+  dayOfWeek?: Array<DataAnalysisValueCountV1> | null
+  /** Hour of day. */
+  hourOfDay?: Array<DataAnalysisValueCountV1> | null
+} | null
+
+/** DataAnalysisDistinctValuesPageV1 wire schema. */
+export type DataAnalysisDistinctValuesPageV1 = {
+  /** Table name. */
+  tableName?: string | null
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter | null
+  /** True when statistics describe a sample rather than the entire filtered population. */
+  estimate?: boolean | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+  /** True when the row limit prevented a complete scan. */
+  truncated?: boolean | null
+  /** Number of source rows included in computation. */
+  rowsScanned?: number | null
+  /** As of. */
+  asOf?: string | null
+  /** Data version. */
+  dataVersion?: string | null
+  /** Warnings. */
+  warnings?: Array<string> | null
+  /** Readable field name to profile or enumerate. */
+  fieldName?: string | null
+  /** Zero-based page number. */
+  page?: number | null
+  /** Maximum values per page, from 1 to 500. */
+  pageSize?: number | null
+  /** Has more. */
+  hasMore?: boolean | null
+  /** Total distinct. */
+  totalDistinct?: number | null
+  /** Values. */
+  values?: Array<DataAnalysisValueCountV1> | null
+} | null
+
+/** DataAnalysisDistinctValuesRequestV1 wire schema. */
+export type DataAnalysisDistinctValuesRequestV1 = {
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter
+  /** Readable field name to profile or enumerate. */
+  fieldName: string
+  /** Zero-based page number. */
+  page?: number
+  /** Maximum values per page, from 1 to 500. */
+  pageSize?: number
+  /** Optional search text applied to stored values. */
+  search?: string
+}
+
+/** DataAnalysisDrillV1 wire schema. */
+export type DataAnalysisDrillV1 = {
+  /** Table name. */
+  tableName?: string | null
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter | null
+} | null
+
+/** DataAnalysisDuplicatesRequestV1 wire schema. */
+export type DataAnalysisDuplicatesRequestV1 = {
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields: Array<string>
+  /** Maximum duplicate groups to return, from 1 to 500; default 50. */
+  limit?: number
+}
+
+/** DataAnalysisDuplicatesResultV1 wire schema. */
+export type DataAnalysisDuplicatesResultV1 = {
+  /** Table name. */
+  tableName?: string | null
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter | null
+  /** True when statistics describe a sample rather than the entire filtered population. */
+  estimate?: boolean | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+  /** True when the row limit prevented a complete scan. */
+  truncated?: boolean | null
+  /** Number of source rows included in computation. */
+  rowsScanned?: number | null
+  /** As of. */
+  asOf?: string | null
+  /** Data version. */
+  dataVersion?: string | null
+  /** Warnings. */
+  warnings?: Array<string> | null
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields?: Array<string> | null
+  /** Groups. */
+  groups?: Array<DataAnalysisValueCountV1> | null
+} | null
+
+/** DataAnalysisFieldSummaryV1 wire schema. */
+export type DataAnalysisFieldSummaryV1 = {
+  /** Field. */
+  field?: string | null
+  /** Label. */
+  label?: string | null
+  /** Type. */
+  type?: string | null
+  /** Completeness. */
+  completeness?: number | null
+  /** Distinct. */
+  distinct?: number | null
+  /** Uniqueness. */
+  uniqueness?: number | null
+  /** Constant. */
+  constant?: boolean | null
+  /** Empty. */
+  empty?: boolean | null
+  /** Nulls. */
+  nulls?: DataAnalysisMetricV1 | null
+  /** Blanks. */
+  blanks?: DataAnalysisMetricV1 | null
+} | null
+
+/** DataAnalysisLimitsV1 wire schema. */
+export type DataAnalysisLimitsV1 = {
+  /** Max rows. */
+  maxRows?: number | null
+  /** Sample threshold rows. */
+  sampleThresholdRows?: number | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+  /** Min group size. */
+  minGroupSize?: number | null
+} | null
+
+/** DataAnalysisMetricV1 wire schema. */
+export type DataAnalysisMetricV1 = {
+  /** Key. */
+  key?: string | null
+  /** Label. */
+  label?: string | null
+  /** Value. */
+  value?: string | number | boolean | Record<string, unknown> | null
+  /** Value type. */
+  valueType?: 'COUNT' | 'DECIMAL' | 'PERCENT' | 'DATE' | 'DATE_TIME' | 'DURATION' | 'TEXT' | null
+  /** Formatted. */
+  formatted?: string | null
+  /** Open the matching records using this table and QueryFilter; null when suppressed. */
+  drill?: DataAnalysisDrillV1 | null
+  /** Suppressed. */
+  suppressed?: boolean | null
+  /** Suppressed reason. */
+  suppressedReason?: string | null
+} | null
+
+/** DataAnalysisNumericProfileV1 wire schema. */
+export type DataAnalysisNumericProfileV1 = {
+  /** Metrics. */
+  metrics?: Array<DataAnalysisMetricV1> | null
+  /** Histogram. */
+  histogram?: Array<DataAnalysisValueCountV1> | null
+  /** Outliers. */
+  outliers?: Array<DataAnalysisValueCountV1> | null
+} | null
+
+/** DataAnalysisPointV1 wire schema. */
+export type DataAnalysisPointV1 = {
+  /** X. */
+  x?: string | number | boolean | Record<string, unknown> | null
+  /** Y. */
+  y?: number | null
+  /** Label. */
+  label?: string | null
+  /** Open the matching records using this table and QueryFilter; null when suppressed. */
+  drill?: DataAnalysisDrillV1 | null
+} | null
+
+/** DataAnalysisRunStartedV1 wire schema. */
+export type DataAnalysisRunStartedV1 = {
+  /** Run id. */
+  runId?: string | null
+  /** Status. */
+  status?: string | null
+} | null
+
+/** DataAnalysisRunStatusV1 wire schema. */
+export type DataAnalysisRunStatusV1 = {
+  /** Run id. */
+  runId?: string | null
+  /** Status. */
+  status?: string | null
+  /** Error. */
+  error?: string | null
+  /** Completed column result; null for other operations or unfinished runs. */
+  columnProfile?: DataAnalysisColumnProfileV1 | null
+  /** Completed table result; null for other operations or unfinished runs. */
+  tableProfile?: DataAnalysisTableProfileV1 | null
+  /** Started at. */
+  startedAt?: string | null
+  /** Finished at. */
+  finishedAt?: string | null
+} | null
+
+/** DataAnalysisSeriesV1 wire schema. */
+export type DataAnalysisSeriesV1 = {
+  /** Name. */
+  name?: string | null
+  /** Points. */
+  points?: Array<DataAnalysisPointV1> | null
+} | null
+
+/** DataAnalysisStartRunRequestV1 wire schema. */
+export type DataAnalysisStartRunRequestV1 = {
+  /** COLUMN_PROFILE or TABLE_PROFILE. */
+  operation: 'COLUMN_PROFILE' | 'TABLE_PROFILE'
+  /** Table name. */
+  tableName: string
+  /** Profile parameters for the selected operation, without tableName. */
+  request: DataAnalysisColumnProfileRequestV1 | DataAnalysisTableProfileRequestV1
+}
+
+/** DataAnalysisTableProfileRequestV1 wire schema. */
+export type DataAnalysisTableProfileRequestV1 = {
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields?: Array<string>
+}
+
+/** DataAnalysisTableProfileV1 wire schema. */
+export type DataAnalysisTableProfileV1 = {
+  /** Table name. */
+  tableName?: string | null
+  /** Core QueryFilter JSON, identical to the table query and count endpoints. */
+  filter?: QueryFilter | null
+  /** True when statistics describe a sample rather than the entire filtered population. */
+  estimate?: boolean | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+  /** True when the row limit prevented a complete scan. */
+  truncated?: boolean | null
+  /** Number of source rows included in computation. */
+  rowsScanned?: number | null
+  /** As of. */
+  asOf?: string | null
+  /** Data version. */
+  dataVersion?: string | null
+  /** Warnings. */
+  warnings?: Array<string> | null
+  /** Row count. */
+  rowCount?: DataAnalysisMetricV1 | null
+  /** Readable fields to include; omit for all analyzable fields on a table profile. */
+  fields?: Array<DataAnalysisFieldSummaryV1> | null
+  /** Heatmap. */
+  heatmap?: DataAnalysisChartV1 | null
+  /** Candidate keys. */
+  candidateKeys?: Array<DataAnalysisCandidateKeyV1> | null
+} | null
+
+/** DataAnalysisTextProfileV1 wire schema. */
+export type DataAnalysisTextProfileV1 = {
+  /** Metrics. */
+  metrics?: Array<DataAnalysisMetricV1> | null
+  /** Histogram. */
+  histogram?: Array<DataAnalysisValueCountV1> | null
+  /** Patterns. */
+  patterns?: Array<DataAnalysisValueCountV1> | null
+  /** Actual number of rows in the sample, not an extrapolated count. */
+  sampleRows?: number | null
+} | null
+
+/** DataAnalysisValueCountV1 wire schema. */
+export type DataAnalysisValueCountV1 = {
+  /** Value. */
+  value?: string | number | boolean | Record<string, unknown> | null
+  /** Label. */
+  label?: string | null
+  /** Count. */
+  count?: number | null
+  /** Share. */
+  share?: number | null
+  /** Open the matching records using this table and QueryFilter; null when suppressed. */
+  drill?: DataAnalysisDrillV1 | null
+} | null
+
+/** FilterCriteria wire schema. */
+export type FilterCriteria = {
+  /** Field name that this criteria applies to */
+  fieldName?: string
+  /** Logical operator that applies to this criteria */
+  operator?:
+    | 'EQUALS'
+    | 'NOT_EQUALS'
+    | 'NOT_EQUALS_OR_IS_NULL'
+    | 'IN'
+    | 'NOT_IN'
+    | 'IS_NULL_OR_IN'
+    | 'LIKE'
+    | 'NOT_LIKE'
+    | 'STARTS_WITH'
+    | 'ENDS_WITH'
+    | 'CONTAINS'
+    | 'NOT_STARTS_WITH'
+    | 'NOT_ENDS_WITH'
+    | 'NOT_CONTAINS'
+    | 'LESS_THAN'
+    | 'LESS_THAN_OR_EQUALS'
+    | 'GREATER_THAN'
+    | 'GREATER_THAN_OR_EQUALS'
+    | 'IS_BLANK'
+    | 'IS_NOT_BLANK'
+    | 'BETWEEN'
+    | 'NOT_BETWEEN'
+    | 'TRUE'
+    | 'FALSE'
+  /** Values to apply via the operator to the field */
+  values?: Array<string>
+}
+
+/** OrderBy wire schema. */
+export type OrderBy = {
+  /** Field name that this order-by applies to */
+  fieldName?: string
+  /** Whether this order-by is ascending or descending */
+  isAscending?: boolean
+}
+
+/** QueryFilter wire schema. */
+export type QueryFilter = {
+  /** Core filter extensions are allowed by the schema (additionalProperties defaults to true). */
+  [key: string]: unknown
+  /** Boolean operator to apply between criteria */
+  booleanOperator?: 'AND' | 'OR'
+  /** Field level criteria that make up the query filter */
+  criteria?: Array<FilterCriteria>
+  /** Maximum number of results to return. */
+  limit?: number
+  /** How the query's results should be ordered (sorted). */
+  orderBys?: Array<OrderBy>
+  /** Records to skip (e.g., to implement pagination) */
+  skip?: number
+}

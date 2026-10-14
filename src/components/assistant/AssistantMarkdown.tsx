@@ -26,11 +26,13 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import { Check, Copy } from 'lucide-react'
 
 import { internalAppHref } from '@/lib/utils/assistant-links'
 
-/** The default (GitHub) sanitize schema without inline styles, classes or ids from the model. */
+/** Keep GitHub's table/align, del and disabled checkbox rules; strip model styles and ids. */
 const SCHEMA = {
   ...defaultSchema,
   clobberPrefix: 'assistant-md-',
@@ -93,6 +95,9 @@ const COMPONENTS: Components = {
       <table className="w-full text-xs">{children}</table>
     </div>
   ),
+  // react-markdown converts sanitized GFM align attributes to textAlign before these run.
+  th: ({ style, children }) => <th scope="col" style={{ textAlign: style?.textAlign ?? 'left' }}>{children}</th>,
+  td: ({ style, children }) => <td style={{ textAlign: style?.textAlign ?? 'left' }}>{children}</td>,
 }
 
 /** Typography for the rendered markdown (the app has no typography plugin). */
@@ -103,7 +108,7 @@ const PROSE = [
   '[&_h1]:mt-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:text-sm [&_h3]:font-semibold',
   '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_pre_code]:bg-transparent [&_pre_code]:p-0',
   '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
-  '[&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border-b [&_td]:border-border [&_td]:px-2 [&_td]:py-1',
+  '[&_thead]:bg-muted [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:tabular-nums',
 ].join(' ')
 
 /**
@@ -116,7 +121,7 @@ const PROSE = [
 export function AssistantMarkdown({ text }: { text: string }) {
   return (
     <div className={PROSE} data-qqq-id="assistant-markdown">
-      <ReactMarkdown skipHtml rehypePlugins={[[rehypeSanitize, SCHEMA]]} components={COMPONENTS}>
+      <ReactMarkdown skipHtml remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeSanitize, SCHEMA]]} components={COMPONENTS}>
         {text}
       </ReactMarkdown>
     </div>
