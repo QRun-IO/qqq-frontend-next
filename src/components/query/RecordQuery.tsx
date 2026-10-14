@@ -24,13 +24,16 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { X, ArrowLeft, Loader2 } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 
 import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
+import type { DataAnalysisDrillV1 } from '@/types/data-analysis'
+import { getCapabilities } from '@/lib/api/data-analysis'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
@@ -70,6 +73,10 @@ import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
 import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 import { QuickSavedViews } from './QuickSavedViews'
+
+const ColumnProfilePanel = dynamic(() => import('@/components/data-analysis/ColumnProfilePanel'), { ssr: false })
+import { AnalysisDrillContext } from '@/components/data-analysis/ProfileParts'
+const TableProfilePanel = dynamic(() => import('@/components/data-analysis/TableProfilePanel'), { ssr: false })
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
@@ -292,6 +299,24 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [alertMessage, setAlertMessage] = useState<string | null>(null)
+  const capabilities = useQuery({
+    queryKey: [...queryKeys.dataAnalysis(tableName), 'capabilities'],
+    queryFn: () => getCapabilities(tableName),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const [analysis, setAnalysis] = useState<{ field?: { name: string; label: string }; filter: QQueryFilter; returnFocus: HTMLElement | null } | null>(null)
+  const openAnalysis = (field?: { name: string; label: string }) => setAnalysis({ field, filter: rq.filter.baseFilter, returnFocus: field ? document.querySelector<HTMLElement>(`[data-qqq-id="grid-column-menu-${CSS.escape(field.name)}"]`) : document.activeElement instanceof HTMLElement ? document.activeElement : null })
+  const closeAnalysis = () => { const target = analysis?.returnFocus; setAnalysis(null); requestAnimationFrame(() => target?.focus()) }
+  const canAnalyze = capabilities.data?.canAnalyze === true
+  // A drill on this table applies its filter here: this page reads the URL only on mount.
+  const applyAnalysisDrill = (drill: DataAnalysisDrillV1) => {
+    if (!drill || drill.tableName !== tableName || !drill.filter) return false
+    const filter = normalizeFilter(drill.filter, rq.viewState.pageSize)
+    rq.filter.setUserFilter({ ...filter, orderBys: [] })
+    return true
+  }
+  const analysisUnavailableReason = tableMetaData.usesVariants ? 'Analysis is not available for table variants in this API version.' : undefined
   const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
   const [storageReady, setStorageReady] = useState(false)
   // Column statistics need the table's QUERY_STATS capability and the columnStats process
@@ -351,6 +376,8 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   }, [storageReady, tableName, currentViewJson, currentView, savedViewId])
 
   const columnMenu = {
+    onAnalyze: canAnalyze ? (name: string, label: string) => openAnalysis({ name, label }) : undefined,
+    analyzeFields: capabilities.data?.fields?.flatMap((field) => field?.name ? [field.name] : []),
     onFilter: (name: string) => {
       rq.filter.setUserFilter({ ...rq.filter.userFilter, criteria: [...rq.filter.userFilter.criteria, { fieldName: name, operator: 'EQUALS' as const, values: [] }] })
       openAdvancedFilters()
@@ -586,6 +613,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       )}
 
       <RecordQueryToolbar
+        onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
         tableName={tableName}
         tableMetaData={tableMetaData}
         processes={processes}
@@ -775,6 +803,14 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           onPageChange={rq.pagination.setPage}
           onPageSizeChange={rq.pagination.setPageSize}
         />
+      )}
+
+      {canAnalyze && analysis && (
+        <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
+        {analysis.field
+        ? <ColumnProfilePanel key={`${tableName}:${analysis.field.name}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fieldName={analysis.field.name} fieldLabel={analysis.field.label} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />
+        : <TableProfilePanel key={`${tableName}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />}
+        </AnalysisDrillContext.Provider>
       )}
 
       {canShowStats && (
