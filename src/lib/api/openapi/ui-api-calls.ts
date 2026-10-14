@@ -36,12 +36,6 @@ export interface OffSpecCall {
 
 /** Off-spec calls, by owner. Remove entries as their owners move onto spec classes. */
 export const OFF_SPEC_CALLS: OffSpecCall[] = [
-  ...([
-    'GET /assistant/config', 'GET /assistant/conversations', 'POST /assistant/conversations', 'GET /assistant/conversations/{}',
-    'PATCH /assistant/conversations/{}', 'DELETE /assistant/conversations/{}', 'POST /assistant/conversations/{}/turns',
-    'GET /assistant/turns/{}/events', 'POST /assistant/turns/{}/cancel', 'POST /assistant/messages/{}/feedback',
-    'GET /assistant/actions/{}', 'POST /assistant/actions/{}/confirm', 'POST /assistant/actions/{}/reject',
-  ].map((c) => call(c, 'qbit-assistant'))),
   ...(['GET {}/metaData/table/{}', 'POST {}/table/{}/query', 'POST {}/table/{}/count'].map((c) => call(c, 'qqq-middleware-api ApiAwareMiddlewareVersionV1'))),
   // legacy, outside /qqq/v1 (their own baseURL)
   call('POST /material-dashboard-backend/form-adjuster/{}/{}', 'legacy material-dashboard backend'),
@@ -59,7 +53,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
 // 46 while POST /uploads waits: vendor once QRun-IO/qqq#1181 ships in an RC, then lower to 45
-export const OFF_SPEC_CEILING = 21
+export const OFF_SPEC_CEILING = 8
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
