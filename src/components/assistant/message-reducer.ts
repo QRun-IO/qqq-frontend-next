@@ -94,6 +94,8 @@ export function reduceStreamEvent(messages: AssistantMessage[], event: Assistant
         }
         return { ...message, parts }
       })
+    case 'presentation':
+      return appendPart(messages, event.messageId, event.part)
     case 'ui.navigate':
       return appendPart(messages, ids.assistantId, { type: 'navigate', href: event.href })
     case 'notice':
@@ -125,13 +127,13 @@ export function endReply(messages: AssistantMessage[], assistantId: number, stat
 }
 
 /**
- * The plain text of a message's text parts.
+ * Text and presentation summaries for the streaming screen-reader announcer.
  *
  * @param message - A message.
  * @returns The concatenated text.
  */
 export function messageText(message: AssistantMessage): string {
-  return message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
+  return message.parts.map((part) => part.type === 'text' ? part.text : part.type === 'presentation' ? `\n${part.summary}\n` : '').join('')
 }
 
 /**
