@@ -337,6 +337,7 @@ export function DynamicFormField({
             chipField={field}
             picker={field.picker}
             pickerTableName={field.pickerTableName}
+            relatedPickerTableName={pvContext.type === 'table' ? pvContext.tableName : undefined}
             context={pvContext}
             error={fieldError}
             disabled={isDisabled}

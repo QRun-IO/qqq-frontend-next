@@ -1,6 +1,6 @@
 {
   "name": "qqq-frontend-next",
-  "version": "1.0.0-RC.18",
+  "version": "1.0.0-RC.19",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
@@ -21,6 +21,7 @@
     "test:e2e": "playwright test",
     "test:acceptance": "node scripts/acceptance.mjs",
     "perf:budget": "node scripts/perf-budget.mjs",
+    "ui-api:check": "node scripts/check-ui-api-spec.mjs",
     "tsc": "tsc",
     "typecheck": "tsc --noEmit",
     "prepare": "git config core.hooksPath .githooks || true",
