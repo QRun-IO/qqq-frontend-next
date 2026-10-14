@@ -16,7 +16,7 @@
 
 /** @file Record task list and editor with directory access checks. */
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type {
   CollaborationRecord,
@@ -160,7 +160,26 @@ export function TasksTab({
   const actions = useTaskActions(record)
   const [showDone, setShowDone] = useState(false)
   const [editing, setEditing] = useState<CollaborationTaskV1 | 'new' | null>(null)
-  const tasks = (query.data?.pages.flatMap((p) => p.items) ?? [])
+  // Toggles show at once; the entry clears when the server agrees or the write fails.
+  const [toggled, setToggled] = useState<Record<string, CollaborationTaskV1['status']>>({})
+  const loaded = query.data?.pages.flatMap((p) => p.items) ?? []
+  const loadedSignature = JSON.stringify(loaded.map((t) => [t.id, t.status]))
+  useEffect(() => {
+    const server = new Map(
+      (JSON.parse(loadedSignature) as Array<[unknown, string]>).map(([id, status]) => [
+        String(id),
+        status,
+      ])
+    )
+    setToggled((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([id, status]) => server.get(id) !== status)
+      )
+      return Object.keys(next).length === Object.keys(current).length ? current : next
+    })
+  }, [loadedSignature])
+  const statusOf = (task: CollaborationTaskV1) => toggled[String(task.id)] ?? task.status
+  const tasks = loaded
     .filter((t) => showDone || t.status === 'OPEN')
     .sort((a, b) => Number(a.status !== 'OPEN') - Number(b.status !== 'OPEN'))
   const canTask = features.capabilities?.task === true
@@ -202,14 +221,18 @@ export function TasksTab({
               <input
                 aria-label={`${task.status === 'OPEN' ? 'Complete' : 'Reopen'} ${task.title}`}
                 type="checkbox"
-                checked={task.status === 'DONE'}
-                disabled={!canTask || actions.patch.isPending}
-                onChange={() =>
-                  actions.patch.mutate({
-                    id: task.id,
-                    input: { status: task.status === 'OPEN' ? 'DONE' : 'OPEN' },
-                  })
-                }
+                checked={statusOf(task) === 'DONE'}
+                disabled={!canTask || toggled[String(task.id)] !== undefined}
+                onChange={() => {
+                  const status = statusOf(task) === 'OPEN' ? 'DONE' : 'OPEN'
+                  setToggled((current) => ({ ...current, [String(task.id)]: status }))
+                  actions.patch.mutate(
+                    { id: task.id, input: { status } },
+                    {
+                      onError: () => setToggled(({ [String(task.id)]: _dropped, ...rest }) => rest),
+                    }
+                  )
+                }}
                 data-qqq-id={`task-toggle-${task.id}`}
               />
               <span className="min-w-0 break-words text-sm font-medium">{task.title}</span>
