@@ -95,14 +95,14 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
       style={{ height: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + breadcrumbs (the trail scrolls sideways on its own when it is too long) */}
+      {/* Left: mobile menu + a breadcrumb trail that shrinks into the remaining space */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
           ref={menuButtonRef}
           type="button"
           onClick={onMenuOpen}
-          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open navigation menu"
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
@@ -122,7 +122,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
             event.currentTarget.focus({ preventScroll: true })
             onSearchOpen?.()
           }}
-          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open search"
           data-qqq-id="button-mobile-search"
         >

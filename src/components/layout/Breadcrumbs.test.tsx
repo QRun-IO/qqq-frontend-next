@@ -20,20 +20,28 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
+import userEvent from '@testing-library/user-event'
+
 let currentPathname = '/app/person'
 vi.mock('next/navigation', () => ({
   usePathname: () => currentPathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
-import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle, humanizeSegment } from './Breadcrumbs'
+import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle, humanizeSegment, getHiddenBreadcrumbs } from './Breadcrumbs'
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
-beforeEach(() => vi.stubGlobal('ResizeObserver', class {
-  observe() {}
-  disconnect() {}
-}))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800)
+  vi.stubGlobal('ResizeObserver', class {
+    observe() {}
+    disconnect() {}
+  })
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 const pathToLabelMap: Record<string, string> = {
   '/app': 'Dashboard',
@@ -140,22 +148,30 @@ describe('Breadcrumbs', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('gives links a touch-sized hit area on coarse pointers and lets the trail scroll instead of wrapping', () => {
+  it('collapses middle crumbs into a keyboard-accessible menu in limited space', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(122)
+    currentPathname = '/app/person/7/edit'
+    const user = userEvent.setup()
     render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
-    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toHaveClass('pointer-coarse:flex-nowrap', 'pointer-coarse:overflow-x-auto')
-    expect(screen.getByRole('link', { name: 'People App' })).toHaveClass('pointer-coarse:py-3', 'pointer-coarse:min-w-11')
-  })
-
-  it('starts a trail that overflows at its end, where the current page is', () => {
-    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
-    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
-    try {
-      render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
-      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
-    } finally {
-      scrollWidth.mockRestore()
-      clientWidth.mockRestore()
-    }
+    const nav = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(nav).toHaveClass('flex-nowrap', 'min-w-0', 'flex-1')
+    expect(nav.scrollLeft).toBe(0)
+    expect(screen.getByRole('link', { name: 'People App' })).toHaveAttribute('href', '/app/peopleApp')
+    expect(screen.queryByRole('link', { name: 'Greetings App' })).not.toBeInTheDocument()
+    expect(screen.getByText('Edit')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('Edit')).toHaveAttribute('title', 'Edit')
+    expect(screen.getByText('Edit')).toHaveAttribute('data-qqq-id', 'breadcrumb-current-4')
+    const trigger = screen.getByRole('button', { name: 'Show hidden breadcrumbs' })
+    expect(trigger).toHaveAttribute('data-qqq-id', 'breadcrumb-ellipsis')
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    const items = screen.getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Greetings App', 'Person', '7'])
+    expect(items.map((item) => item.getAttribute('href'))).toEqual(['/app/greetingsApp', '/app/person', '/app/person/7'])
+    expect(items.map((item) => item.getAttribute('data-qqq-id'))).toEqual(['breadcrumb-link-1', 'breadcrumb-link-2', 'breadcrumb-link-3'])
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   it('renders nothing on the dashboard root', () => {
@@ -164,19 +180,14 @@ describe('Breadcrumbs', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('reveals the current page when metadata labels arrive after the route', () => {
-    currentPathname = '/app/person'
-    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
-    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
-    try {
-      const { rerender } = render(<Breadcrumbs pathToLabelMap={{}} />)
-      rerender(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
-    } finally {
-      scrollWidth.mockRestore()
-      clientWidth.mockRestore()
-    }
+  it('collapses after metadata labels arrive', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(122)
+    const { rerender } = render(<Breadcrumbs pathToLabelMap={{}} ancestorAppMap={ancestorAppMap} />)
+    rerender(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+    expect(screen.getByRole('button', { name: 'Show hidden breadcrumbs' })).toBeVisible()
+    expect(screen.getByText('Person')).toHaveAttribute('aria-current', 'page')
   })
+
 })
 
 describe('Breadcrumbs home crumb', () => {
@@ -187,5 +198,13 @@ describe('Breadcrumbs home crumb', () => {
     unmount()
     render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/app')
+  })
+})
+
+describe('getHiddenBreadcrumbs', () => {
+  it.each([0, 1, 2, 3, 5])('preserves the endpoints of a %i-crumb trail', (count) => {
+    const crumbs = Array.from({ length: count }, (_, index) => ({ path: `/app/${index}`, label: `${index}` }))
+    expect(getHiddenBreadcrumbs(crumbs, 2)).toEqual(count > 2 ? crumbs.slice(1, -1) : [])
+    expect(getHiddenBreadcrumbs(crumbs, count)).toEqual([])
   })
 })

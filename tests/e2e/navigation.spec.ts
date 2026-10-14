@@ -69,3 +69,34 @@ test.describe('App shell and navigation', () => {
     })
   })
 })
+
+for (const width of [320, 390, 768, 1440]) {
+  test(`deep record breadcrumb fits at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await setupApiMocks(page)
+    await page.goto('/app/person/1')
+    await waitForAppReady(page)
+    const nav = page.getByRole('navigation', { name: 'Breadcrumb', exact: true })
+    const header = page.locator('[data-qqq-id="header"]')
+    await expect(nav.locator('[aria-current="page"]')).toHaveText('1')
+    await expect(nav.getByRole('link', { name: 'CRM', exact: true })).toBeVisible()
+    await expect.poll(() => nav.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0)
+    expect(await header.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await nav.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return [...element.children].every((child) => {
+        const box = child.getBoundingClientRect()
+        return box.left >= bounds.left && box.right <= bounds.right + 1 && box.top >= bounds.top && box.bottom <= bounds.bottom + 1
+      })
+    })).toBe(true)
+    const height = await header.evaluate((element) => element.clientHeight)
+    if (width <= 390) {
+      await nav.getByRole('button', { name: 'Show hidden breadcrumbs' }).click()
+      await expect(page.getByRole('menuitem', { name: 'People', exact: true })).toHaveAttribute('href', '/app/person')
+      await page.keyboard.press('Escape')
+    }
+    await page.goto('/app/person')
+    await waitForAppReady(page)
+    expect(await header.evaluate((element) => element.clientHeight)).toBe(height)
+  })
+}

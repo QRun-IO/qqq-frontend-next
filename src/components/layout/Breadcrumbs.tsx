@@ -20,10 +20,11 @@
 
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home } from 'lucide-react'
+import * as Menu from '@radix-ui/react-dropdown-menu'
 
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
@@ -153,6 +154,16 @@ export function buildDocumentTitle(crumbs: Breadcrumb[], pageTitle: string | und
 }
 
 /**
+ * Selects middle crumbs for the menu when the trail exceeds its visible budget.
+ * @param crumbs - Complete trail, excluding the home icon.
+ * @param maxVisible - Number of crumbs that fit in the available header space.
+ * @returns Hidden middle crumbs, preserving their original order.
+ */
+export function getHiddenBreadcrumbs(crumbs: Breadcrumb[], maxVisible: number): Breadcrumb[] {
+  return crumbs.length > Math.max(2, maxVisible) ? crumbs.slice(1, -1) : []
+}
+
+/**
  * Renders a horizontal breadcrumb trail for the current page.
  *
  * @param props - Component properties.
@@ -166,18 +177,19 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {}, homeP
   const trailRef = useRef<HTMLElement>(null)
   const hasLabels = Object.keys(pathToLabelMap).length > 0
 
-  // On a touch screen a long trail scrolls sideways on its own; start at its end, the current page
+  const [availableWidth, setAvailableWidth] = useState(0)
+  // Use the actual space left by header controls, including on tablets with a sidebar.
   useEffect(() => {
     const trail = trailRef.current
     if (!trail) return
-    const revealCurrentPage = () => {
-      if (trail.scrollWidth > trail.clientWidth) trail.scrollLeft = trail.scrollWidth
-    }
-    revealCurrentPage()
-    const observer = new ResizeObserver(revealCurrentPage)
+    const measure = () => setAvailableWidth(trail.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(trail)
     return () => observer.disconnect()
-  }, [pathname, breadcrumbs.length, hasLabels])
+  }, [hasLabels, breadcrumbs.length])
+
+  const hiddenCrumbs = getHiddenBreadcrumbs(breadcrumbs, Math.max(2, Math.floor(availableWidth / 120)))
 
   // Until metadata supplies labels, raw URL segments would flash in place of labels
   if (breadcrumbs.length === 0 || !hasLabels) {
@@ -187,7 +199,7 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {}, homeP
   return (
     <nav
       ref={trailRef}
-      className="flex min-w-0 flex-1 md:flex-initial flex-wrap items-center gap-x-2 gap-y-1 text-sm pointer-coarse:flex-nowrap pointer-coarse:overflow-x-auto"
+      className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 whitespace-nowrap text-sm"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
@@ -195,17 +207,44 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {}, homeP
       <Link
         href={homePath}
         aria-label="Home"
-        className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0"
+        className="inline-flex shrink-0 items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
         data-qqq-id="breadcrumb-home"
       >
         <Home className="h-4 w-4" aria-hidden="true" />
       </Link>
-      {breadcrumbs.map((crumb, index) => (
+      {breadcrumbs.map((crumb, index) => hiddenCrumbs.includes(crumb) ? (
+        index === 1 ? (
+          <React.Fragment key="collapsed">
+            <span className="shrink-0 text-muted-foreground/60" aria-hidden="true">/</span>
+            <Menu.Root>
+              <Menu.Trigger
+                aria-label="Show hidden breadcrumbs"
+                className="shrink-0 rounded px-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
+                data-qqq-id="breadcrumb-ellipsis"
+              >
+                …
+              </Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Content align="start" sideOffset={4} collisionPadding={8} className="z-50 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+                  {hiddenCrumbs.map((hidden, hiddenIndex) => (
+                    <Menu.Item key={hidden.path + hiddenIndex} asChild>
+                      <Link href={hidden.path} data-qqq-id={`breadcrumb-link-${hiddenIndex + 1}`} className="block rounded px-3 py-2 text-sm break-words outline-none focus:bg-accent">
+                        {hidden.label}
+                      </Link>
+                    </Menu.Item>
+                  ))}
+                </Menu.Content>
+              </Menu.Portal>
+            </Menu.Root>
+          </React.Fragment>
+        ) : null
+      ) : (
         <React.Fragment key={crumb.path + index}>
-          <span className="text-muted-foreground/60 pointer-coarse:flex-shrink-0" aria-hidden="true">/</span>
+          <span className="shrink-0 text-muted-foreground/60" aria-hidden="true">/</span>
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="max-w-full md:max-w-[12rem] truncate font-semibold text-foreground pointer-coarse:flex-shrink-0"
+              className="min-w-0 truncate font-semibold text-foreground"
+              title={crumb.label}
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >
@@ -213,8 +252,9 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {}, homeP
             </span>
           ) : (
             <Link
+              title={crumb.label}
               href={crumb.path}
-              className="max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0 pointer-coarse:py-3 pointer-coarse:text-center"
+              className="min-w-0 max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:py-3"
               data-qqq-id={`breadcrumb-link-${index}`}
             >
               {crumb.label}
