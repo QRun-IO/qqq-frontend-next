@@ -24,6 +24,7 @@ import { searchPeople, previewShares } from '@/lib/api/collaboration'
 import { useMentionCandidates } from '@/lib/hooks/use-collaboration-record'
 import { queryKeys } from '@/lib/query-client'
 import { collaborationInput } from './CollaborationDialog'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 /** Whether a directory entry is the signed-in user; the app's user id is the session email, so it
  * is compared (case-insensitively) with the entry's user id and email.
  * @param person - Directory entry.
@@ -124,6 +125,7 @@ export function PeoplePicker({
               }
               data-qqq-id={`person-${id}`}
             />
+            <UserAvatar userId={id} name={person.displayName || id} size={20} />
             <span className="break-words">{person.displayName || id}</span>
             {access !== true && (
               <span className="rounded bg-muted px-2 py-1 text-xs">

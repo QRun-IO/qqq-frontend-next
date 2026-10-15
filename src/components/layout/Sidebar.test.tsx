@@ -48,7 +48,6 @@ function render(ui: React.ReactElement) {
 }
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
-import { md5Hex } from '@/lib/utils/gravatar'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -475,7 +474,7 @@ describe('Sidebar', () => {
     })
   })
 
-  // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
+  // ─── User entry (profile photo or initials, "Anonymous") ──────
 
   it('links the user menu Preferences item to the Preferences page', async () => {
     const user = userEvent.setup()
@@ -498,21 +497,19 @@ describe('Sidebar', () => {
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
-  it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
+  it('names a user without a name "Anonymous" and shows initials', () => {
     render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)
     expect(document.querySelector('[data-qqq-id="sidebar-user-name"]')).toHaveTextContent('Anonymous')
     expect(document.querySelector('[data-qqq-id="sidebar-user-email"]')).toHaveTextContent('ann@example.com')
-    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')?.tagName).toBe('DIV')
-    expect(document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')).toBeNull()
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"] img')).toBeNull()
   })
 
-  it('shows the Gravatar when the branding declares gravatarDefault, and the initial if it fails', () => {
+  it('never asks Gravatar because of branding alone (users opt in on their profile)', () => {
     const branding: QBrandingMetaData = { companyName: '', companyUrl: '', appName: 'QQQ', gravatarDefault: 'identicon' }
-    render(<Sidebar routes={leafRoutes} branding={branding} userName="Avery" userEmail="avery@example.com" logout={vi.fn()} />)
-    const avatar = document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')!
-    expect(avatar).toHaveAttribute('src', `https://www.gravatar.com/avatar/${md5Hex('avery@example.com')}?d=identicon`)
-    fireEvent.error(avatar)
-    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
+    render(<Sidebar routes={leafRoutes} branding={branding} userName="Avery Quinn" userEmail="avery@example.com" logout={vi.fn()} />)
+    expect(document.querySelector('img[src*="gravatar"]')).toBeNull()
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('AQ')
   })
 })
 

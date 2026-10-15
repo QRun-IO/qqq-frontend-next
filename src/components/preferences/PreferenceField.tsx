@@ -17,7 +17,7 @@
 /** @file Preference metadata adapter for the existing form field editors. */
 'use client'
 
-import type { UseFormReturn } from 'react-hook-form'
+import { Controller, type UseFormReturn } from 'react-hook-form'
 import { LockKeyhole } from 'lucide-react'
 import type { PreferenceSection } from '@/types/preferences'
 import { cn } from '@/lib/utils/cn'
@@ -30,6 +30,7 @@ import { TextAreaField } from '@/components/forms/field-types/TextAreaField'
 import { TextField } from '@/components/forms/field-types/TextField'
 import { HelpContent } from '@/components/records/HelpContent'
 import type { PreferenceSlot } from './preference-values'
+import { ImageUploadField, imageUploadSettings } from './ImageUploadField'
 
 /** Adapts a scalar or list cell without fetching possible values.
  * @param props - Slot metadata, enum sources and shared form state.
@@ -70,8 +71,29 @@ export function PreferenceField({
   const options = field.possibleValueSourceName
     ? (section.possibleValues[field.possibleValueSourceName] ?? [])
     : field.inlinePossibleValueSource?.enumValues
+  // an upload-ref FILE_UPLOAD field (the profile photo, or any section's image) uploads first
+  const upload = imageUploadSettings(field.adornments?.find((adornment) => adornment.type === 'FILE_UPLOAD')?.values)
   let editor
-  if (options) editor = <SelectField {...props} options={options} />
+  if (upload)
+    editor = (
+      <Controller
+        name={slot.name}
+        control={form.control}
+        render={({ field: controlled }) => (
+          <ImageUploadField
+            id={id}
+            label={field.label}
+            value={controlled.value}
+            onChange={(value) => controlled.onChange(value)}
+            settings={upload}
+            disabled={props.disabled}
+            describedBy={props.describedBy}
+            data-qqq-id={props['data-qqq-id']}
+          />
+        )}
+      />
+    )
+  else if (options) editor = <SelectField {...props} options={options} />
   else
     switch (field.type) {
       case 'BOOLEAN':

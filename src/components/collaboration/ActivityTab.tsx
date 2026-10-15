@@ -20,6 +20,7 @@ import { Activity, History } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { CollaborationRecord, CollaborationTimelineDetailV1 } from '@/types/collaboration'
 import { useTimeline } from '@/lib/hooks/use-collaboration-record'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 /** Older core audits summarize as "Record was Edited"; newer services send friendlier text.
  * @param summary - Summary as sent.
@@ -72,7 +73,10 @@ export function ActivityTab({ record }: { record: CollaborationRecord }) {
           >
             <Icon aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1 break-words">
-              <p className="font-medium">{item.actorName ?? item.actorUserId ?? 'System'}</p>
+              <p className="flex min-w-0 items-center gap-2 font-medium">
+                {item.actorUserId && <UserAvatar userId={item.actorUserId} name={item.actorName ?? item.actorUserId} size={20} />}
+                <span className="min-w-0 break-words">{item.actorName ?? item.actorUserId ?? 'System'}</span>
+              </p>
               <p>{activitySummary(item.summary)}</p>
               <time
                 className="text-xs text-muted-foreground"

@@ -43,7 +43,8 @@ import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/theme/theme-provider'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
-import { gravatarUrl } from '@/lib/utils/gravatar'
+import { useMyProfile } from '@/lib/hooks/use-my-profile'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { NAV_WIDTH_CSS } from '@/lib/utils/nav-width'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
@@ -292,7 +293,6 @@ export default function Sidebar({
             userName={userName}
             userEmail={userEmail}
             logout={logout}
-            gravatarDefault={branding?.gravatarDefault}
           />
         )}
       </div>
@@ -535,12 +535,10 @@ function UserFooter({
   userName,
   userEmail,
   logout,
-  gravatarDefault,
 }: {
   userName?: string
   userEmail?: string
   logout?: () => void
-  gravatarDefault?: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { theme, isDarkMode, setDarkMode } = useTheme()
@@ -550,12 +548,11 @@ function UserFooter({
     enabled: menuOpen,
     retry: false,
   })
-  // Material shows the user's Gravatar; here only when the branding declares gravatarDefault, so
-  // no email hash goes to a third party unless the application opts in. A failed image keeps the initial.
-  const avatarUrl = gravatarDefault ? gravatarUrl(userEmail, gravatarDefault) : undefined
-  const [avatarFailed, setAvatarFailed] = useState(false)
+  // The photo (or the Gravatar the user chose) from their profile; else initials. Branding alone
+  // never sends anyone's email hash to a third party.
+  const profile = useMyProfile()
   // Material names a user without a name "Anonymous"
-  const displayName = userName || 'Anonymous'
+  const displayName = profile.displayName || userName || 'Anonymous'
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close menu on outside click
@@ -688,26 +685,7 @@ function UserFooter({
           data-qqq-id="sidebar-user-button"
           data-qqq-sidenav-item-type="user-profile"
         >
-          {/* Avatar: the Gravatar when the branding enables it, else the initial */}
-          {avatarUrl && !avatarFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Gravatar images are external, sized by the service
-            <img
-              src={avatarUrl}
-              alt=""
-              aria-hidden="true"
-              onError={() => setAvatarFailed(true)}
-              className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
-              data-qqq-id="sidebar-user-avatar"
-            />
-          ) : (
-            <div
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
-              aria-hidden="true"
-              data-qqq-id="sidebar-user-avatar"
-            >
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <UserAvatar src={profile.avatarUrl} name={displayName} size={36} data-qqq-id="sidebar-user-avatar" />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
               {displayName}

@@ -136,8 +136,8 @@ export interface QBrandingMetaData {
   /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
   customCss?: string
   /**
-   * Gravatar default-image setting (the `d` parameter, e.g. `identicon` or `mp`). When declared,
-   * the user entry shows the user's Gravatar, as the Material dashboard does.
+   * Gravatar default-image setting (the `d` parameter) for the Material dashboard. Next does not use
+   * it: a user shows a Gravatar only after choosing it on their profile (UI API 1.7.0 avatars).
    */
   gravatarDefault?: string
 }
