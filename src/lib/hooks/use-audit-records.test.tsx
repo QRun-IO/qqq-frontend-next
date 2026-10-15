@@ -166,10 +166,12 @@ describe('useAuditRecords', () => {
   })
 })
 
-it('uses table audit availability instead of instance-wide legacy discovery', () => {
+it('uses an available table audit capability, else the permission-filtered instance metadata', () => {
   const instance = { processes: { GetAuditsForRecord: {} }, tables: { audit: {} } } as unknown as QInstance
-  expect(auditSource(instance, {})).toBeNull()
-  expect(auditSource(instance, { audits: { available: false, processName: 'custom' } })).toBeNull()
+  // RC.15 reports unaudited tables as unavailable, though explicit audits can exist: fall back
+  expect(auditSource(instance, {})).toBe('process')
+  expect(auditSource(instance, { audits: { available: false, processName: 'custom' } })).toBe('process')
+  expect(auditSource({ processes: {}, tables: {} } as unknown as QInstance, { audits: { available: false } })).toBeNull()
   expect(auditSource(instance, { audits: { available: true, processName: 'custom', tableName: 'history' } })).toBe('process')
   expect(auditSource(instance, { audits: { available: true, tableName: 'history' } })).toBe('table')
 })
@@ -181,5 +183,7 @@ it('routes audits to declared process and table/detail names', async () => {
   const history = await getAuditRecords('table', 'person', 1, false, { audits: { available: true, tableName: 'history', detailTableName: 'changes' } })
   expect(apiClient.post).toHaveBeenLastCalledWith('/table/history/query', expect.objectContaining({ joins: expect.arrayContaining([{ joinTable: 'changes', select: true, type: 'LEFT' }]) }))
   expect(history.records[0].fieldChanges[0].fieldName).toBe('name')
-  await expect(getAuditRecords('process', 'person', 1, false, {})).rejects.toThrow('unavailable')
+  vi.mocked(apiClient.post).mockResolvedValueOnce({ type: 'COMPLETE', values: { audits: [] } })
+  await getAuditRecords('process', 'person', 1, false, { audits: { available: false } })
+  expect(apiClient.post).toHaveBeenLastCalledWith('/processes/GetAuditsForRecord/init', expect.any(FormData), expect.any(Object))
 })

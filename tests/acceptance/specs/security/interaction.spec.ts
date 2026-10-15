@@ -260,14 +260,14 @@ test.describe('validation', () => {
     diagnostics.allow('/qqq/v1/table/fieldLab 500')
     diagnostics.allow(/status of (400|500)/)
     await open(page, '/app/fieldLab/create')
+    // uniqueness is the backend's alone: the form cannot see the other rows
+    const existing = await backend.api.post('/data/fieldLab', { multipart: { name: 'Range check' } })
+    expect(existing.status(), await existing.text()).toBe(200)
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Range check')
-    // the backend enforces the exclusive lower bound of Exclusive Bounded Value (ValueRangeBehavior);
-    // the form is told only the inclusive ranges, which it checks itself before any request
-    await page.getByLabel('Exclusive Bounded Value', { exact: true }).fill('0')
     await page.locator('[data-qqq-id="button-save"]').click()
-    await expect(page.getByText(/Failed to create Field Lab: .*Exclusive Bounded Value/)).toBeVisible()
+    await expect(page.getByText(/Failed to create Field Lab: .*Another record already exists with this Name/)).toBeVisible()
     await expect(page).toHaveURL(/\/app\/fieldLab\/create\/?$/)
-    expect(await backend.sql('select count(*) as n from field_lab')).toEqual([{ n: '0' }])
+    expect(await backend.sql('select count(*) as n from field_lab')).toEqual([{ n: '1' }])
   })
 })
 

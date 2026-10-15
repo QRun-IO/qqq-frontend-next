@@ -59,7 +59,9 @@ export function getErrorStatusCode(error: unknown): number | undefined {
 export function getErrorMessage(error: unknown, fallback = 'An unexpected error occurred.'): string {
   const body: unknown = error instanceof AxiosError ? error.response?.data : error
   if (body && typeof body === 'object') {
-    for (const key of ['message', 'userFacingError', 'error'] as const) {
+    // userFacingError and error first: they are the messages users have always seen; message
+    // (UI API 1.6.0) repeats error, so it only matters when a body carries nothing else.
+    for (const key of ['userFacingError', 'error', 'message'] as const) {
       const text = (body as Record<string, unknown>)[key]
       if (typeof text === 'string' && text.trim()) return text
     }

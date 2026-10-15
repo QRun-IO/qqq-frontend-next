@@ -65,6 +65,7 @@ import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
 import { launchTableName } from '@/lib/utils/process-utils'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+import { copyFullQueryValuesLimitSetting } from '@/lib/utils/ui-settings'
 import { recordAnalytics } from '@/lib/analytics'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 
@@ -443,9 +444,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     onCopyFullQueryValues: (name: string) => {
       void (async () => {
         const label = queryColumns.find((column) => column.name === name)?.label ?? name
-        const setting = (metaData?.supplementalInstanceMetaData?.uiSettings ?? metaData?.supplementalInstanceMetaData?.materialDashboard)
-        const configuredLimit = setting && typeof setting === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in setting
-          ? setting.queryScreenCopyFullQueryColumnValuesLimit : undefined
+        const configuredLimit = copyFullQueryValuesLimitSetting(metaData)
         const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT
         if (rq.pagination.totalCount !== null && rq.pagination.totalCount > limit) {
           setAlertMessage(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)

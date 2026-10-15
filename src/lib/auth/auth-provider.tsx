@@ -168,6 +168,22 @@ const RESUMABLE_TYPES = new Set(['OAUTH2', 'AUTH_0', 'TABLE_BASED'])
 /** Types that redirect to an identity provider to sign in and out. */
 const PROVIDER_TYPES = new Set(['OAUTH2', 'AUTH_0'])
 
+/** How long logout waits for in-flight requests before ending the session anyway. */
+const LOGOUT_SETTLE_MS = 3000
+
+/**
+ * Waits until no query or mutation is fetching, or the timeout passes. A response that
+ * arrives after the logout response would otherwise set the session cookie again.
+ *
+ * @param timeoutMs - The longest wait.
+ */
+export async function settleInFlightRequests(timeoutMs = LOGOUT_SETTLE_MS): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while ((queryClient.isFetching() > 0 || queryClient.isMutating() > 0) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+}
+
 /**
  * A readable message for a failed sign-in.
  *
@@ -414,6 +430,9 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         setIsAuthenticated(false)
         setUser(null)
       }
+      // A request still in flight would answer after the logout and refresh the sessionId
+      // cookie the logout expires, so let it finish first (bounded).
+      await settleInFlightRequests()
       try {
         // the backend also expires both session cookies (QRun-IO/qqq#674)
         await apiLogout()

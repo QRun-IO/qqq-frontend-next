@@ -197,7 +197,7 @@ export function useProcess(
     if (generation !== generationRef.current || !mountedRef.current) return
     switch (response.type) {
       case 'ERROR':
-        fail(getErrorMessage(response), Boolean(response.message || response.userFacingError), getErrorTraceId(response))
+        fail(getErrorMessage(response), Boolean(response.userFacingError), getErrorTraceId(response))
         return
       case 'JOB_STARTED':
         setState((previous) => ({

@@ -77,6 +77,9 @@ test.describe('persona without pet permissions', () => {
     void diagnostics
     const refused = await backend.api.get('/qqq/v1/reports/accRestrictedReport?format=csv')
     expect(refused.status()).toBe(403)
-    expect(await refused.text()).not.toContain('Id')
+    // a JSON error (UI API 1.6.0: error, code, message, traceId), not the report's CSV
+    const body = await refused.json()
+    expect(body).toMatchObject({ error: 'Permission denied.', code: 'PERMISSION_DENIED' })
+    expect(JSON.stringify(body)).not.toMatch(/"Id"|^Id,/)
   })
 })

@@ -102,7 +102,7 @@ test('[REC-050] the v1 record routes enforce required fields and write associati
   const before = await sqlCount(backend, 'select count(*) as n from field_lab')
   const missing = await backend.api.post('/qqq/v1/table/fieldLab', { multipart: { longValue: '5' } })
   expect(missing.status()).toBe(400)
-  expect(await missing.json()).toEqual({ error: 'Error inserting Field Lab: Missing value in required field: Name' })
+  expect(await missing.json()).toMatchObject({ error: 'Error inserting Field Lab: Missing value in required field: Name', code: 'BAD_REQUEST' })
   expect(await sqlCount(backend, 'select count(*) as n from field_lab')).toBe(before)
 
   const household = await backend.api.post('/qqq/v1/table/qryHousehold', {

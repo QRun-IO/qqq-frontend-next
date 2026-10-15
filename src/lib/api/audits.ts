@@ -44,10 +44,12 @@ export type AuditSource = 'process' | 'table' | null
  * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
 export function auditSource(metaData: QInstance | undefined, capabilities?: TableCapabilitiesV1): AuditSource {
-  if (capabilities !== undefined) {
-    const audits = capabilities.audits
-    return !audits?.available ? null : audits.processName ? 'process' : audits.tableName ? 'table' : null
-  }
+  // An available capability names the process or table. When it is absent (pre-1.6 servers) or
+  // unavailable (QQQ 4.1.0-RC.15 reports unaudited tables as unavailable, though a record can
+  // still have audits written explicitly), fall back to the instance metadata, which is also
+  // permission-filtered.
+  const audits = capabilities?.audits
+  if (audits?.available) return audits.processName ? 'process' : audits.tableName ? 'table' : null
   const process = metaData?.processes?.[AUDIT_PROCESS_NAME]
   if (process && process.hasPermission !== false) return 'process'
   const table = metaData?.tables?.[AUDIT_TABLE_NAME]
@@ -80,11 +82,10 @@ export interface AuditHistory {
  * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
 export async function getAuditRecords(source: Exclude<AuditSource, null>, tableName: string, primaryKey: string | number, isSortAscending = false, capabilities?: TableCapabilitiesV1): Promise<AuditHistory> {
-  const declared = capabilities?.audits
-  if (capabilities !== undefined && !declared?.available) throw new Error('Audits are unavailable.')
-  const processName = capabilities === undefined ? AUDIT_PROCESS_NAME : declared?.processName
-  const auditTableName = capabilities === undefined ? AUDIT_TABLE_NAME : declared?.tableName
-  const detailTableName = capabilities === undefined ? 'auditDetail' : declared?.detailTableName
+  const declared = capabilities?.audits?.available ? capabilities.audits : undefined
+  const processName = declared === undefined ? AUDIT_PROCESS_NAME : declared.processName
+  const auditTableName = declared === undefined ? AUDIT_TABLE_NAME : declared.tableName
+  const detailTableName = declared === undefined ? 'auditDetail' : declared.detailTableName
   if (source === 'process') {
     if (!processName) throw new Error('Audit process is unavailable.')
     const formData = new FormData()

@@ -111,9 +111,10 @@ test.describe('sidebar', () => {
 
   test('[NAV-005] declared icons render in the sidebar: named glyphs, colors, image paths and fallbacks @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
-    expect(findNode(meta.appTree, 'miscellaneous')?.icon).toEqual({ name: 'stars' })
-    expect(findNode(meta.appTree, 'navLevelOne')?.icon).toEqual({ path: '/kr-icon.png' })
-    expect(findNode(meta.appTree, 'navLevelTwo')?.icon).toEqual({ name: 'folder', color: '#b91c1c' })
+    // UI API 1.6.0 adds semanticName beside the Material name
+    expect(findNode(meta.appTree, 'miscellaneous')?.icon).toMatchObject({ name: 'stars' })
+    expect(findNode(meta.appTree, 'navLevelOne')?.icon).toMatchObject({ path: '/kr-icon.png' })
+    expect(findNode(meta.appTree, 'navLevelTwo')?.icon).toMatchObject({ name: 'folder', color: '#b91c1c' })
 
     await open(page, '/app/navDeepItem')
     const nav = await appNavigation(page)

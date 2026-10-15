@@ -222,7 +222,9 @@ describe('applyMaterialTheme', () => {
   })
 })
 
-it('prefers uiSettings.theme to the deprecated Material theme', () => {
-  const metaData = { supplementalInstanceMetaData: { uiSettings: { theme: { primaryColor: '#654321' } }, materialDashboardTheme: { primaryColor: '#123456' } } } as unknown as QInstance
-  expect(readMaterialTheme(metaData)).toEqual({ primaryColor: '#654321' })
+it('prefers the full Material theme, falling back to the uiSettings.theme subset', () => {
+  const both = { supplementalInstanceMetaData: { uiSettings: { theme: { primaryColor: '#654321' } }, materialDashboardTheme: { primaryColor: '#123456' } } } as unknown as QInstance
+  expect(readMaterialTheme(both)).toEqual({ primaryColor: '#123456' })
+  const subsetOnly = { supplementalInstanceMetaData: { uiSettings: { theme: { primaryColor: '#654321' } } } } as unknown as QInstance
+  expect(readMaterialTheme(subsetOnly)).toEqual({ primaryColor: '#654321' })
 })
