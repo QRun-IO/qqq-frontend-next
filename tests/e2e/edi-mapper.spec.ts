@@ -28,7 +28,7 @@ async function mockEdi(page: Page, installed = true, status = 'DRAFT') {
   await page.route('**/qqq/v1/version', (route) =>
     route.fulfill({
       json: {
-        apiVersion: '1.1.0',
+        apiVersion: '1.4.0',
         features: [],
         extensions: installed ? [{ name: 'edi', version: '1.0.0', pathPrefix: '/qbit/edi' }] : [],
       },
