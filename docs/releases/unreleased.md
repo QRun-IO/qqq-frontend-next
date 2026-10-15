@@ -4,7 +4,7 @@
 
 ## Features
 
-None yet.
+- **What's new:** a paged release history with new badges, safe links and screenshots, notification deep links, and an unread count in the user menu. Uses UI API extension `release-notes` 1.0.0; requires qbit-release-notes 0.1.0-RC.1+.
 
 ## Product fixes
 

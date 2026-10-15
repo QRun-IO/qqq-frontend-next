@@ -456,3 +456,11 @@ The additional ESB integration scenarios and their focused three-browser results
 | HLP-006 | Help author affordance | key and specific role URL presets; standard create form; read-only users cannot author | Strict diagnostics; no off-spec API calls | HelpFixtures.java | not run |  |
 
 The help rows above have not been executed locally; historical results above predate this change.
+
+## Release notes UI API extension
+
+`release-notes` 1.0.0 (qbit-release-notes 0.1.0-RC.1+) provides What's new at
+`/app/whats-new`: category groups, new badges, append paging, safe links/screenshots,
+release deep links, seen tracking and the user-menu unread count. Extension discovery
+hides the menu and prevents requests on unsupported servers. Covered by the release-notes
+client/page and Sidebar Vitest suites; real-backend acceptance remains pending.
