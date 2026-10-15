@@ -21,8 +21,8 @@
  */
 'use client'
 
-import { useContext, useState } from 'react'
-import { avatarSizeFor, isAvatarMiss, recordAvatarMiss, userAvatarUrl, versionedAvatarUrl } from '@/lib/api/avatars'
+import { useContext, useEffect, useState } from 'react'
+import { avatarSizeFor, isAvatarMiss, lookupAvatarUrl, recordAvatarMiss, versionedAvatarUrl } from '@/lib/api/avatars'
 import { AuthContext } from '@/lib/auth/auth-provider'
 import { useMyProfile } from '@/lib/hooks/use-my-profile'
 import { cn } from '@/lib/utils/cn'
@@ -40,6 +40,27 @@ export function initialsOf(name: string | undefined): string {
 }
 
 /**
+ * Another user's avatar URL through the batched lookup, once it answers.
+ *
+ * @param userId - The user's id, or undefined to look up nothing.
+ * @returns The server URL, or undefined (none, or not answered yet).
+ */
+function useLookedUpAvatar(userId: string | undefined): string | undefined {
+  const [found, setFound] = useState<{ userId: string; url: string | null } | null>(null)
+  useEffect(() => {
+    if (!userId) return
+    let current = true
+    void lookupAvatarUrl(userId).then((url) => {
+      if (current) setFound({ userId, url })
+    })
+    return () => {
+      current = false
+    }
+  }, [userId])
+  return found && found.userId === userId && found.url ? found.url : undefined
+}
+
+/**
  * A round avatar.
  *
  * @param props - Who, how big, and an optional explicit image URL.
@@ -54,7 +75,7 @@ export function UserAvatar({
   className,
   'data-qqq-id': dataQqqId,
 }: {
-  /** The user's id; loads their avatar when the server stores profiles. */
+  /** The user's id; their avatar is looked up when the server stores profiles. */
   userId?: string
   /** The name the initials come from. */
   name?: string
@@ -69,7 +90,9 @@ export function UserAvatar({
 }) {
   const { installed } = useMyProfile()
   const serverSize = avatarSizeFor(size)
-  const url = src ? versionedAvatarUrl(src, serverSize) : installed && userId ? userAvatarUrl(userId, serverSize) : undefined
+  const looked = useLookedUpAvatar(!src && installed ? userId : undefined)
+  const found = src ?? looked
+  const url = found ? versionedAvatarUrl(found, serverSize) : undefined
   const [failed, setFailed] = useState<string | null>(null)
   const show = url && failed !== url && !isAvatarMiss(url)
   const style = { width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.38)) }

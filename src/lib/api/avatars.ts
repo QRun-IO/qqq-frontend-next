@@ -15,21 +15,27 @@
  */
 
 /**
- * @file Avatars — `GET /qqq/v1/avatars/{userId}` (UI API 1.7.0, feature `avatars`). Images load
- * through `<img>` with the session cookie; nothing calls a third party (a user's chosen Gravatar is
- * a server redirect). A 404 means "no avatar": the caller draws initials, and the miss is
- * remembered for the session so the same user is not asked for again.
+ * @file Avatars (UI API 1.7.0, feature `avatars`). The people on screen are batched into one
+ * `POST /avatars/lookup` (user ids never go in a URL), and each returned URL —
+ * `GET /avatars/{avatarId}`, an opaque id — loads through `<img>` with the session cookie. Nothing
+ * calls a third party: a user's chosen Gravatar is fetched by the server. A user without an avatar,
+ * or an image that fails, is remembered for the session so it is not asked for again.
  */
 
-import { apiUrl } from './client'
+import apiClient, { apiUrl } from './client'
 
 /** The sizes the server renders. */
 export const AVATAR_SIZES = [32, 64, 128, 256] as const
 
-/** An avatar URL in session or preference values: `/qqq/v1/avatars/{encoded id}?v={version}`. */
-const SERVER_AVATAR_URL = /^\/qqq\/v1\/avatars\/([^/?#]+)\?v=([^&#]+)$/
+/** Most user ids one lookup call accepts. */
+const LOOKUP_LIMIT = 200
+
+/** An avatar URL in session, preference or lookup values: `/qqq/v1/avatars/{avatarId}?v={version}`. */
+const SERVER_AVATAR_URL = /^\/qqq\/v1\/avatars\/([0-9a-zA-Z_-]+)\?v=([^&#]+)$/
 
 const misses = new Set<string>()
+const known = new Map<string, Promise<string | null>>()
+let pending: Map<string, (url: string | null) => void> | null = null
 
 /**
  * The smallest rendered size that stays sharp at a CSS size on a 2x display.
@@ -42,19 +48,8 @@ export function avatarSizeFor(cssPixels: number): number {
 }
 
 /**
- * A user's avatar URL.
- *
- * @param userId - The user's id (as in comments, presence and mentions).
- * @param size - A server size.
- * @returns The URL under the API base.
- */
-export function userAvatarUrl(userId: string, size: number): string {
-  return apiUrl(`/avatars/${encodeURIComponent(userId)}?size=${size}`)
-}
-
-/**
- * Resolves a server avatar URL (`/qqq/v1/avatars/{id}?v=…`, from session or preference values)
- * against the API base, at a size. Other values (a `blob:` preview) pass through.
+ * Resolves a server avatar URL against the API base, at a size. Other values (a `blob:` preview)
+ * pass through.
  *
  * @param url - The server's URL.
  * @param size - A server size.
@@ -63,8 +58,47 @@ export function userAvatarUrl(userId: string, size: number): string {
 export function versionedAvatarUrl(url: string, size: number): string {
   const match = SERVER_AVATAR_URL.exec(url)
   if (!match) return url
-  const [, userId, version] = match
-  return apiUrl(`/avatars/${userId}?v=${encodeURIComponent(decodeURIComponent(version))}&size=${size}`)
+  const [, avatarId, version] = match
+  return apiUrl(`/avatars/${avatarId}?v=${encodeURIComponent(decodeURIComponent(version))}&size=${size}`)
+}
+
+/**
+ * A user's avatar URL (server form), or null when they have none. Calls made in the same tick
+ * share one `POST /avatars/lookup`; answers are kept for the session.
+ *
+ * @param userId - The user's id (as in comments, presence and mentions).
+ * @returns The URL, or null.
+ */
+export function lookupAvatarUrl(userId: string): Promise<string | null> {
+  const cached = known.get(userId)
+  if (cached) return cached
+  const promise = new Promise<string | null>((resolve) => {
+    if (!pending) {
+      pending = new Map()
+      setTimeout(flush, 0)
+    }
+    pending.set(userId, resolve)
+  })
+  known.set(userId, promise)
+  return promise
+}
+
+/** Sends the waiting ids, at most {@link LOOKUP_LIMIT} per call; a failure means "no avatar". */
+async function flush(): Promise<void> {
+  const batch = pending
+  pending = null
+  if (!batch) return
+  const ids = [...batch.keys()]
+  for (let start = 0; start < ids.length; start += LOOKUP_LIMIT) {
+    const userIds = ids.slice(start, start + LOOKUP_LIMIT)
+    let avatars: Record<string, string> = {}
+    try {
+      avatars = (await apiClient.post<{ avatars?: Record<string, string> }>('/avatars/lookup', { userIds }))?.avatars ?? {}
+    } catch {
+      avatars = {}
+    }
+    for (const userId of userIds) batch.get(userId)?.(typeof avatars[userId] === 'string' ? avatars[userId] : null)
+  }
 }
 
 /**
@@ -86,7 +120,8 @@ export function recordAvatarMiss(url: string): void {
   misses.add(url)
 }
 
-/** Forgets every remembered miss (after the user changes their own photo; tests). */
-export function clearAvatarMisses(): void {
+/** Forgets every lookup and miss (after the user changes their own photo; tests). */
+export function clearAvatarCache(): void {
   misses.clear()
+  known.clear()
 }

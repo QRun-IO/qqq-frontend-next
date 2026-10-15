@@ -23,7 +23,7 @@ import { setupApiMocks } from './api-mocks'
 
 const directory = process.env.SCREENSHOTS_DIR ? path.resolve(process.env.SCREENSHOTS_DIR) : undefined
 const widths = [390, 768, 1024, 1440, 1920, 3200]
-const avatarUrl = '/qqq/v1/avatars/alice?v=k1'
+const avatarUrl = '/qqq/v1/avatars/0123456789abcdef0123456789abcdef?v=k1'
 // A real 480x360 PNG (a drawn portrait), decoded by the browser and cropped through canvas.
 const png = readFileSync(path.join(__dirname, 'fixtures', 'profile-photo.png'))
 const photo = { name: 'photo.png', mimeType: 'image/png', buffer: png }
@@ -88,7 +88,9 @@ async function setupProfileMocks(page: Page) {
     })
   })
   await page.route('**/qqq/v1/avatars/**', (route) =>
-    route.fulfill({ contentType: 'image/png', body: png })
+    route.request().method() === 'POST'
+      ? route.fulfill({ json: { avatars: {} } })
+      : route.fulfill({ contentType: 'image/png', body: png })
   )
   return patches
 }
@@ -110,7 +112,7 @@ test('profile photo: crop, upload, save, refresh sidebar avatar and reject SVG',
   await page.getByRole('button', { name: 'Save changes', exact: true }).click()
   await expect.poll(() => patches).toEqual([{ values: { avatar: 'up-1' } }])
   const avatar = page.locator('[data-qqq-id="sidebar-user-avatar"] img')
-  await expect(avatar).toHaveAttribute('src', /\/avatars\/alice\?v=k1/)
+  await expect(avatar).toHaveAttribute('src', /\/avatars\/0123456789abcdef0123456789abcdef\?v=k1/)
   await expect(avatar).toBeVisible()
   await expect.poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(480)
 
