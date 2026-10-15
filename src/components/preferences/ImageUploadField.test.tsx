@@ -32,12 +32,15 @@ const PHOTO_URL = '/qqq/v1/avatars/alice?v=abc123'
 const profile = (avatar: string | null): PreferenceSection => ({
   name: 'profile',
   label: 'Profile',
+  icon: { name: 'account_circle' },
   description: 'Your photo and the name other people see.',
   order: 1,
   showInUserMenu: false,
   fields: [
     {
       name: 'avatar',
+      isRequired: false,
+      isHeavy: false,
       label: 'Photo',
       type: 'STRING',
       adornments: [
@@ -47,8 +50,8 @@ const profile = (avatar: string | null): PreferenceSection => ({
         },
       ],
     },
-    { name: 'displayName', label: 'Display name', type: 'STRING', maxLength: 100, adornments: [] },
-    { name: 'avatarUrl', label: 'Avatar URL', type: 'STRING', isHidden: true, isEditable: false, adornments: [] },
+    { name: 'displayName', label: 'Display name', type: 'STRING', maxLength: 100, isRequired: false, isHeavy: false, adornments: [] },
+    { name: 'avatarUrl', label: 'Avatar URL', type: 'STRING', isHidden: true, isEditable: false, isRequired: false, isHeavy: false, adornments: [] },
   ] as PreferenceSection['fields'],
   values: { avatar, displayName: null, avatarUrl: avatar },
   lists: [],
