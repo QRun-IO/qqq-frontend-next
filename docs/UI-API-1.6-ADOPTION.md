@@ -1,6 +1,6 @@
 # UI API 1.6 adoption
 
-Adopts QQQ UI API 1.6.0 (QQQ 4.1.0-RC.14): table clientCapabilities, field validation, BasicErrorResponseV1, /qqq/v1/branding.
+Adopts QQQ UI API 1.6.0 (QQQ 4.1.0-RC.15): table clientCapabilities, field validation, BasicErrorResponseV1, /qqq/v1/branding.
 
 - Vendors the supplied core, api-aware, ESB, alerts, collaboration, data-analysis and EDI documents; regenerates EDI types. Assistant, quick-search, secured-data and sql-workbench documents are unchanged.
 - Saved views, audits, sharing and bulk actions use per-user table capabilities. Legacy discovery is used only when `clientCapabilities` is absent; a missing or unavailable feature in a present capability object does not enable legacy access.
