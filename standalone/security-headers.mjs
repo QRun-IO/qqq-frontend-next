@@ -108,6 +108,24 @@ export function identityProviderOrigins(authentication) {
   return origin ? [origin] : []
 }
 
+/** The Jam origins QA capture (qbit-qa-capture) needs: its recorder and capture scripts, iframes and API. */
+export const QA_CAPTURE_CSP_ADDITIONS = [
+  ['script-src', ['https://js.jam.dev']],
+  ['frame-src', ['https://*.jam.dev']],
+  ['connect-src', ['https://*.jam.dev']],
+]
+
+/**
+ * The Jam origins to add when the deployment opts in with `QQQ_QA_CAPTURE_CSP=true`. Off by
+ * default: the standalone server cannot see which users have QA capture, so the operator decides.
+ *
+ * @param {string | undefined} flag - The `QQQ_QA_CAPTURE_CSP` value.
+ * @returns {[string, string[]][]} The additions, or none.
+ */
+export function qaCaptureSourceAdditions(flag) {
+  return (flag ?? '').trim().toLowerCase() === 'true' ? QA_CAPTURE_CSP_ADDITIONS.map(([name, sources]) => [name, [...sources]]) : []
+}
+
 /**
  * Parses the deployment's policy additions (`QQQ_DASHBOARD_CSP_SOURCES`), the standalone
  * server's counterpart of the QQQ server's `withNextDashboardSecurityHeadersCustomizer`:

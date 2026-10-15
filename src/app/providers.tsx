@@ -31,6 +31,7 @@ import { AuthProvider } from '@/lib/auth/auth-provider'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { injectThemeTokens } from '@/lib/theme/tokens'
 import { AppToaster } from '@/components/feedback/Toast'
+import { QaCaptureLoader } from '@/components/qa-capture/QaCaptureLoader'
 
 // Inject default theme tokens on first render
 if (typeof window !== 'undefined') {
@@ -79,7 +80,11 @@ export default function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {/* QA capture (qa-capture extension): nothing is loaded unless the server enables it for this user */}
+          <QaCaptureLoader />
+          {children}
+        </AuthProvider>
       </ThemeProvider>
       <AppToaster />
     </QueryClientProvider>

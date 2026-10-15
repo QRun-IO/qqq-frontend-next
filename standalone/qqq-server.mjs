@@ -22,7 +22,8 @@
  * Identity provider and application CSP sources come from the backend's
  * `GET /qqq/v1/metaData/authentication`, through this server's own API rewrites.
  * Additional operator-owned sources (or application sources on older backends) use
- * `QQQ_DASHBOARD_CSP_SOURCES`, for example `img-src https://images.example.com`.
+ * `QQQ_DASHBOARD_CSP_SOURCES`, for example `img-src https://images.example.com`, and
+ * `QQQ_QA_CAPTURE_CSP=true` adds the Jam origins of QA capture.
  */
 
 import http from 'node:http'
@@ -35,9 +36,11 @@ import {
   createDashboardPolicyInputs,
   isBackendPath,
   parseSourceAdditions,
+  qaCaptureSourceAdditions,
 } from './security-headers.mjs'
 
-const additions = parseSourceAdditions(process.env.QQQ_DASHBOARD_CSP_SOURCES)
+// QQQ_QA_CAPTURE_CSP=true adds the Jam origins QA capture needs (docs/QA-CAPTURE.md)
+const additions = [...parseSourceAdditions(process.env.QQQ_DASHBOARD_CSP_SOURCES), ...qaCaptureSourceAdditions(process.env.QQQ_QA_CAPTURE_CSP)]
 const port = parseInt(process.env.PORT ?? '', 10) || 3000
 const listenHost = process.env.HOSTNAME || '0.0.0.0'
 const selfHost = ['0.0.0.0', '::', ''].includes(listenHost) ? '127.0.0.1' : listenHost.includes(':') ? `[${listenHost}]` : listenHost

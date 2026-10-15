@@ -16,6 +16,7 @@
 
 /** @file Server-masked text; never applies a visual blur to an underlying value. */
 import { LockKeyhole } from 'lucide-react'
+import { SECURE_VALUE_ATTRIBUTES } from '@/lib/qa-capture/secure-attributes'
 
 /**
  * Display a server mask without parsing it as the field's underlying type.
@@ -27,6 +28,7 @@ export function MaskedValue({ value, tier }: { value: unknown; tier: 'MASKED' | 
     <span
       className="inline-flex max-w-full flex-wrap items-center gap-1.5 text-muted-foreground"
       data-qqq-id="masked-value"
+      {...SECURE_VALUE_ATTRIBUTES}
       aria-label={`Masked value: ${String(value ?? '—')}`}
     >
       <span className="min-w-0 break-all font-mono text-sm">{String(value ?? '—')}</span>

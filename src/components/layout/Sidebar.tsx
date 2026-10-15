@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
+import { ReportBugMenuItems } from '@/components/qa-capture/ReportBugMenuItems'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/theme/theme-provider'
@@ -650,6 +651,7 @@ function UserFooter({
                   {section.label}
                 </Link>
               ))}
+              <ReportBugMenuItems onSelect={() => setMenuOpen(false)} />
               {logout && (
                 <button
                   type="button"

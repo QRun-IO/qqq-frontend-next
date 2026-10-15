@@ -21,7 +21,7 @@ function fixture() {
   const staged = path.join(root, 'staged')
   const files: Record<string, string> = {
     '.next/standalone/server.js': 'immutable generated server',
-    '.next/standalone/.next/routes-manifest.json': JSON.stringify({ rewrites: { beforeFiles: [], afterFiles: ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession', 'apis.json', 'api'].map((prefix) => ({ source: `/${prefix}/:path*`, destination: `${backend}/${prefix}/:path*` })), fallback: [] } }),
+    '.next/standalone/.next/routes-manifest.json': JSON.stringify({ rewrites: { beforeFiles: [], afterFiles: ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession', 'apis.json', 'api', 'qa'].map((prefix) => ({ source: `/${prefix}/:path*`, destination: `${backend}/${prefix}/:path*` })), fallback: [] } }),
     '.next/static/chunk.js': 'browser chunk',
     '.next/standalone/node_modules/.pnpm/example/index.js': 'independent dependency',
     'public/icon.svg': '<svg/>',
