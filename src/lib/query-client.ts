@@ -619,6 +619,19 @@ export const queryKeys = {
    */
   sqlHistory: () => [...queryKeys.sqlWorkbench(), 'history'] as const,
 
+  /** Release notes namespace.
+   * @returns The namespace key.
+   */
+  releaseNotes: () => [...queryKeys.all(), 'release-notes'] as const,
+  /** Release history pages.
+   * @returns The history key.
+   */
+  releaseNotesPages: () => [...queryKeys.releaseNotes(), 'pages'] as const,
+  /** Unread release summary.
+   * @returns The summary key.
+   */
+  releaseNotesSummary: () => [...queryKeys.releaseNotes(), 'summary'] as const,
+
   // Search
   /**
    * Key for all global search queries.

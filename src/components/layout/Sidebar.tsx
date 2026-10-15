@@ -23,6 +23,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { UI_API_EXTENSION, useUiApiExtensionInstalled } from '@/lib/api/ui-api-extensions'
 import { getPreferences } from '@/lib/api/preferences'
 import { queryKeys } from '@/lib/query-client'
 import { usePathname } from 'next/navigation'
@@ -33,6 +34,7 @@ import {
   ChevronUp,
   X,
   Settings,
+  Sparkles,
   LogOut,
   Moon,
 } from 'lucide-react'
@@ -544,6 +546,16 @@ function UserFooter({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { theme, isDarkMode, setDarkMode } = useTheme()
+  const releaseNotesInstalled = useUiApiExtensionInstalled(UI_API_EXTENSION.releaseNotes)
+  const releaseSummary = useQuery({
+    queryKey: queryKeys.releaseNotesSummary(),
+    queryFn: () => import('@/lib/api/release-notes').then((api) => api.getReleaseNotesSummary()),
+    enabled: releaseNotesInstalled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  })
+  const unreadReleases = releaseSummary.data?.unreadCount ?? 0
   const preferences = useQuery({
     queryKey: queryKeys.preferencesIndex(),
     queryFn: getPreferences,
@@ -651,6 +663,13 @@ function UserFooter({
                   {section.label}
                 </Link>
               ))}
+              {releaseNotesInstalled && <Link href="/app/whats-new" role="menuitem" onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:bg-accent"
+                data-qqq-id="menu-item-whats-new">
+                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1">What&apos;s new</span>
+                {unreadReleases > 0 && <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground" data-qqq-id="whats-new-unread" aria-label={`${unreadReleases} unread releases`}>{unreadReleases > 9 ? '9+' : unreadReleases}</span>}
+              </Link>}
               <ReportBugMenuItems onSelect={() => setMenuOpen(false)} />
               {logout && (
                 <button
