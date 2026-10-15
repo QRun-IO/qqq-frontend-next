@@ -124,7 +124,7 @@ export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, 
     setSortAscending(localStorage.getItem('audit.sortDirection') === 'true')
     setSortReady(true)
   }, [])
-  const { auditRecords, total, isLoading, isError, error } = useAuditRecords({
+  const { auditRecords, total, isLoading, isError, error } = useAuditRecords({ capabilities: tableMetaData.clientCapabilities,
     source, tableName: tableMetaData.name, primaryKey, enabled: open && sortReady, isSortAscending,
   })
 

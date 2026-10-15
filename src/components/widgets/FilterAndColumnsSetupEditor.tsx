@@ -30,6 +30,7 @@ import type { Density, PageSize } from '@/lib/hooks/use-record-query'
 import { queryApiRecords } from '@/lib/api/api-versioned'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT } from '@/lib/constants'
+import { copyFullQueryValuesLimitSetting } from '@/lib/utils/ui-settings'
 import { arrangePinnedColumns, effectivePins, getQueryColumns, hasCapability, orderColumns, pinColumn } from '@/lib/utils/query-columns'
 import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from '@/components/query/ColumnStatsDialog'
 import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter-settings-context'
@@ -238,9 +239,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
   const copyValues = async (name: string, all: boolean) => {
     const label = queryColumns.find((column) => column.name === name)?.label ?? name
     const textValues = (records: QRecord[]) => records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? ''))
-    const settings = metaData?.supplementalInstanceMetaData?.materialDashboard
-    const configuredLimit = settings && typeof settings === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in settings
-      ? settings.queryScreenCopyFullQueryColumnValuesLimit : undefined
+    const configuredLimit = copyFullQueryValuesLimitSetting(metaData)
     const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT
     try {
       let values = textValues(result.records)
@@ -370,7 +369,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const [viewRevision, setViewRevision] = useState(0)
   const { data: metaData } = useMetaData()
   const { userId } = useQContext()
-  const savedViews = useSavedViews(table.name, metaData, userId)
+  const savedViews = useSavedViews(table.name, metaData, userId, table.clientCapabilities)
   const selectionTable = useMemo(() => omitExposedJoins(table, data?.omitExposedJoins), [table, data?.omitExposedJoins])
   const fields = buildFilterFields(table)
   const offeredFields = buildFilterFields(selectionTable)

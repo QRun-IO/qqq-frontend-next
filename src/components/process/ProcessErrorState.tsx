@@ -33,6 +33,7 @@ export interface ProcessErrorStateProps {
   /** The error message. */
   error: string | null
   /** `true` when the backend wrote the message for users. */
+  traceId?: string
   isUserFacing: boolean
   processName: string
   processLabel: string
@@ -48,7 +49,7 @@ const buttonBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm 
  * @param props - {@link ProcessErrorStateProps}
  * @returns The error panel.
  */
-export function ProcessErrorState({ error, isUserFacing, processName, processLabel, onRetry, onClose }: ProcessErrorStateProps) {
+export function ProcessErrorState({ error, traceId, isUserFacing, processName, processLabel, onRetry, onClose }: ProcessErrorStateProps) {
   const [showDetail, setShowDetail] = useState(false)
   const detailId = useId()
   return (
@@ -64,6 +65,7 @@ export function ProcessErrorState({ error, isUserFacing, processName, processLab
         {error && isUserFacing && (
           <p className="text-sm font-bold text-foreground" data-qqq-id="process-error-message">{error}</p>
         )}
+        {traceId && <p className="text-xs text-muted-foreground" data-qqq-id="process-error-trace">Trace ID: {traceId}</p>}
         {error && !isUserFacing && (
           <div>
             <button

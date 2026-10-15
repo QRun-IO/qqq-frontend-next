@@ -58,7 +58,7 @@ export function createBrandingAssetAlias(loadAuthentication, publicDirectory) {
       const next = new Map()
       for (const role of ['logo', 'icon']) {
         const image = brandingImagePath(authentication?.branding?.[role])
-        if (image && !next.has(image)) next.set(image, `/qqq/branding/${role}`)
+        if (image && !next.has(image)) next.set(image, `/qqq/v1/branding/${role}`)
       }
       aliases = next
       expires = Date.now() + 60_000
@@ -75,4 +75,12 @@ export function createBrandingAssetAlias(loadAuthentication, publicDirectory) {
     if (Date.now() >= expires) await refresh()
     return aliases.get(image) ?? null
   }
+}
+
+/** Fetch a declared public branding role, retrying the pre-1.6 route only on 404. */
+export async function fetchBrandingAsset(fetcher, asset, method = 'GET') {
+  const response = await fetcher(asset, { method, signal: AbortSignal.timeout(5_000) })
+  if (response.status !== 404) return response
+  await response.body?.cancel()
+  return fetcher(asset.replace('/qqq/v1/branding/', '/qqq/branding/'), { method, signal: AbortSignal.timeout(5_000) })
 }

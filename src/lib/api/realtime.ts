@@ -16,6 +16,7 @@
 
 /** @file Authenticated realtime transport; shares the existing incremental SSE parser. */
 import apiClient, { CLIENT_CHANNEL_HEADER, userTimeZoneHeader } from './client'
+import { anyAbortSignal } from '@/lib/utils/abort'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Reads named events until disconnect or abort.
@@ -32,7 +33,8 @@ export async function readRealtimeStream(
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'}/realtime/stream`,
     {
-      signal,
+      // the session's signal too: logout ends the stream before its response can land
+      signal: anyAbortSignal([signal, apiClient.sessionSignal()]),
       credentials: 'include',
       headers: {
         Accept: 'text/event-stream',

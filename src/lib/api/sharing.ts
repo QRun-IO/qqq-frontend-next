@@ -23,10 +23,25 @@
  * record's owner may add, change or remove shares.
  */
 
+import type { TableCapabilitiesV1 } from '@/types'
+import { getErrorMessage } from '@/lib/utils/error-utils'
 import { AxiosError } from 'axios'
 
 import { processInit } from './processes'
 import type { ProcessResponse } from './processes'
+
+/** Resolve an authorized sharing operation, with legacy discovery only before 1.6.
+ * @param capabilities - The table's per-user capabilities.
+ * @param operation - Requested sharing operation.
+ * @returns The declared process name.
+ */
+export function sharingProcess(capabilities: TableCapabilitiesV1 | undefined, operation: 'list' | 'insert' | 'edit' | 'delete'): string {
+  if (capabilities === undefined) return { list: 'getSharedRecords', insert: 'insertSharedRecord', edit: 'editSharedRecord', delete: 'deleteSharedRecord' }[operation]
+  const sharing = capabilities.sharing
+  const name = sharing?.available ? sharing[`${operation}ProcessName`] : undefined
+  if (!name) throw new Error('This sharing operation is unavailable.')
+  return name
+}
 
 /** Share scopes offered by the framework. */
 export type ShareScope = 'READ_ONLY' | 'READ_WRITE'
@@ -65,16 +80,13 @@ async function runSharingProcess(processName: string, values: Record<string, unk
     response = await processInit(processName, { values })
   } catch (error) {
     if (error instanceof AxiosError) {
-      const body = error.response?.data as { error?: unknown; userFacingError?: unknown } | undefined
-      const message = typeof body?.userFacingError === 'string' && body.userFacingError ? body.userFacingError
-        : typeof body?.error === 'string' ? body.error : error.message
-      throw new Error(message)
+      throw new Error(getErrorMessage(error))
     }
     throw error
   }
   const record = response as unknown as Record<string, unknown>
   if (typeof record.error === 'string') {
-    throw new Error(typeof record.userFacingError === 'string' && record.userFacingError ? record.userFacingError : record.error)
+    throw new Error(getErrorMessage(record))
   }
   return (record.values ?? {}) as Record<string, unknown>
 }
@@ -85,9 +97,10 @@ async function runSharingProcess(processName: string, values: Record<string, unk
  * @param tableName - Shareable table.
  * @param recordId - Record primary key.
  * @returns The shares, oldest first.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export async function getSharedRecords(tableName: string, recordId: string | number): Promise<RecordShare[]> {
-  const values = await runSharingProcess('getSharedRecords', { tableName, recordId })
+export async function getSharedRecords(tableName: string, recordId: string | number, capabilities?: TableCapabilitiesV1): Promise<RecordShare[]> {
+  const values = await runSharingProcess(sharingProcess(capabilities, 'list'), { tableName, recordId })
   const list = Array.isArray(values.resultList) ? values.resultList : []
   return list.flatMap((entry) => {
     const share = (entry as { values?: Record<string, unknown> })?.values
@@ -110,9 +123,10 @@ export async function getSharedRecords(tableName: string, recordId: string | num
  * @param audienceType - Audience type name (e.g. `user`).
  * @param audienceId - Audience id within that type.
  * @param scopeId - Share scope.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export async function insertSharedRecord(tableName: string, recordId: string | number, audienceType: string, audienceId: string, scopeId: ShareScope): Promise<void> {
-  await runSharingProcess('insertSharedRecord', { tableName, recordId, audienceType, audienceId, scopeId })
+export async function insertSharedRecord(tableName: string, recordId: string | number, audienceType: string, audienceId: string, scopeId: ShareScope, capabilities?: TableCapabilitiesV1): Promise<void> {
+  await runSharingProcess(sharingProcess(capabilities, 'insert'), { tableName, recordId, audienceType, audienceId, scopeId })
 }
 
 /**
@@ -122,9 +136,10 @@ export async function insertSharedRecord(tableName: string, recordId: string | n
  * @param recordId - Record primary key.
  * @param shareId - Share id.
  * @param scopeId - New scope.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export async function editSharedRecord(tableName: string, recordId: string | number, shareId: number, scopeId: ShareScope): Promise<void> {
-  await runSharingProcess('editSharedRecord', { tableName, recordId, shareId, scopeId })
+export async function editSharedRecord(tableName: string, recordId: string | number, shareId: number, scopeId: ShareScope, capabilities?: TableCapabilitiesV1): Promise<void> {
+  await runSharingProcess(sharingProcess(capabilities, 'edit'), { tableName, recordId, shareId, scopeId })
 }
 
 /**
@@ -133,9 +148,10 @@ export async function editSharedRecord(tableName: string, recordId: string | num
  * @param tableName - Shareable table.
  * @param recordId - Record primary key.
  * @param shareId - Share id.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export async function deleteSharedRecord(tableName: string, recordId: string | number, shareId: number): Promise<void> {
-  await runSharingProcess('deleteSharedRecord', { tableName, recordId, shareId })
+export async function deleteSharedRecord(tableName: string, recordId: string | number, shareId: number, capabilities?: TableCapabilitiesV1): Promise<void> {
+  await runSharingProcess(sharingProcess(capabilities, 'delete'), { tableName, recordId, shareId })
 }
 
 /**

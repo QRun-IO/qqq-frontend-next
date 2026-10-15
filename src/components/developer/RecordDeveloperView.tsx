@@ -109,7 +109,7 @@ export function RecordDeveloperView() {
 
   const processes = useMemo(() => (instance ? getProcessesForRecordView(instance, slug) : []), [instance, slug])
   const actionProcesses = useMemo(() => getRecordActionProcesses(processes, slug), [processes, slug])
-  const audits = auditSource(instance)
+  const audits = auditSource(instance, table?.clientCapabilities)
 
   // Back goes to the record screen (or to where the user came from on it, when that is the record screen).
   const fromPath = searchParams.get('from')

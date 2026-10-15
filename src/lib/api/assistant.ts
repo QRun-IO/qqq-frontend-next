@@ -21,6 +21,8 @@
  * dropped connection through `/turns/{id}/events?after={seq}`.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import type {
   ActiveAssistantTurn,
   AssistantConcurrency,
@@ -34,6 +36,7 @@ import type {
 } from '@/types/assistant'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
+import { anyAbortSignal } from '@/lib/utils/abort'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
@@ -394,7 +397,7 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
     credentials: 'include',
     cache: 'no-store',
     headers: { Accept: 'text/event-stream', ...CLIENT_CHANNEL_HEADER, ...(init.headers as Record<string, string> | undefined) },
-    signal,
+    signal: signal ? anyAbortSignal([signal, apiClient.sessionSignal()]) : apiClient.sessionSignal(),
   })
   if (!response.ok) {
     if (response.status === 401) apiClient.notifyUnauthorized()
@@ -413,8 +416,8 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
  */
 async function errorMessage(response: Response): Promise<{ message: string; code?: string }> {
   try {
-    const body = (await response.json()) as { error?: unknown; code?: unknown }
-    if (typeof body?.error === 'string' && body.error.trim()) return { message: body.error.trim(), code: typeof body.code === 'string' ? body.code : undefined }
+    const body = (await response.json()) as { error?: unknown; message?: unknown; code?: unknown }
+    if (getErrorMessage(body, '')) return { message: getErrorMessage(body), code: typeof body.code === 'string' ? body.code : undefined }
   } catch {
     // not JSON
   }

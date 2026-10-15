@@ -24,7 +24,7 @@ import { z } from 'zod'
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 import { adornmentString } from './adornment-utils'
 import { fromLocalDateTimeInput, toLocalDateTimeInput } from './datetime-utils'
-import { notANumberMessage, outOfRangeMessage, requiredMessage, tooLongMessage, tooLongPolicy } from './field-validation'
+import { validatedField, notANumberMessage, outOfRangeMessage, requiredMessage, tooLongMessage, tooLongPolicy } from './field-validation'
 
 /**
  * Internal helper used by {@link zodFieldFromMetadata} to build a string-based Zod schema
@@ -42,7 +42,7 @@ import { notANumberMessage, outOfRangeMessage, requiredMessage, tooLongMessage, 
 function buildStringSchema(isRequired: boolean, label: string, maxLength?: number): z.ZodTypeAny {
   let schema = z.string()
   if (isRequired) schema = schema.min(1, requiredMessage(label))
-  const limited = maxLength
+  const limited = maxLength !== undefined
     ? schema.refine((value) => value.length <= maxLength, () => ({ message: tooLongMessage(label, maxLength) }))
     : schema
   return isRequired ? limited : limited.optional()
@@ -79,8 +79,10 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
  * @param minValue - Optional lower bound.
  * @param maxValue - Optional upper bound.
  * @returns The schema, producing the digits as a string ('' when blank and optional).
+ * @param minInclusive - Whether the minimum itself is allowed.
+ * @param maxInclusive - Whether the maximum itself is allowed.
  */
-function buildLongSchema(isRequired: boolean, label: string, minValue?: number | string | null, maxValue?: number | string | null): z.ZodTypeAny {
+function buildLongSchema(isRequired: boolean, label: string, minValue?: number | string | null, maxValue?: number | string | null, minInclusive = true, maxInclusive = true): z.ZodTypeAny {
   const text = z.union([z.string(), z.number(), z.bigint()]).transform((value) => String(value).trim())
   const integer = text
     .refine((value) => !isRequired || value !== '', requiredMessage(label))
@@ -88,8 +90,8 @@ function buildLongSchema(isRequired: boolean, label: string, minValue?: number |
   // Refinements on one schema all run, even after a previous refinement fails.
   // Pipe only valid integer text into BigInt comparisons so bad input stays a field error.
   const checked = integer.pipe(z.string()
-    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= longRangeBound(minValue), outOfRangeMessage(label, 'min', minValue))
-    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= longRangeBound(maxValue), outOfRangeMessage(label, 'max', maxValue)))
+    .refine((value) => value === '' || minValue === undefined || minValue === null || (minInclusive ? BigInt(value) >= longRangeBound(minValue) : BigInt(value) > longRangeBound(minValue)), outOfRangeMessage(label, 'min', minValue, minInclusive))
+    .refine((value) => value === '' || maxValue === undefined || maxValue === null || (maxInclusive ? BigInt(value) <= longRangeBound(maxValue) : BigInt(value) < longRangeBound(maxValue)), outOfRangeMessage(label, 'max', maxValue, maxInclusive)))
   return isRequired ? checked : checked.optional()
 }
 
@@ -137,22 +139,26 @@ function blankOr(schema: z.ZodTypeAny): z.ZodTypeAny {
  * @param maxValue - Optional upper bound from field metadata; adds a `.max()` constraint when
  *   defined and non-null.
  * @returns A `ZodTypeAny` — a plain `ZodNumber` when required, or an optional blank-or-valid schema when not.
+ * @param minInclusive - Whether the minimum itself is allowed.
+ * @param maxInclusive - Whether the maximum itself is allowed.
  */
 function buildNumberSchema(
   isRequired: boolean,
   label: string,
   isInteger: boolean,
   minValue?: number | string | null,
-  maxValue?: number | string | null
+  maxValue?: number | string | null,
+  minInclusive = true,
+  maxInclusive = true
 ): z.ZodTypeAny {
   let schema: z.ZodNumber = isInteger
     ? z.coerce.number({ message: notANumberMessage(label, true) }).int(notANumberMessage(label, true))
     : z.coerce.number({ message: notANumberMessage(label, false) })
   if (minValue !== undefined && minValue !== null) {
-    schema = schema.min(Number(minValue), outOfRangeMessage(label, 'min', minValue))
+    schema = schema[minInclusive ? 'min' : 'gt'](Number(minValue), outOfRangeMessage(label, 'min', minValue, minInclusive))
   }
   if (maxValue !== undefined && maxValue !== null) {
-    schema = schema.max(Number(maxValue), outOfRangeMessage(label, 'max', maxValue))
+    schema = schema[maxInclusive ? 'max' : 'lt'](Number(maxValue), outOfRangeMessage(label, 'max', maxValue, maxInclusive))
   }
   return isRequired
     ? z.union([z.string().trim().min(1, requiredMessage(label)), z.number()]).pipe(schema)
@@ -187,20 +193,21 @@ function buildNumberSchema(
  * @returns A `ZodTypeAny` appropriate for the field's type and constraints.
  */
 export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength = true }: { enforceMaxLength?: boolean } = {}): z.ZodTypeAny {
+  field = validatedField(field)
   const { type, isRequired, label } = field
   // The field's own too-long policy decides: only a refusing policy (ERROR) is checked here;
   // truncate and pass-through are left to the server. Process forms (enforceMaxLength) always check.
-  const maxLength = enforceMaxLength || tooLongPolicy(field) === 'error' ? field.maxLength : undefined
+  const maxLength = (field.validation === undefined && enforceMaxLength) || tooLongPolicy(field) === 'error' ? field.maxLength : undefined
 
   switch (type) {
     case 'INTEGER':
-      return buildNumberSchema(isRequired ?? false, label ?? type, true, field.minValue, field.maxValue)
+      return buildNumberSchema(isRequired ?? false, label ?? type, true, field.minValue, field.maxValue, field.validation?.minInclusive !== false, field.validation?.maxInclusive !== false)
 
     case 'LONG':
-      return buildLongSchema(isRequired ?? false, label ?? type, field.minValue, field.maxValue)
+      return buildLongSchema(isRequired ?? false, label ?? type, field.minValue, field.maxValue, field.validation?.minInclusive !== false, field.validation?.maxInclusive !== false)
 
     case 'DECIMAL':
-      return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue)
+      return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue, field.validation?.minInclusive !== false, field.validation?.maxInclusive !== false)
 
     case 'BOOLEAN': {
       // An optional boolean may be unset: a stored null, or the switch cycled back to
@@ -230,7 +237,11 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
     case 'HTML':
     case 'STRING':
     default:
-      return buildStringSchema(isRequired ?? false, label ?? type, maxLength)
+      return buildStringSchema(isRequired ?? false, label ?? type, maxLength).refine((value: string | undefined) => {
+        if (!value || !field.validation?.pattern) return true
+        try { return new RegExp('^(?:' + field.validation.pattern + ')$').test(value) }
+        catch { return true } // An unsupported server pattern must not prevent submitting to the authority.
+      }, field.validation?.patternMessage ?? `${label} has an invalid format`)
   }
 }
 
