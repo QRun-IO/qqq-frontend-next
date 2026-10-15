@@ -31,7 +31,8 @@ import type { QTableMetaData, QRecord, QTableMenu } from '@/types'
 
 import { cn } from '@/lib/utils/cn'
 import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
-import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { canDeleteRecords, canEditRecords, canInsertRecords, canReadRecords } from '@/lib/auth/permissions'
+import { OpenMapperAction } from '@/components/edi-mapper/OpenMapperAction'
 import { recordAdditionalMenus, hasMenuItems, type RecordMenuAction, type RecordMenuEntry } from '@/lib/utils/record-menu-utils'
 
 import { ProcessActionHelp } from '@/components/help/ProcessActionHelp'
@@ -154,6 +155,7 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
 
   return (
     <div className={cn('flex items-center gap-2', className)} data-qqq-id={`record-view-button-bar-${sanitizeQqqId(tableMetaData.name)}`}>
+      {tableMetaData.name === 'edi_map' && canReadRecords(tableMetaData) && <OpenMapperAction mapId={primaryKey} />}
       {canEdit && (
         <button
           type="button"

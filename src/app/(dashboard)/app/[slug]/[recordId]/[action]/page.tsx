@@ -22,6 +22,7 @@
 'use client'
 
 import React from 'react'
+import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -32,6 +33,10 @@ import { launchTableName } from '@/lib/utils/process-utils'
 import { NotFoundState } from '@/components/layout/NotFoundState'
 import { RouteRedirect } from '@/components/layout/RouteRedirect'
 
+const EdiMapperPage = dynamic(() => import('@/components/edi-mapper/EdiMapperPage'), {
+  loading: () => <p role="status">Loading mapper…</p>,
+})
+
 /**
  * Opens the named process for the record, returning to the record afterwards, or shows the
  * in-shell not-found state when the segment is not one of the table's processes.
@@ -41,6 +46,8 @@ import { RouteRedirect } from '@/components/layout/RouteRedirect'
 export default function RecordProcessPage() {
   const { slug, recordId, action } = useRouteParams<{ slug: string; recordId: string; action: string }>()
   const { data: metaData, isError } = useQuery({ queryKey: queryKeys.metadataAll(), queryFn: loadMetaData, staleTime: 1000 * 60 * 30 })
+
+  if (slug === 'edi_map' && action === 'mapper') return <EdiMapperPage key={recordId} mapId={Number(recordId)} />
 
   if (isError) {
     return <div role="alert" className="py-12 text-center text-destructive">Failed to load application metadata.</div>

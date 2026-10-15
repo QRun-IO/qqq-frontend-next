@@ -33,7 +33,8 @@ import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils
 import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
-import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { canDeleteRecords, canEditRecords, canInsertRecords, canReadRecords } from '@/lib/auth/permissions'
+import { OpenMapperAction } from '@/components/edi-mapper/OpenMapperAction'
 import { useRecordRecentView } from '@/lib/hooks/use-collaboration-core'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
@@ -528,6 +529,7 @@ export function RecordViewHeader({
             </div>
 
             <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain py-2" data-qqq-id="mobile-actions-list">
+              {tableMetaData.name === 'edi_map' && canReadRecords(tableMetaData) && <OpenMapperAction mapId={primaryKey} />}
               {/* Edit */}
               {!hasCustomActionsMenu && canEdit && (
                 <button
