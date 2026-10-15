@@ -4,7 +4,7 @@
 
 ## Features
 
-- **Profile photo and avatars everywhere** (QQQ 4.1.0-RC.16, UI API 1.7.0 `avatars`):
+- **Profile photo and avatars everywhere** (QQQ 4.1.0-RC.17, UI API 1.8.0 `avatars`):
   - The core **Profile** preferences section renders generically. Its photo is a `FILE_UPLOAD` field with `valueIsUploadRef`, so you can drag and drop or choose a picture, crop it square (drag, arrow keys or the zoom slider), preview it and remove it. The cropped PNG goes to `POST /uploads`, and the ref saves with the form.
   - One `UserAvatar` (photo via one batched `POST /avatars/lookup` and `GET /avatars/{avatarId}`, otherwise initials) shows people in the user menu, presence, comments, mention candidates, the people picker, activity and your own assistant messages. A missing avatar is remembered for the session, so it isn't requested again.
   - **Privacy:** branding `gravatarDefault` no longer sends your email hash to Gravatar. A Gravatar appears only if you turn it on in your Profile, and the server serves it.

@@ -16,7 +16,7 @@
 
 /**
  * @file Editor for a FILE_UPLOAD field whose value is an upload ref (`valueIsUploadRef`, UI API
- * 1.7.0), such as the profile photo. The user drops or picks an image, crops it square, and it
+ * 1.8.0), such as the profile photo. The user drops or picks an image, crops it square, and it
  * goes to `POST /uploads`; the field's value becomes the returned ref, saved with the rest of the
  * form. The server re-checks and re-encodes everything; the checks here only spare a round trip.
  */

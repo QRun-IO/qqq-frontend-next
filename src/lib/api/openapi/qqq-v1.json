@@ -31,6 +31,13 @@
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the app."
      },
+     "keywords": {
+      "description": "Search aliases (old labels, jargon, vendor names); match search on label, keywords and ancestor labels; never display",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
      "label": {
       "description": "User-facing name for this app",
       "type": "string"
@@ -62,6 +69,18 @@
    },
    "AppSection": {
     "properties": {
+     "apps": {
+      "description": "List of child app names for the section",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "collapsedByDefault": {
+      "description": "Whether the section is collapsed by default; SETTINGS defaults to true",
+      "nullable": true,
+      "type": "boolean"
+     },
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the section."
@@ -88,6 +107,16 @@
       },
       "type": "array"
      },
+     "role": {
+      "description": "PRIMARY: items shown without a heading; HISTORY: system-written records under a heading; SETTINGS: configuration under a heading, collapsed by default; GROUP: a heading grouping child apps, never navigable",
+      "enum": [
+       "PRIMARY",
+       "HISTORY",
+       "SETTINGS",
+       "GROUP"
+      ],
+      "type": "string"
+     },
      "tables": {
       "description": "List of table names for the section",
       "items": {
@@ -110,6 +139,13 @@
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the item."
+     },
+     "keywords": {
+      "description": "Search aliases (old labels, jargon, vendor names); match search on label, keywords and ancestor labels; never display",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
      },
      "label": {
       "description": "User-facing name of the element.",
@@ -185,7 +221,7 @@
    "AuditsCapabilityV1": {
     "properties": {
      "available": {
-      "description": "True when the table is audited and the user can read its audits one of the two ways.",
+      "description": "True when the user can read this table and its audits one of the two ways (the audit process enforces both). Independent of level: records of a table at level NONE can still have audits written explicitly.",
       "nullable": true,
       "type": "boolean"
      },
@@ -194,7 +230,7 @@
       "type": "string"
      },
      "level": {
-      "description": "The table's audit level: NONE, RECORD or FIELD.",
+      "description": "The table's audit level: NONE, RECORD or FIELD (informational: what is audited automatically).",
       "type": "string"
      },
      "processName": {
@@ -1013,19 +1049,19 @@
         "type": "string"
        },
        "valueIsUploadRef": {
-        "description": "FILE_UPLOAD: upload the file with POST /uploads and send its ref as the field's value (null removes the file); the value read back is a URL to show. Since 1.7.0.",
+        "description": "FILE_UPLOAD: upload the file with POST /uploads and send its ref as the field's value (null removes the file); the value read back is a URL to show. Since 1.8.0.",
         "type": "boolean"
        },
        "accept": {
-        "description": "FILE_UPLOAD: accepted MIME types, comma-separated (e.g. image/png,image/jpeg). Since 1.7.0.",
+        "description": "FILE_UPLOAD: accepted MIME types, comma-separated (e.g. image/png,image/jpeg). Since 1.8.0.",
         "type": "string"
        },
        "maxBytes": {
-        "description": "FILE_UPLOAD: largest accepted file in bytes. Since 1.7.0.",
+        "description": "FILE_UPLOAD: largest accepted file in bytes. Since 1.8.0.",
         "type": "integer"
        },
        "imageShape": {
-        "description": "FILE_UPLOAD: the field is an image to crop and preview in this shape (square or circle; both crop square). Since 1.7.0.",
+        "description": "FILE_UPLOAD: the field is an image to crop and preview in this shape (square or circle; both crop square). Since 1.8.0.",
         "enum": [
          "square",
          "circle"
@@ -2298,7 +2334,7 @@
      },
      "values": {
       "additionalProperties": true,
-      "description": "Optional object with application-defined values. `user` describes the signed-in user: `name`, `email` or `username` (by authentication module), and, when the application installs user profiles (since 1.7.0), `displayName` (the name the user chose; prefer it to `name`) and `avatarUrl` (relative URL of GET /avatars/{avatarId} with its version; add `&size=32|64|128|256`). No `avatarUrl` means draw initials.",
+      "description": "Optional object with application-defined values. `user` describes the signed-in user: `name`, `email` or `username` (by authentication module), and, when the application installs user profiles (since 1.8.0), `displayName` (the name the user chose; prefer it to `name`) and `avatarUrl` (relative URL of GET /avatars/{avatarId} with its version; add `&size=32|64|128|256`). No `avatarUrl` means draw initials.",
       "type": "object"
      }
     },
@@ -5693,7 +5729,7 @@
         "description": "Audit history of this table's records.",
         "properties": {
          "available": {
-          "description": "True when the table is audited and the user can read its audits one of the two ways.",
+          "description": "True when the user can read this table and its audits one of the two ways (the audit process enforces both). Independent of level: records of a table at level NONE can still have audits written explicitly.",
           "nullable": true,
           "type": "boolean"
          },
@@ -5702,7 +5738,7 @@
           "type": "string"
          },
          "level": {
-          "description": "The table's audit level: NONE, RECORD or FIELD.",
+          "description": "The table's audit level: NONE, RECORD or FIELD (informational: what is audited automatically).",
           "type": "string"
          },
          "processName": {
@@ -10359,7 +10395,7 @@
   },
   "description": "## Intro\nThis is the definition of the standard API implemented by QQQ Middleware.\n\nDevelopers of QQQ Frontends (e.g., javascript libraries, or native applications) use this API to access\na QQQ Backend server.\n\nAs such, this API itself is not concerned with any of the application-level details of any particular\napplication built using QQQ.  Instead, this API is all about the generic endpoints used for any application\nbuilt on QQQ.  For example, many endpoints work with a `${table}` path parameter - whose possible values\nare defined by the application - but which are not known to this API.\n\n## Flow\nThe typical flow of a user (as implemented in a frontend that utilizes this API) looks like:\n1. Frontend calls `.../metaData/authentication`, to know what type of authentication provider is used by the backend, and display an appropriate UI to the user for authenticating.\n2. User authenticates in frontend, as required for the authentication provider.\n3. Frontend calls `.../manageSession`, providing authentication details (e.g., an accessToken or other credentials) to the backend.\n4. The response from the `manageSession` call (assuming success), sets the `sessionUUID` Cookie, which should be included in all subsequent requests for authentication.\n5. After the user is authenticated, the frontend calls `.../metaData`, to discover the apps, tables, processes, etc, that the application is made up of (and that the authenticated user has permission to access).\n6. As the user interacts with apps, tables, process, etc, the frontend utilizes the appropriate endpoints as required.\n\n## Client channel\nEvery request should name its client in the `X-QQQ-Client` header: `channel[/detail]`, e.g. `next-ui`, `cli`,\nor `assistant/<turnId>` (the accepted channels are listed by `GET .../version`; an unknown one is refused with 400).\nThe channel is recorded in audits.  It is attribution only: the actor is always the signed-in user, and a channel\nnever grants anything - but some objects are denied to some channels (e.g. the AI assistant can never see its own\nconfiguration, identity and permission administration, audits, API keys or secrets), exactly as if the user had\nno permission for them.\n",
   "title": "QQQ Middleware API",
-  "version": "1.7.0"
+  "version": "1.8.0"
  },
  "openapi": "3.0.3",
  "paths": {
@@ -10850,7 +10886,7 @@
   },
   "/qqq/v1/avatars/lookup": {
    "post": {
-    "description": "The avatar URL (GET /avatars/{avatarId}, with its version) of each user id given, for any signed-in user.\nUsers without an avatar are not in the result: draw their initials. At most 200 ids per call. Since 1.7.0.",
+    "description": "The avatar URL (GET /avatars/{avatarId}, with its version) of each user id given, for any signed-in user.\nUsers without an avatar are not in the result: draw their initials. At most 200 ids per call. Since 1.8.0.",
     "operationId": "lookupAvatars",
     "requestBody": {
      "content": {
@@ -10961,7 +10997,7 @@
   },
   "/qqq/v1/avatars/{avatarId}": {
    "get": {
-    "description": "An avatar as a square PNG, by its opaque id, for any signed-in user. 404 when there is none (draw initials).\nAvatar URLs come from POST /avatars/lookup (other users), `values.user.avatarUrl` of POST /manageSession and\nthe `profile` preferences section (the signed-in user). A user's chosen Gravatar is fetched and re-encoded by\nthe server, so browsers never contact Gravatar. With `v` equal to the current version the response is\ncacheable for a year; otherwise for five minutes, with an ETag. Since 1.7.0.",
+    "description": "An avatar as a square PNG, by its opaque id, for any signed-in user. 404 when there is none (draw initials).\nAvatar URLs come from POST /avatars/lookup (other users), `values.user.avatarUrl` of POST /manageSession and\nthe `profile` preferences section (the signed-in user). A user's chosen Gravatar is fetched and re-encoded by\nthe server, so browsers never contact Gravatar. With `v` equal to the current version the response is\ncacheable for a year; otherwise for five minutes, with an ETag. Since 1.8.0.",
     "operationId": "getAvatar",
     "parameters": [
      {
@@ -11498,11 +11534,13 @@
              "name": "homeApp",
              "sections": [
               {
+               "collapsedByDefault": false,
                "icon": {
                 "name": "badge"
                },
                "label": "Home App",
                "name": "homeApp",
+               "role": "PRIMARY",
                "tables": [
                 "person"
                ]
@@ -11539,6 +11577,7 @@
              "name": "childApp",
              "sections": [
               {
+               "collapsedByDefault": false,
                "icon": {
                 "name": "badge"
                },
@@ -11546,7 +11585,8 @@
                "name": "childApp",
                "processes": [
                 "samplePersonProcess"
-               ]
+               ],
+               "role": "PRIMARY"
               }
              ]
             }

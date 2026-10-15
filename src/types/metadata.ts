@@ -137,7 +137,7 @@ export interface QBrandingMetaData {
   customCss?: string
   /**
    * Gravatar default-image setting (the `d` parameter) for the Material dashboard. Next does not use
-   * it: a user shows a Gravatar only after choosing it on their profile (UI API 1.7.0 avatars).
+   * it: a user shows a Gravatar only after choosing it on their profile (UI API 1.8.0 avatars).
    */
   gravatarDefault?: string
 }

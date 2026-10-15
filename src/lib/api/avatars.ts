@@ -15,7 +15,7 @@
  */
 
 /**
- * @file Avatars (UI API 1.7.0, feature `avatars`). The people on screen are batched into one
+ * @file Avatars (UI API 1.8.0, feature `avatars`). The people on screen are batched into one
  * `POST /avatars/lookup` (user ids never go in a URL), and each returned URL —
  * `GET /avatars/{avatarId}`, an opaque id — loads through `<img>` with the session cookie. Nothing
  * calls a third party: a user's chosen Gravatar is fetched by the server. A user without an avatar,
