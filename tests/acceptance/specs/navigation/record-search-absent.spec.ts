@@ -24,7 +24,7 @@ function watchSearchRequests(page: Page): string[] {
   return seen
 }
 
-test('[NAV-032] without searchable tables the header box, "/" dialog and search page stay local and never call /search @mobile', async ({ page, security, diagnostics }) => {
+test('[NAV-032] without searchable tables the search box (header and "/") and search page stay local and never call /search @mobile', async ({ page, security, diagnostics }) => {
   void diagnostics
   const searchRequests = watchSearchRequests(page)
   const metaData = await (await security.api.get('/qqq/v1/metaData')).json()
@@ -38,7 +38,8 @@ test('[NAV-032] without searchable tables the header box, "/" dialog and search 
   await page.locator('[data-qqq-id="button-search"]').click()
   const dialog = page.getByRole('dialog', { name: 'Command palette' })
   await dialog.getByRole('combobox').fill(person.first_name!)
-  await expect(dialog.locator('[data-qqq-id="command-menu-empty"]')).toHaveText('No results found.')
+  // no record results; the only way on is "Search everything", which stays local here
+  await expect(dialog.locator('[data-qqq-id="command-search-all"]')).toBeVisible()
   await expect(dialog.locator('[data-value^="record:"]')).toHaveCount(0)
   await expectTouchReady(page, dialog)
   await page.keyboard.press('Escape')
