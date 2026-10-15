@@ -15,7 +15,8 @@
  */
 
 /**
- * @file KeyboardShortcutsDialog — "?" help dialog listing available keyboard shortcuts grouped by context.
+ * @file KeyboardShortcutsDialog — the keyboard shortcuts sheet (`?`, or Help > Keyboard shortcuts),
+ * grouped by context, with the switch that turns single-key shortcuts off (WCAG 2.1.4).
  */
 
 'use client'
@@ -26,6 +27,7 @@ import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
+import { useSingleKeyShortcutsToggle } from '@/lib/keyboard/use-single-key-shortcuts-sync'
 
 /**
  * Describes a single keyboard shortcut with its key combination and action description.
@@ -35,6 +37,8 @@ interface ShortcutEntry {
   keys: string[]
   /** Human-readable description of the action triggered by the shortcut. */
   description: string
+  /** Uses Ctrl or ⌘, so it keeps working with single-key shortcuts off. */
+  modified?: boolean
 }
 
 /**
@@ -52,10 +56,9 @@ const shortcutSections: ShortcutSection[] = [
   {
     title: 'Global',
     shortcuts: [
-      { keys: ['.'], description: 'Quick Navigation' },
-      { keys: ['/'], description: 'Search Records' },
+      { keys: ['\u2318', 'K'], description: 'Search or jump to (Ctrl+K on Windows and Linux)', modified: true },
+      { keys: ['/'], description: 'Search or jump to' },
       { keys: ['?'], description: 'Keyboard Shortcuts' },
-      { keys: ['\u2318', 'K'], description: 'Command Palette' },
     ],
   },
   {
@@ -72,7 +75,7 @@ const shortcutSections: ShortcutSection[] = [
       { keys: ['n'], description: 'Create a New Record' },
       { keys: ['e'], description: 'Edit the current Record' },
       { keys: ['c'], description: 'Copy the current Record' },
-      { keys: ['d'], description: 'Delete the current Record' },
+      { keys: ['Shift', 'D'], description: 'Delete the current Record (asks to confirm)' },
       { keys: ['a'], description: 'Audit the current Record' },
     ],
   },
@@ -131,10 +134,11 @@ interface KeyboardShortcutsDialogProps {
 export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef, assistantEnabled = false }: KeyboardShortcutsDialogProps) {
   const sections = assistantEnabled
     ? shortcutSections.map((section) => (section.title === 'Global'
-      ? { ...section, shortcuts: [...section.shortcuts, { keys: ['⌘', 'J'], description: 'Assistant (Ctrl+J on Windows and Linux)' }] }
+      ? { ...section, shortcuts: [...section.shortcuts, { keys: ['⌘', 'J'], description: 'Assistant (Ctrl+J on Windows and Linux)', modified: true }] }
       : section))
     : shortcutSections
   const restoreFocus = useRestoreFocus(open)
+  const singleKeys = useSingleKeyShortcutsToggle()
   /**
    * Returns focus to where it was, or else to the help button.
    *
@@ -193,7 +197,7 @@ export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef, assista
                   {section.shortcuts.map((shortcut) => (
                     <div
                       key={shortcut.description}
-                      className="flex items-center justify-between py-1"
+                      className={cn('flex items-center justify-between py-1', !shortcut.modified && !singleKeys.enabled && 'opacity-50')}
                     >
                       <span className="text-sm text-foreground">{shortcut.description}</span>
                       <div className="flex items-center gap-1">
@@ -213,11 +217,27 @@ export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef, assista
             ))}
           </div>
 
-          {/* Footer */}
-          <div className="border-t border-border px-6 py-3">
-            <p className="text-center text-xs text-muted-foreground">
-              Press <Kbd>?</Kbd> anytime to show this dialog
-            </p>
+          {/* Footer: the single-key switch (WCAG 2.1.4) */}
+          <div className="space-y-2 border-t border-border px-6 py-3">
+            <label className="flex items-center justify-between gap-3 text-sm text-foreground pointer-coarse:min-h-11" data-qqq-id="single-key-shortcuts-switch">
+              <span>
+                Single-key shortcuts
+                <span className="block text-xs text-muted-foreground">Turn off if keys typed by voice or assistive technology trigger them. Ctrl/⌘ shortcuts keep working.</span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={singleKeys.enabled}
+                disabled={singleKeys.saving}
+                onChange={(event) => singleKeys.setEnabled(event.target.checked)}
+                className="h-5 w-9 shrink-0 cursor-pointer accent-primary"
+              />
+            </label>
+            {singleKeys.enabled && (
+              <p className="text-center text-xs text-muted-foreground">
+                Press <Kbd>?</Kbd> anytime to show this sheet
+              </p>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -17,11 +17,52 @@
 // edges, and closing it returns focus to the header help button even where a tap does not focus it.
 
 import React, { useRef, useState } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render as renderWithoutProviders, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { afterEach, describe, expect, it } from 'vitest'
 
+import { SINGLE_KEY_SHORTCUTS_STORAGE_KEY, setSingleKeyShortcutsEnabled, singleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
 import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog'
+
+/**
+ * Renders inside a query client (the sheet's switch saves through it).
+ * @param ui - Element under test.
+ * @returns Testing Library render result.
+ */
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderWithoutProviders(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
+afterEach(() => {
+  setSingleKeyShortcutsEnabled(true)
+  window.localStorage.removeItem(SINGLE_KEY_SHORTCUTS_STORAGE_KEY)
+})
+
+describe('KeyboardShortcutsDialog content', () => {
+  it('lists delete as Shift+D and search as Ctrl/⌘+K or /', () => {
+    render(<KeyboardShortcutsDialog open onClose={() => undefined} />)
+    const del = screen.getByText('Delete the current Record (asks to confirm)').parentElement!
+    expect(del).toHaveTextContent('Shift+D')
+    expect(screen.getByText('Search or jump to (Ctrl+K on Windows and Linux)')).toBeInTheDocument()
+    expect(screen.queryByText('Command Palette')).toBeNull()
+  })
+
+  it('turns single-key shortcuts off and on with its switch (WCAG 2.1.4), kept in this browser without a server section', async () => {
+    const user = userEvent.setup()
+    render(<KeyboardShortcutsDialog open onClose={() => undefined} />)
+    const toggle = screen.getByRole('switch', { name: /Single-key shortcuts/ })
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+    expect(singleKeyShortcutsEnabled()).toBe(false)
+    expect(window.localStorage.getItem(SINGLE_KEY_SHORTCUTS_STORAGE_KEY)).toBe('off')
+    expect(screen.getByRole('switch', { name: /Single-key shortcuts/ })).not.toBeChecked()
+    await user.click(screen.getByRole('switch', { name: /Single-key shortcuts/ }))
+    expect(singleKeyShortcutsEnabled()).toBe(true)
+    expect(window.localStorage.getItem(SINGLE_KEY_SHORTCUTS_STORAGE_KEY)).toBeNull()
+  })
+})
 
 /** A help button wired to the dialog the way the dashboard layout wires the header button. */
 function HelpButtonWithDialog() {

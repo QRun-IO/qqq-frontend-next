@@ -16,14 +16,20 @@
 
 /**
  * @file usePageShortcuts — single-key page shortcuts (Material parity: `n`, `r`, `f` on a
- * table query; `n`, `e`, `c`, `d`, `a` on a record view).
+ * table query; `n`, `e`, `c`, `a` and Shift+D (delete) on a record view). Every one of them is
+ * off while the user has turned single-key shortcuts off (WCAG 2.1.4).
  */
 
 'use client'
 
 import { useEffect, useRef } from 'react'
 
-/** Single lowercase keys mapped to their action; a missing or `false` entry is not offered. */
+import { singleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
+
+/**
+ * Keys (`event.key`, so `D` is Shift+D) mapped to their action; a missing or `false` entry is
+ * not offered.
+ */
 export type PageShortcutMap = Partial<Record<string, (() => void) | false | undefined>>
 
 /**
@@ -68,7 +74,7 @@ export function usePageShortcuts(shortcuts: PageShortcutMap, enabled = true): vo
   useEffect(() => {
     if (!enabled) return undefined
     const handler = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat) return
+      if (event.defaultPrevented || event.repeat || !singleKeyShortcutsEnabled()) return
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (isTextEntryTarget(event.target) || hasOpenOverlay(document)) return
       const action = latest.current[event.key]

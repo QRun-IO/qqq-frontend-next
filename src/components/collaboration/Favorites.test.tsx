@@ -15,7 +15,7 @@
  */
 
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,7 +23,7 @@ import type { CollaborationFavorite, CollaborationList } from '@/types/collabora
 import * as api from '@/lib/api/collaboration'
 import { queryKeys } from '@/lib/query-client'
 import { FavoriteToggle } from './FavoriteToggle'
-import { FavoritesMenu } from './FavoritesMenu'
+import { SidebarFavorites } from './SidebarFavorites'
 
 vi.mock('@/lib/api/collaboration', () => ({
   isCollaborationInstalled: vi.fn(),
@@ -89,55 +89,31 @@ describe('FavoriteToggle', () => {
   })
 })
 
-describe('FavoritesMenu', () => {
-  it('groups by folder, mutes unavailable targets and supports their removal', async () => {
+describe('SidebarFavorites', () => {
+  const many = Array.from({ length: 7 }, (_, index) => ({ ...alice, id: index + 1, recordId: String(index + 1), label: `Favorite ${index + 1}`, href: `/app/person/${index + 1}` }))
+
+  it('is collapsed by default with a count, and opens to the first five plus All favorites', async () => {
     const user = userEvent.setup()
-    const unavailable = {
-      ...alice,
-      id: 2,
-      recordId: 'deleted',
-      available: false,
-      href: null,
-      label: 'Unavailable',
-      folder: 'Operations',
-    }
-    setup(<FavoritesMenu />, [alice, unavailable])
-    expect(api.listFavorites).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Favorites' }))
-    expect(screen.getByRole('heading', { name: 'Customers' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Operations' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Alice Johnson' })).toHaveAttribute(
-      'href',
-      '/app/person/1'
-    )
-    expect(screen.queryByRole('link', { name: 'Unavailable' })).toBeNull()
-    expect(screen.getByText('Unavailable')).toHaveClass('text-muted-foreground')
-    expect(screen.getByRole('link', { name: 'Manage' })).toHaveAttribute(
-      'href',
-      '/app/collaboration_favorite'
-    )
-    expect(screen.getByRole('dialog')).toHaveClass('max-w-[calc(100vw-32px)]')
-    await user.click(screen.getByRole('button', { name: 'Remove Unavailable from favorites' }))
-    await waitFor(() =>
-      expect(api.unstarFavorite).toHaveBeenCalledWith({ ...target, recordId: 'deleted' })
-    )
+    let open = false
+    const { rerender, client } = setup(<SidebarFavorites pathname="/app/person/2" open={open} onToggle={(next) => { open = next }} />, many)
+    const toggle = await screen.findByRole('button', { name: /Favorites/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveTextContent('· 7')
+    expect(screen.queryByRole('link', { name: 'Favorite 1' })).toBeNull()
+    await user.click(toggle)
+    expect(open).toBe(true)
+    rerender(<QueryClientProvider client={client}><SidebarFavorites pathname="/app/person/2" open onToggle={() => {}} /></QueryClientProvider>)
+    expect(screen.getAllByRole('link').filter((link) => link.dataset.qqqId === 'sidebar-favorite-link')).toHaveLength(5)
+    expect(screen.getByRole('link', { name: 'Favorite 2' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'All favorites (7)' })).toHaveAttribute('href', '/app/collaboration_favorite')
   })
-  it('has a useful empty state and restores focus on Escape', async () => {
-    const user = userEvent.setup()
-    setup(<FavoritesMenu />)
-    const trigger = screen.getByRole('button', { name: 'Favorites' })
-    await user.click(trigger)
-    expect(
-      within(screen.getByRole('dialog')).getByText(
-        'No favorites yet. Use the star on any table, app or record.'
-      )
-    ).toBeVisible()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(trigger).toHaveFocus()
+  it('hides unavailable favorites and is absent when there are none', async () => {
+    const unavailable = { ...alice, id: 2, available: false, href: null, label: 'Gone' }
+    const { container } = setup(<SidebarFavorites pathname="/app" open onToggle={() => {}} />, [unavailable])
+    await waitFor(() => expect(container).toBeEmptyDOMElement())
   })
-  it('is hidden when unavailable', () => {
-    const { container } = setup(<FavoritesMenu />, [], false)
+  it('is hidden when collaboration is absent', () => {
+    const { container } = setup(<SidebarFavorites pathname="/app" open onToggle={() => {}} />, [alice], false)
     expect(container).toBeEmptyDOMElement()
   })
 })

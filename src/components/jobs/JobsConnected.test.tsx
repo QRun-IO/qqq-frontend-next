@@ -120,6 +120,14 @@ describe('JobsHeaderButton and JobsPopover', () => {
     expect(dialog).not.toBeInTheDocument()
     expect(button).toHaveFocus()
   })
+  it('stays visible when nothing runs: idle, without a badge or a load-time announcement', async () => {
+    vi.mocked(listJobs).mockResolvedValue({ jobs: [], activeCount: 0, generatedAt: 'now' })
+    renderConnected(<JobsHeaderButton />)
+    const button = await screen.findByRole('button', { name: 'Jobs, none active' })
+    expect(button).toHaveAttribute('data-qqq-state', 'idle')
+    expect(document.querySelector('[data-qqq-id="jobs-active-badge"]')).toBeNull()
+    expect(document.querySelector('[data-qqq-id="jobs-announcer"]')).toHaveTextContent('')
+  })
   it('shows empty lists, closes on outside click and opens a job', () => {
     const close = vi.fn()
     const { rerender } = render(<JobsPopover jobs={[]} recent={[]} onClose={close} />)

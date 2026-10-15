@@ -15,8 +15,10 @@
  */
 
 /**
- * @file CommandMenu — Cmd+K / Ctrl+K / "." command palette (Material CommandMenu): the current
- * table's actions, every navigable app, table, process and report, and the recently viewed records.
+ * @file CommandMenu — the one search box (Cmd+K / Ctrl+K, `/`, the header field; `.` for Material
+ * habits): favorites, help, the current table's actions, every navigable app, table, process and
+ * report (matched on label, search aliases and enclosing apps), records, recently viewed records,
+ * search everything, and "Ask Assistant".
  */
 
 'use client'
@@ -66,6 +68,8 @@ interface CommandMenuProps {
   navTargets: NavTarget[]
   /** Instance metadata, for the current table's actions (omit for navigation only). */
   metaData?: QInstance
+  /** Open scoped to help articles (Help > Search help). */
+  helpOnly?: boolean
   /**
    * When set (the assistant is available), typed text can be handed to the assistant.
    *
@@ -85,7 +89,7 @@ interface CommandMenuProps {
  * @returns A fixed full-screen backdrop with the command palette dialog, or
  *   `null` when `open` is `false`. Keyboard: ↑↓ navigate, ↵ open, Esc close.
  */
-export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistant }: CommandMenuProps) {
+export function CommandMenu({ open, onClose, navTargets, metaData, helpOnly: openHelpOnly = false, onAskAssistant }: CommandMenuProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [search, setSearch] = useState('')
@@ -146,14 +150,16 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
     }
   }
 
-  // Clear search when closed
+  // Clear search when closed; open scoped to help when asked to
   useEffect(() => {
     if (!open) {
       setSearch('')
       setCollaboration(null)
       setHelpOnly(false)
+    } else if (openHelpOnly) {
+      setHelpOnly(true)
     }
-  }, [open])
+  }, [open, openHelpOnly])
 
   /**
    * Navigates to the selected item's path and closes the palette.
@@ -195,7 +201,8 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
   const visibleTargets = useMemo(() => {
     if (!search) return navTargets
     return navTargets
-      .filter((target) => commandMatches([target.label, ...target.ancestors.map((ancestor) => ancestor.label)].join(' '), search))
+      // label, search aliases (old labels, jargon) and enclosing apps
+      .filter((target) => commandMatches([target.label, ...(target.keywords ?? []), ...target.ancestors.map((ancestor) => ancestor.label)].join(' '), search))
       .sort((a, b) => compareCommandLabels(a.label, b.label, search))
   }, [navTargets, search])
   const visibleRecent = useMemo(() => {

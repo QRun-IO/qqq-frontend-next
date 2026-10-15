@@ -39,9 +39,8 @@ import { useTheme } from '@/lib/theme/theme-provider'
 import { recordAnalytics } from '@/lib/analytics'
 import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
-import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
-import dynamic from 'next/dynamic'
+import { Sparkles } from 'lucide-react'
 
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
@@ -50,18 +49,18 @@ import BrandedHeaderBar from '@/components/layout/BrandedHeaderBar'
 import CompanyFooter from '@/components/layout/CompanyFooter'
 import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadcrumbs'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
-import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
+import { AccountMenu } from '@/components/layout/AccountMenu'
+import { HelpMenu, HelpMenuItems } from '@/components/layout/HelpMenu'
+import { HEADER_MENU_ITEM_CLASS } from '@/components/layout/HeaderMenu'
+import { singleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
+import { useSingleKeyShortcutsSync } from '@/lib/keyboard/use-single-key-shortcuts-sync'
 import { HelpPanelProvider } from '@/components/help/HelpPanelProvider'
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
 import { AlertsBell, useAlertsInstalled } from '@/components/alerts/AlertsBell'
 import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
-
-// The favorites menu checks for collaboration and loads after hydration, so neither it nor the
-// collaboration hooks are in the dashboard's first load (the slot stays empty until then).
-const LazyFavoritesMenu = dynamic(() => import('@/components/collaboration/FavoritesMenuSlot').then((module) => module.LazyFavoritesMenu), { ssr: false })
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -74,7 +73,8 @@ const LazyFavoritesMenu = dynamic(() => import('@/components/collaboration/Favor
  * - Applies the application theme (tokens, rules, customCss) and the branded header bar.
  * - Configures analytics and records a page view per screen.
  * - Redirects unauthenticated users to `/login`.
- * - Registers global keyboard shortcuts: Cmd+K (command palette), `/` (search), `?` (help).
+ * - Registers global keyboard shortcuts: Cmd+K and `/` (search), `?` (keyboard shortcuts); the
+ *   single-key ones only while the user has not turned single-key shortcuts off (WCAG 2.1.4).
  * - Renders the desktop sidebar, mobile sidebar drawer, banners, header, and main content slot.
  *
  * @param children - The authenticated page content to render in the main slot.
@@ -89,15 +89,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
-  const helpButtonRef = useRef<HTMLButtonElement>(null)
 
-  // Command palette state
+  // The one search box (pages, records, actions, help, Ask): Cmd/Ctrl+K, `/`, the header field
   const [commandOpen, setCommandOpen] = useState(false)
+  // opened from Help > Search help: scoped to help articles
+  const [commandHelpOnly, setCommandHelpOnly] = useState(false)
+  const openSearch = useCallback((helpOnly = false) => {
+    setCommandHelpOnly(helpOnly)
+    setCommandOpen(true)
+  }, [])
 
-  // Search dialog state (/ key)
-  const [searchOpen, setSearchOpen] = useState(false)
-
-  // Keyboard shortcuts help dialog state
+  // Keyboard shortcuts sheet (`?`, or Help > Keyboard shortcuts)
   const [helpOpen, setHelpOpen] = useState(false)
 
   // Load full application metadata
@@ -117,16 +119,24 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const assistant = useAssistantController(metaData, isAuthenticated)
   const { enabled: assistantEnabled, toggle: toggleAssistant } = assistant
 
+  // The user's single-key shortcut setting (server Keyboard section, or this browser's choice)
+  useSingleKeyShortcutsSync(isAuthenticated)
+
   // Generate sidebar routes and path map from app tree
-  const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, homePath } = useAppTreeRoutes(metaData)
+  const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, homePath, sectionRedirects } = useAppTreeRoutes(metaData)
+
+  // A section heading is not a page: its name as a path (an old link to a group that used to be an
+  // app) goes to the app that heads it, at the section
+  useEffect(() => {
+    const target = sectionRedirects[(pathname ?? '').replace(/\/+$/, '')]
+    if (target) router.replace(target)
+  }, [pathname, sectionRedirects, router])
 
   // Every route change starts at the top of the page (Material App scrolls to 0 on each pathname)
   useEffect(() => {
     scrollPageToTop()
   }, [pathname])
 
-  // Tables the backend record search covers for this user (none: search stays local)
-  const searchTables = useMemo(() => searchableTables(metaData), [metaData])
 
   // Sync pathToLabelMap to QContext
   useEffect(() => {
@@ -198,18 +208,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   /**
    * Global `keydown` handler that drives the application-level keyboard shortcuts.
    *
-   * - Cmd+K / Ctrl+K — toggles the command palette.
+   * - Cmd+K / Ctrl+K — toggles the search box.
    * - Cmd+J / Ctrl+J — toggles the assistant panel (when available; works in text fields too).
-   * - Escape — closes all overlays (command palette, search dialog, help dialog, mobile sidebar).
-   * - `.` — opens the command palette (only when not in a text field).
-   * - `/` — opens the search dialog (only when not in a text field).
-   * - `?` — opens the keyboard shortcuts dialog (only when not in a text field).
+   * - Escape — closes all overlays (search box, shortcuts sheet, mobile sidebar).
+   * - `/` — opens the search box (not in a text field; off with single-key shortcuts).
+   * - `.` — the same, kept quietly for Material habits (off with single-key shortcuts).
+   * - `?` — opens the keyboard shortcuts sheet (not in a text field; off with single-key shortcuts).
    *
    * @param e - The native DOM keyboard event.
    */
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
+      setCommandHelpOnly(false)
       setCommandOpen((prev) => !prev)
     }
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'j' && assistantEnabled) {
@@ -219,28 +230,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
     if (e.key === 'Escape') {
       setCommandOpen(false)
-      setSearchOpen(false)
       setHelpOpen(false)
       // The navigation drawer is a modal dialog and handles its own Escape
     }
 
-    // Single-key shortcuts — only when not focused in a text field
-    if (!isInputFocused() && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    // Single-key shortcuts — only when not focused in a text field, and not turned off (WCAG 2.1.4)
+    if (!isInputFocused() && !e.metaKey && !e.ctrlKey && !e.altKey && singleKeyShortcutsEnabled()) {
       if (e.key === '.') {
         e.preventDefault()
         recordAnalytics({ category: 'globalEvents', action: 'dotMenuKeyboardShortcut' })
-        setCommandOpen(true)
+        openSearch()
       }
       if (e.key === '/') {
         e.preventDefault()
-        setSearchOpen(true)
+        openSearch()
       }
       if (e.key === '?') {
         e.preventDefault()
         setHelpOpen(true)
       }
     }
-  }, [isInputFocused, assistantEnabled, toggleAssistant])
+  }, [isInputFocused, assistantEnabled, toggleAssistant, openSearch])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown)
@@ -307,9 +317,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           routes={sidebarRoutes}
           branding={metaData?.branding}
           homePath={homePath}
-          logout={logout}
-          userName={user?.name}
-          userEmail={user?.email}
+          showFavorites={isAuthenticated}
           data-qqq-id="sidebar-container"
         />
 
@@ -318,9 +326,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           routes={sidebarRoutes}
           branding={metaData?.branding}
           homePath={homePath}
-          logout={logout}
-          userName={user?.name}
-          userEmail={user?.email}
+          showFavorites={isAuthenticated}
+          onSearchOpen={() => openSearch()}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           returnFocusRef={menuButtonRef}
@@ -335,18 +342,34 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             onMenuOpen={() => setSidebarOpen(true)}
             menuOpen={sidebarOpen}
             menuButtonRef={menuButtonRef}
-            onSearchOpen={() => setSearchOpen(true)}
-            onCommandOpen={() => setCommandOpen(true)}
-            onHelpOpen={() => setHelpOpen(true)}
-            helpButtonRef={helpButtonRef}
+            onSearchOpen={() => openSearch()}
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
             homePath={homePath}
-            navTargets={navTargets}
-            searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
-            favoritesButton={isAuthenticated ? <LazyFavoritesMenu /> : null}
             notificationsButton={isAuthenticated && alertsInstalled ? <AlertsBell metaData={metaData} /> : null}
+            helpMenu={<HelpMenu onSearchHelp={() => openSearch(true)} onShortcuts={() => setHelpOpen(true)} />}
+            accountMenu={(
+              <AccountMenu
+                userName={user?.name}
+                userEmail={user?.email}
+                logout={logout}
+                gravatarDefault={metaData?.branding?.gravatarDefault}
+                compactItems={(close) => (
+                  <>
+                    {/* the compact header has no room for Help and Ask: they lead this menu (help stays in one place) */}
+                    <HelpMenuItems close={close} onSearchHelp={() => openSearch(true)} onShortcuts={() => setHelpOpen(true)} />
+                    {assistantEnabled && (
+                      <button type="button" role="menuitem" className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-ask"
+                        onClick={() => { close(); toggleAssistant() }}>
+                        <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        Ask the assistant
+                      </button>
+                    )}
+                  </>
+                )}
+              />
+            )}
           />
 
           {/* Page content */}
@@ -381,14 +404,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         onClose={() => setCommandOpen(false)}
         navTargets={navTargets}
         metaData={metaData}
+        helpOnly={commandHelpOnly}
         onAskAssistant={assistantEnabled ? (text) => assistant.openWith(text) : undefined}
       />
 
-      {/* Search Dialog */}
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
+      {/* Keyboard Shortcuts Sheet */}
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} assistantEnabled={assistantEnabled} />
     </div>
     </AssistantProvider></SecuredDataProvider>
     </HelpPanelProvider>

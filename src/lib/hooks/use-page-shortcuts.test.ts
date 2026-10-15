@@ -19,6 +19,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { setSingleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
 import { hasOpenOverlay, isTextEntryTarget, usePageShortcuts } from './use-page-shortcuts'
 
 function press(key: string, init: KeyboardEventInit = {}, target: EventTarget = document.body) {
@@ -41,6 +42,29 @@ describe('usePageShortcuts', () => {
     // unmapped and disabled keys do nothing
     expect(press('d').defaultPrevented).toBe(false)
     expect(press('x').defaultPrevented).toBe(false)
+  })
+
+  it('maps Shift+D by its key (D), so a lone d does not delete', () => {
+    const remove = vi.fn()
+    renderHook(() => usePageShortcuts({ D: remove }))
+    press('d')
+    expect(remove).not.toHaveBeenCalled()
+    press('D', { shiftKey: true })
+    expect(remove).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing while single-key shortcuts are turned off (WCAG 2.1.4)', () => {
+    const edit = vi.fn()
+    renderHook(() => usePageShortcuts({ e: edit }))
+    setSingleKeyShortcutsEnabled(false)
+    try {
+      expect(press('e').defaultPrevented).toBe(false)
+      expect(edit).not.toHaveBeenCalled()
+    } finally {
+      setSingleKeyShortcutsEnabled(true)
+    }
+    press('e')
+    expect(edit).toHaveBeenCalledTimes(1)
   })
 
   it('ignores modified keys, repeats, text entry and open overlays', () => {

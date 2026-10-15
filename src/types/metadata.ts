@@ -652,6 +652,8 @@ export interface QAppMetaData {
   sections?: QAppSection[]
   /** Frontend-specific app settings keyed by type (`materialDashboard`: label/counts; `nextUi.showChildGrid`: boolean override for automatic home grids). */
   supplementalAppMetaData?: Record<string, unknown>
+  /** Search aliases (old labels, jargon, vendor names), UI API 1.7.0; matched by search, never displayed. */
+  keywords?: string[]
 }
 
 /**
@@ -673,7 +675,19 @@ export interface QAppTreeNode {
   iconName?: string
   /** Structured icon definition (overrides `iconName` when present). */
   icon?: QIcon
+  /** Search aliases (old labels, jargon, vendor names), UI API 1.7.0; matched by search, never displayed. */
+  keywords?: string[]
 }
+
+/**
+ * How a client presents an app section (UI API 1.7.0):
+ * - `PRIMARY`: items shown without a heading;
+ * - `HISTORY`: records the system writes, under a heading;
+ * - `SETTINGS`: configuration under a heading, collapsed by default;
+ * - `GROUP`: a heading grouping child apps; never a destination (no page, URL or breadcrumb level).
+ * Unknown future values are treated as `PRIMARY`.
+ */
+export type QAppSectionRole = 'PRIMARY' | 'HISTORY' | 'SETTINGS' | 'GROUP'
 
 /**
  * A named grouping of tables, processes, and reports within an app home page.
@@ -693,6 +707,12 @@ export interface QAppSection {
   processes?: string[]
   /** Names of reports included in this section; omitted when empty. */
   reports?: string[]
+  /** Names of child apps included in this section (UI API 1.7.0); omitted when empty. */
+  apps?: string[]
+  /** How clients present the section (UI API 1.7.0); absent from older servers, then inferred. */
+  role?: QAppSectionRole | string
+  /** Whether the section starts collapsed (UI API 1.7.0); absent means collapsed only for SETTINGS. */
+  collapsedByDefault?: boolean
 }
 
 /**
