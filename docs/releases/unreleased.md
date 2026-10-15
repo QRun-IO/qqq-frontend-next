@@ -8,7 +8,7 @@
 
 ## Product fixes
 
-- **Logout no longer races an in-flight request.** Logout waits (up to 3 seconds) for queries and mutations in flight, so a response that arrives after the logout cannot refresh the `sessionId` cookie the logout expired (SEC-037, SEC-048).
+- **Logout no longer races an in-flight request.** Logout ends the API client's session generation first: every request still in flight (axios and the realtime and assistant streams) is aborted, and any response of the old generation that still arrives is discarded, so none can refresh the `sessionId` cookie the logout expires or change client auth state (SEC-037, SEC-048).
 
 ## Browser testing and infrastructure
 

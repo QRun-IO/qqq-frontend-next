@@ -18,9 +18,14 @@
  * @file API Client — Singleton Axios instance with global 401 interceptor for all QQQ API calls.
  */
 
+import { anyAbortSignal } from '@/lib/utils/abort'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 
-import axios, { type AxiosInstance, type AxiosError, type AxiosRequestConfig } from 'axios'
+import axios, { CanceledError, type AxiosInstance, type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
+
+/** Request config carrying the session generation it was sent in. */
+type EpochConfig = InternalAxiosRequestConfig & { qqqSessionEpoch?: number }
+
 
 /** Base URL for all QQQ API requests, read from the environment at module load time. */
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'
@@ -78,6 +83,16 @@ class APIClient {
   private unauthorizedCallback?: () => void
 
   /**
+   * The session generation. `endSession` advances it and aborts every request of the old
+   * one, so a response that would arrive after logout is never received: the browser drops
+   * it (and its `Set-Cookie`), and a response already on its way is discarded.
+   */
+  private sessionEpoch = 0
+
+  /** Aborts the current session generation's requests. */
+  private sessionAbort = new AbortController()
+
+  /**
    * Creates the Axios instance and registers the global 401 response interceptor.
    */
   constructor() {
@@ -92,11 +107,23 @@ class APIClient {
       },
     })
 
+    // Every request belongs to the session generation it is sent in.
+    this.client.interceptors.request.use((config: EpochConfig) => {
+      config.qqqSessionEpoch = this.sessionEpoch
+      const sessionSignal = this.sessionAbort.signal
+      config.signal = config.signal ? anyAbortSignal([config.signal as AbortSignal, sessionSignal]) : sessionSignal
+      return config
+    })
+
     // Global 401 interceptor — triggers the re-authentication flow. Session calls
     // (manageSession, logout) report their own 401s to the auth provider instead.
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        if (this.isStale(response.config)) throw this.discarded(response.config)
+        return response
+      },
       (error: AxiosError) => {
+        if (this.isStale(error.config)) return Promise.reject(error instanceof CanceledError ? error : this.discarded(error.config))
         if (error.response?.status === 401 && this.unauthorizedCallback && !isSessionEndpoint(error.config?.url)) {
           this.unauthorizedCallback()
         }
@@ -109,6 +136,47 @@ class APIClient {
         return Promise.reject(error)
       }
     )
+  }
+
+  /**
+   * Whether a request was sent in an ended session generation.
+   *
+   * @param config - The request's config.
+   * @returns True when its generation has ended.
+   */
+  private isStale(config: EpochConfig | InternalAxiosRequestConfig | undefined): boolean {
+    const epoch = (config as EpochConfig | undefined)?.qqqSessionEpoch
+    return epoch !== undefined && epoch !== this.sessionEpoch
+  }
+
+  /**
+   * The error a discarded response rejects with.
+   *
+   * @param config - The request's config.
+   * @returns A cancellation, which callers already treat as "no result".
+   */
+  private discarded(config: InternalAxiosRequestConfig | undefined): CanceledError<unknown> {
+    return new CanceledError('Response discarded: the session ended', config)
+  }
+
+  /**
+   * Ends the current session generation: aborts every request still in flight and discards
+   * any response of it that still arrives. Call before logging out, so no late response can
+   * refresh the session cookie the logout expires, or change client auth state.
+   */
+  endSession(): void {
+    this.sessionAbort.abort()
+    this.sessionEpoch += 1
+    this.sessionAbort = new AbortController()
+  }
+
+  /**
+   * The current session generation's abort signal, for requests made with `fetch` (streams).
+   *
+   * @returns The signal, aborted by `endSession`.
+   */
+  sessionSignal(): AbortSignal {
+    return this.sessionAbort.signal
   }
 
   /**

@@ -36,6 +36,7 @@ import type {
 } from '@/types/assistant'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
+import { anyAbortSignal } from '@/lib/utils/abort'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
@@ -396,7 +397,7 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
     credentials: 'include',
     cache: 'no-store',
     headers: { Accept: 'text/event-stream', ...CLIENT_CHANNEL_HEADER, ...(init.headers as Record<string, string> | undefined) },
-    signal,
+    signal: signal ? anyAbortSignal([signal, apiClient.sessionSignal()]) : apiClient.sessionSignal(),
   })
   if (!response.ok) {
     if (response.status === 401) apiClient.notifyUnauthorized()

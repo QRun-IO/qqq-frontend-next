@@ -95,4 +95,46 @@ describe('APIClient', () => {
     await expect(instance.get('/metaData', { adapter: reply(401, {}) })).rejects.toThrow('Request failed with status code 401')
     expect(callback).toHaveBeenCalledTimes(1)
   })
+
+  it('ends a session generation: in-flight requests are aborted and late responses discarded (SEC-048)', async () => {
+    const { default: apiClient } = await import('./client')
+    const { AxiosError, isCancel } = await import('axios')
+    const callback = vi.fn()
+    apiClient.setUnauthorizedCallback(callback)
+    const instance = apiClient.getInstance()
+    let seenSignal: AbortSignal | undefined
+    let answer: (() => void) | undefined
+    // an adapter that answers only when told, ignoring aborts: a response already on its way
+    const late = (status: number) => (config: import('axios').InternalAxiosRequestConfig) => new Promise<import('axios').AxiosResponse>((resolve, reject) => {
+      seenSignal = config.signal as AbortSignal
+      answer = () => status === 200
+        ? resolve({ status, data: { ok: true }, statusText: '', headers: {}, config })
+        : reject(new AxiosError('failed', 'ERR_BAD_REQUEST', config, null, { status, data: {}, statusText: '', headers: {}, config }))
+    })
+
+    const started = async () => vi.waitFor(() => expect(answer).toBeDefined())
+    const preferences = instance.get('/preferences', { adapter: late(200) })
+    await started()
+    apiClient.endSession()
+    expect(seenSignal?.aborted).toBe(true)
+    answer!()
+    const discarded = await preferences.catch((error: unknown) => error)
+    expect(isCancel(discarded)).toBe(true)
+
+    answer = undefined
+    const expired = instance.get('/metaData', { adapter: late(401) })
+    await started()
+    apiClient.endSession()
+    answer!()
+    expect(isCancel(await expired.catch((error: unknown) => error))).toBe(true)
+    expect(callback).not.toHaveBeenCalled()
+
+    // the next generation works normally
+    answer = undefined
+    const fresh = instance.get('/version', { adapter: late(200) })
+    await started()
+    expect(seenSignal?.aborted).toBe(false)
+    answer!()
+    expect((await fresh).data).toEqual({ ok: true })
+  })
 })
