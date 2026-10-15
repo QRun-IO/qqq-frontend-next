@@ -119,7 +119,7 @@ describe('Developer API', () => {
     it('builds the per-table OpenAPI spec URL under the backend root', async () => {
       const { apiTableSpecUrl } = await import('./developer')
       expect(apiTableSpecUrl({ name: 'person-api', path: '/person-api/', label: 'Person API' }, '2026.Q2', 'person'))
-        .toBe(`${API_MIDDLEWARE}/qqq/v1/table/person/apis/person-api/2026.Q2/openapi`)
+        .toBe(`${API_MIDDLEWARE}/qqq/v1/table/person/apis/person-api/2026.Q2/openapi?format=json`)
     })
   })
 

@@ -108,7 +108,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
 
     await waitFor(() => expect(container.querySelector('rapi-doc')).not.toBeNull())
     const rapiDoc = container.querySelector('[data-qqq-id="table-dev-api-reference"] rapi-doc')!
-    expect(rapiDoc).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/person-api/2026.Q2/openapi')
+    expect(rapiDoc).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/person-api/2026.Q2/openapi?format=json')
     expect(rapiDoc).toHaveAttribute('primary-color', '#6366f1')
     expect(rapiDoc).toHaveAttribute('show-header', 'false')
     expect(rapiDoc).toHaveAttribute('render-style', 'view')
@@ -128,7 +128,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
 
     expect(await screen.findByLabelText('API')).toHaveValue('admin-api')
     expect(await screen.findByLabelText('Version')).toHaveValue('v2')
-    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi'))
+    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi?format=json'))
   })
 
   it('falls back to the first API and the current version when the remembered ones are gone', async () => {
@@ -151,7 +151,7 @@ describe('TableDeveloperViewPage API Docs & Playground', () => {
     expect(await screen.findByLabelText('Version')).toHaveValue('v1')
     await user.selectOptions(screen.getByLabelText('Version'), 'v2')
 
-    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi'))
+    await waitFor(() => expect(container.querySelector('rapi-doc')).toHaveAttribute('spec-url', '/qqq/v1/table/person/apis/admin-api/v2/openapi?format=json'))
     expect(window.localStorage.getItem('qqq.tableDeveloperView.lastApiName')).toBe('admin-api')
     expect(window.localStorage.getItem('qqq.tableDeveloperView.lastApiVersion')).toBe('v2')
   })

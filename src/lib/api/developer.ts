@@ -324,7 +324,9 @@ export function getApiVersions(api: ApiInstance): ApiVersions {
  * @returns The spec URL (absolute when a backend host is configured).
  */
 export function apiTableSpecUrl(api: ApiInstance, version: string, tableName: string): string {
-  return apiUrl(`/table/${encodeURIComponent(tableName)}/apis/${encodeURIComponent(api.name)}/${encodeURIComponent(version)}/openapi`)
+  // `?format=json` changes nothing on the server; RapiDoc only offers "View OpenAPI spec (New Tab)"
+  // for a spec URL that ends in "json".
+  return apiUrl(`/table/${encodeURIComponent(tableName)}/apis/${encodeURIComponent(api.name)}/${encodeURIComponent(version)}/openapi?format=json`)
 }
 
 /**
