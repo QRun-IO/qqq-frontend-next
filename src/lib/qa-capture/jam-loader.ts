@@ -29,7 +29,6 @@
  */
 
 import type { QaCaptureCapabilityV1 } from '@/types/qa-capture'
-import { buildJamSanitizers } from './sanitizers'
 
 /** The JSON object returned to `jam.metadata`. */
 export type JamMetadataProvider = () => Record<string, unknown>
@@ -95,11 +94,13 @@ export function initializeJam(capability: QaCaptureCapabilityV1): Promise<Record
   if (sdkPromise) return sdkPromise
   const { teamId } = capability.providerConfig
   const blurSelectors = blurSelectorsFor(capability)
-  const sanitizers = buildJamSanitizers(capability.sanitizer, window.location.origin)
+  const rules = capability.sanitizer
   upsertMeta('jam:team', teamId)
   upsertMeta('jam:blur', blurSelectors.join(','))
   const pending = (async () => {
-    const [jam, sdk] = await Promise.all([import('@jam.dev/recording-links/sdk'), import('@jam.dev/sdk')])
+    // the sanitizers load with Jam, so users without capture never download them either
+    const [jam, sdk, { buildJamSanitizers }] = await Promise.all([import('@jam.dev/recording-links/sdk'), import('@jam.dev/sdk'), import('./sanitizers')])
+    const sanitizers = buildJamSanitizers(rules, window.location.origin)
     // read at capture time, so the latest provider and page context are used
     sdk.jam.metadata((() => metadataProvider()) as Parameters<typeof sdk.jam.metadata>[0])
     if (!jam.isInitialized()) jam.initialize({ teamId, blurSelectors, ...sanitizers })

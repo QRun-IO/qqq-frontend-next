@@ -25,7 +25,7 @@ import { createQaCaptureReport } from '@/lib/api/qa-capture'
 import { openJamRecorder } from './jam-loader'
 import { recentRequestIds } from './request-ids'
 import { resolveRouteContext, type RouteMetaData } from './route-context'
-import { filterPageUrl } from './sanitizers'
+import { filterPageUrl } from './page-url'
 
 /** How a report attempt ended. */
 export type BugReportOutcome =

@@ -33,6 +33,7 @@ import type {
   WebSocketMessage,
 } from '@jam.dev/recording-links/sdk'
 import type { QaCaptureSanitizerV1 } from '@/types/qa-capture'
+import { BASELINE_QUERY_PARAM_NAMES } from './page-url'
 
 /** Headers always removed, whatever the server's rules say. */
 export const BASELINE_HEADER_NAMES = ['authorization', 'proxy-authorization', 'cookie', 'set-cookie']
@@ -40,8 +41,6 @@ export const BASELINE_HEADER_NAMES = ['authorization', 'proxy-authorization', 'c
 /** Body fields always redacted (compared case-insensitively). */
 export const BASELINE_BODY_FIELD_NAMES = ['password', 'sessionUUID', 'accessToken', 'refreshToken', 'idToken', 'clientSecret', 'code_verifier']
 
-/** Query parameters always redacted (OAuth2 callback values). */
-export const BASELINE_QUERY_PARAM_NAMES = ['code', 'state', 'access_token', 'id_token']
 
 /** JWTs, always redacted. */
 export const BASELINE_VALUE_PATTERNS = ['eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+']
@@ -271,28 +270,5 @@ export function buildJamSanitizers(sanitizer: QaCaptureSanitizerV1, origin: stri
     console: {
       logSanitizer: (log: ConsoleLog): ConsoleLog => ({ ...log, args: log.args.map((arg) => redactJson(arg, rules)) }),
     },
-  }
-}
-
-/**
- * The page URL to report: same path, with the configured query parameters and every `jam-*`
- * parameter removed.
- *
- * @param href - The page URL.
- * @param queryParamNames - Parameters to remove (case-insensitive).
- * @returns The filtered URL.
- */
-export function filterPageUrl(href: string, queryParamNames: string[]): string {
-  const names = lowerSet(BASELINE_QUERY_PARAM_NAMES, queryParamNames)
-  try {
-    const url = new URL(href)
-    const params = new URLSearchParams()
-    for (const [key, value] of url.searchParams) {
-      if (!names.has(key.toLowerCase()) && !key.startsWith('jam-')) params.append(key, value)
-    }
-    url.search = params.toString()
-    return url.href
-  } catch {
-    return href.split('?')[0]
   }
 }

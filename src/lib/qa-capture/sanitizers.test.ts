@@ -20,7 +20,6 @@ import type { QaCaptureSanitizerV1 } from '@/types/qa-capture'
 import {
   buildJamSanitizers,
   compileRules,
-  filterPageUrl,
   isDroppedPath,
   redactBody,
   redactHeaders,
@@ -28,6 +27,7 @@ import {
   redactText,
   redactUrl,
 } from './sanitizers'
+import { filterPageUrl } from './page-url'
 
 const ORIGIN = 'https://admin.example.com'
 const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl'

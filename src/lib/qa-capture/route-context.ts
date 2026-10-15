@@ -22,7 +22,7 @@
 
 import type { QaCaptureCapabilityV1 } from '@/types/qa-capture'
 import type { RequestIdEntry } from './request-ids'
-import { filterPageUrl } from './sanitizers'
+import { filterPageUrl } from './page-url'
 
 /** The parts of the instance metadata the resolver reads. */
 export interface RouteMetaData {
