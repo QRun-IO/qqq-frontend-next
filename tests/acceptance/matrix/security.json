@@ -1106,6 +1106,32 @@
         "QRun-IO/qqq#669"
       ],
       "required": true
+    },
+    {
+      "id": "SEC-050",
+      "feature": "Optional QA capture (Jam, qbit-qa-capture qa-capture extension): Jam loads only for enabled users; Report a bug opens the recorder; secure values blurred; captures sanitized",
+      "source": [
+        "src/components/qa-capture/QaCaptureLoader.tsx",
+        "src/components/qa-capture/ReportBugMenuItems.tsx",
+        "src/lib/qa-capture/jam-loader.ts",
+        "src/lib/qa-capture/sanitizers.ts",
+        "src/lib/qa-capture/jam-params.ts"
+      ],
+      "fixture": "qbit-qa-capture (not yet released); Vitest: src/lib/qa-capture/*.test.ts, src/components/qa-capture/QaCapture.test.tsx",
+      "scenarios": [
+        "extension absent or capability disabled: no Jam chunk, meta or request",
+        "enabled: jam:team meta, one initialize with sanitizers, jam.metadata",
+        "Report a bug: POST report then Recorder.open with jam-title and jam-reference",
+        "Recording Link jam-* parameters survive the OIDC sign-in",
+        "QA mode preference refetches the capability"
+      ],
+      "negative": [
+        "no Recording Link configured: toast, no recorder",
+        "Authorization/Cookie headers, secure body fields and JWTs redacted"
+      ],
+      "issues": [],
+      "required": false,
+      "approval": "Pending: not yet approved by the owner. No real-backend fixture until qbit-qa-capture is released; the row is covered by Vitest until then (QA capture PR, 2026-10-15)."
     }
   ]
 }
