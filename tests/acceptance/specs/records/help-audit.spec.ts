@@ -67,8 +67,8 @@ test('[REC-041] table help content slots are delivered in table metadata @mobile
   const response = await backend.api.get('/qqq/v1/metaData/table/recordLab')
   expect(response.status()).toBe(200)
   const table = await response.json()
-  expect(table.helpContents).toEqual({ summary: [{ content: 'Record Lab exercises every record screen feature.', format: 'TEXT',
-    contentAsHtml: 'Record Lab exercises every record screen feature.' }] })
+  expect(table.helpContents).toMatchObject({ summary: [{ content: 'Record Lab exercises every record screen feature.', format: 'TEXT',
+    contentAsHtml: 'Record Lab exercises every record screen feature.', contentAsText: 'Record Lab exercises every record screen feature.' }] })
 })
 
 test('[REC-042] audit history lists who changed what, newest first @mobile', async ({ page, backend, diagnostics }) => {

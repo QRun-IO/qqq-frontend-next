@@ -210,3 +210,9 @@ describe('getBulkProcesses', () => {
     expect(getBulkProcesses(processes)).toHaveLength(0)
   })
 })
+
+it('prefers uiSettings process names to deprecated instance settings', () => {
+  const process = makeProcess({ name: 'custom' })
+  const instance = { processes: { custom: process }, supplementalInstanceMetaData: { uiSettings: { processNamesToAddToAllQueryAndViewScreens: ['custom'] }, materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [] } } } as unknown as QInstance
+  expect(getProcessesForAllScreens(instance)).toEqual([process])
+})

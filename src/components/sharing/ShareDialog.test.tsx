@@ -67,12 +67,12 @@ describe('ShareButton', () => {
     await user.selectOptions(within(dialog).getByLabelText('Scope'), 'READ_WRITE')
     vi.mocked(getSharedRecords).mockResolvedValue([{ shareId: 9, scopeId: 'READ_WRITE', audienceType: 'user', audienceId: 'sample:bob', audienceLabel: 'Bob' }])
     await user.click(share)
-    expect(insertSharedRecord).toHaveBeenCalledWith('savedReport', 1, 'user', 'sample:bob', 'READ_WRITE')
+    expect(insertSharedRecord).toHaveBeenCalledWith('savedReport', 1, 'user', 'sample:bob', 'READ_WRITE', undefined)
     await within(dialog).findByRole('heading', { name: 'Current Shares (1)' })
     await user.selectOptions(within(dialog).getByLabelText('Scope for Bob'), 'READ_ONLY')
-    expect(editSharedRecord).toHaveBeenCalledWith('savedReport', 1, 9, 'READ_ONLY')
+    expect(editSharedRecord).toHaveBeenCalledWith('savedReport', 1, 9, 'READ_ONLY', undefined)
     await user.click(within(dialog).getByRole('button', { name: 'Remove share with Bob' }))
-    expect(deleteSharedRecord).toHaveBeenCalledWith('savedReport', 1, 9)
+    expect(deleteSharedRecord).toHaveBeenCalledWith('savedReport', 1, 9, undefined)
   })
 
   it('shows a backend refusal inside the dialog', async () => {

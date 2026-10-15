@@ -26,6 +26,8 @@
  * {@link ProcessResponse}.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import { AxiosError } from 'axios'
 
 import type { ProcessMetaDataAdjustment, QQueryFilter, QRecord } from '@/types'
@@ -137,6 +139,9 @@ export interface ProcessRunningResponse {
 
 /** The process failed or was refused. */
 export interface ProcessErrorResponse {
+  message?: string
+  traceId?: string
+  code?: string
   type: 'ERROR'
   processUUID?: string
   /** Technical message (prefixed `Error message:` for unexpected failures). */
@@ -252,9 +257,16 @@ export function normalizeProcessResponse(raw: unknown): ProcessResponse {
   if (typeof data.jobUUID === 'string' && (!versionedType || versionedType === 'JOB_STARTED')) {
     return { type: 'JOB_STARTED', processUUID, jobUUID: data.jobUUID }
   }
-  if (typeof data.error === 'string' || typeof data.userFacingError === 'string') {
+  if (versionedType === 'ERROR' || typeof data.error === 'string' || typeof data.userFacingError === 'string') {
     const userFacingError = typeof data.userFacingError === 'string' ? data.userFacingError : undefined
-    return { type: 'ERROR', processUUID, error: typeof data.error === 'string' ? data.error : userFacingError ?? '', userFacingError }
+    return {
+      type: 'ERROR', processUUID,
+      ...(typeof data.message === 'string' ? { message: data.message } : {}),
+      ...(typeof data.traceId === 'string' ? { traceId: data.traceId } : {}),
+      ...(typeof data.code === 'string' ? { code: data.code } : {}),
+      error: typeof data.error === 'string' ? data.error : userFacingError ?? '',
+      userFacingError,
+    }
   }
   if (data.values !== undefined || typeof data.nextStep === 'string' || versionedType === 'COMPLETE') {
     const values = data.values && typeof data.values === 'object' && !Array.isArray(data.values)
@@ -303,7 +315,8 @@ function refusedResponse(error: unknown): ProcessErrorResponse {
     const body = error.response.data
     const normalized = normalizeProcessResponse(body)
     if (status === 403) {
-      return { type: 'ERROR', processUUID: normalized.processUUID, status, error: 'Permission denied.', userFacingError: 'You do not have permission to run this process.' }
+      const traceId = normalized.type === 'ERROR' ? normalized.traceId : undefined
+      return { type: 'ERROR', processUUID: normalized.processUUID, status, error: 'Permission denied.', userFacingError: 'You do not have permission to run this process.', ...(traceId ? { traceId } : {}) }
     }
     if (normalized.type === 'ERROR' && normalized.error !== 'Unexpected server response.') {
       return { ...normalized, status }
@@ -482,7 +495,7 @@ export interface SavedBulkLoadProfileRecord {
  */
 async function runSavedBulkLoadProfileProcess(processName: string, values: Record<string, unknown>): Promise<SavedBulkLoadProfileRecord[]> {
   const response = await processInit(processName, { values, stepTimeoutMillis: 60_000 })
-  if (response.type === 'ERROR') throw new Error(response.userFacingError ?? response.error)
+  if (response.type === 'ERROR') throw new Error(getErrorMessage(response))
   if (response.type !== 'COMPLETE') throw new Error('Unexpected server response.')
   const list = response.values.savedBulkLoadProfileList
   return Array.isArray(list)

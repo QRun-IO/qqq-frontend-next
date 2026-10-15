@@ -21,7 +21,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { QProcessMetaData, QTableMetaData } from '@/types'
-import { ProcessLauncherMenu } from './ProcessLauncherMenu'
+import { buildActionEntries, ProcessLauncherMenu } from './ProcessLauncherMenu'
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id', fields: {},
@@ -47,4 +47,12 @@ describe('ProcessLauncherMenu Material CSS hooks', () => {
     // Next's own item id stays for tests
     expect(screen.getByRole('menuitem', { name: 'Greet People!' })).toHaveAttribute('data-qqq-id', 'process-launcher-item-greet')
   })
+})
+
+it.each(['bulkInsert', 'bulkEdit', 'bulkEditWithFile', 'bulkDelete'] as const)('routes %s using its declared capability', (action) => {
+  const custom = process('custom', 'Custom')
+  const args = { tableMetaData: { ...table, clientCapabilities: { [action]: { available: true, processName: 'custom' } } }, allProcesses: { custom }, processes: [], selectionCount: 1 }
+  expect(buildActionEntries(args).bulk.map((entry) => entry.process.name)).toEqual(['custom'])
+  expect(buildActionEntries({ ...args, tableMetaData: { ...table, clientCapabilities: { [action]: { available: false, processName: 'custom' } } } }).bulk).toEqual([])
+  expect(buildActionEntries({ ...args, tableMetaData: { ...table, clientCapabilities: {} }, allProcesses: { 'person.bulkEdit': custom } }).bulk).toEqual([])
 })

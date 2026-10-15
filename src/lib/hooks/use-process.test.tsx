@@ -162,12 +162,12 @@ describe('useProcess', () => {
 
   it('retries with the original record selection (#658)', async () => {
     vi.mocked(processInit)
-      .mockResolvedValueOnce({ type: 'ERROR', processUUID: 'run-1', error: 'warming up', userFacingError: 'warming up' })
+      .mockResolvedValueOnce({ type: 'ERROR', processUUID: 'run-1', error: 'warming up', userFacingError: 'warming up', message: 'warming up (technical)', traceId: 'trace-run' })
       .mockResolvedValueOnce({ type: 'COMPLETE', processUUID: 'run-2', values: {}, nextStep: 'choose' })
     const { result } = renderHook(() => useProcess('lab', process, request))
     act(() => result.current.start())
     await flush()
-    expect(result.current.state).toMatchObject({ phase: 'error', error: { message: 'warming up', isUserFacing: true } })
+    expect(result.current.state).toMatchObject({ phase: 'error', error: { message: 'warming up', isUserFacing: true, traceId: 'trace-run' } })
     act(() => result.current.start())
     await flush()
     expect(processInit).toHaveBeenNthCalledWith(2, 'lab', request)

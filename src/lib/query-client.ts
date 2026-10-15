@@ -20,6 +20,7 @@
 
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { isCancel } from 'axios'
 
 import { getErrorStatusCode, getErrorMessage } from '@/lib/utils/error-utils'
 
@@ -33,6 +34,10 @@ import { getErrorStatusCode, getErrorMessage } from '@/lib/utils/error-utils'
  * @param context - `'query'` or `'mutation'` — selects message wording.
  */
 function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
+  // A cancelled request (aborted, or discarded because the session ended at logout) has no
+  // result to report.
+  if (isCancel(error)) return
+
   const status = getErrorStatusCode(error)
 
   if (status === 401) {

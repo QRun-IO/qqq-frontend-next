@@ -57,13 +57,13 @@ export function getErrorStatusCode(error: unknown): number | undefined {
  * @returns The most specific message available.
  */
 export function getErrorMessage(error: unknown, fallback = 'An unexpected error occurred.'): string {
-  if (error instanceof AxiosError) {
-    const body: unknown = error.response?.data
-    if (body && typeof body === 'object') {
-      for (const key of ['userFacingError', 'error'] as const) {
-        const text = (body as Record<string, unknown>)[key]
-        if (typeof text === 'string' && text.trim()) return text
-      }
+  const body: unknown = error instanceof AxiosError ? error.response?.data : error
+  if (body && typeof body === 'object') {
+    // userFacingError and error first: they are the messages users have always seen; message
+    // (UI API 1.6.0) repeats error, so it only matters when a body carries nothing else.
+    for (const key of ['userFacingError', 'error', 'message'] as const) {
+      const text = (body as Record<string, unknown>)[key]
+      if (typeof text === 'string' && text.trim()) return text
     }
   }
   if (error instanceof Error && error.message) return error.message
@@ -97,4 +97,15 @@ export function recordWriteMessages(error: unknown): string[] | undefined {
   if (!(error instanceof Error) || error.name !== 'RecordWriteError') return undefined
   const { errors, forRecord } = error as Error & { errors?: unknown; forRecord?: unknown }
   return forRecord === true && Array.isArray(errors) ? errors.filter((item): item is string => typeof item === 'string') : undefined
+}
+
+/** Read the server's correlation identifier for quiet error details.
+ * @param error - An HTTP error or BasicErrorResponseV1.
+ * @returns A trace identifier, when supplied.
+ */
+export function getErrorTraceId(error: unknown): string | undefined {
+  const body: unknown = error instanceof AxiosError ? error.response?.data : error
+  if (!body || typeof body !== 'object') return undefined
+  const traceId = (body as { traceId?: unknown }).traceId
+  return typeof traceId === 'string' && traceId.trim() ? traceId : undefined
 }

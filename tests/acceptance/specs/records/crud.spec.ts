@@ -68,7 +68,8 @@ test('[REC-007] the backend enforces required fields when the UI is bypassed @mo
   const before = await sqlCount(backend, 'select count(*) as n from field_lab')
   const response = await backend.api.post('/data/fieldLab', { multipart: { longValue: '5' } })
   expect(response.status()).toBe(400)
-  expect(await response.json()).toEqual({ error: 'Error inserting Field Lab: Missing value in required field: Name' })
+  // UI API 1.6.0 adds code, message and traceId beside the legacy error
+  expect(await response.json()).toMatchObject({ error: 'Error inserting Field Lab: Missing value in required field: Name' })
   expect(await sqlCount(backend, 'select count(*) as n from field_lab')).toBe(before)
 })
 

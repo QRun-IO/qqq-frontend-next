@@ -36,7 +36,7 @@ afterEach(async () => {
   if (stage) rmSync(stage, { recursive: true, force: true })
 })
 
-async function startWrapper(metadataFails = false) {
+async function startWrapper(metadataFails = false, legacy = false) {
   const requests: string[] = []
   backend = createServer((req, res) => {
     requests.push(req.url ?? '')
@@ -44,7 +44,7 @@ async function startWrapper(metadataFails = false) {
       if (metadataFails) return
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify({ type: 'FULLY_ANONYMOUS', dashboardCspSources: { connectSrc: ['https://analytics.example'], scriptSrc: ['https://cdn.example'], frameSrc: ['https://*.quicksight.aws.amazon.com'], styleSrc: [] }, branding: { logo: '/brand/logo.png?version=1', icon: '/local-icon.svg' } }))
-    } else if (req.url === '/qqq/branding/logo') {
+    } else if (req.url === (legacy ? '/qqq/branding/logo' : '/qqq/v1/branding/logo')) {
       res.setHeader('Content-Type', 'image/png')
       res.end('owned image bytes')
     } else { res.statusCode = 404; res.end() }
@@ -84,12 +84,12 @@ it('aliases only declared images through the baked backend route and keeps local
   const response = await fetch(`${origin}/brand/logo.png?cache=2`)
   expect(response.status).toBe(200)
   expect(await response.text()).toBe('owned image bytes')
-  expect(requests).toContain('/qqq/branding/logo')
+  expect(requests).toContain('/qqq/v1/branding/logo')
   const before = requests.length
   expect((await fetch(`${origin}/unlisted.png`)).status).toBe(404)
-  expect(requests.slice(before)).not.toContain('/qqq/branding/logo')
+  expect(requests.slice(before)).not.toContain('/qqq/v1/branding/logo')
   expect(await (await fetch(`${origin}/local-icon.svg`)).text()).toBe('<svg>local public bytes</svg>')
-  expect(requests).not.toContain('/qqq/branding/icon')
+  expect(requests).not.toContain('/qqq/v1/branding/icon')
   expect((await fetch(`${origin}/brand/logo.png`, { method: 'HEAD' })).status).toBe(200)
 }, 15000)
 
@@ -101,7 +101,7 @@ it('bounds unavailable metadata at startup and preserves the real not-found resp
   expect(response.status).toBe(404)
   expect(Date.now() - started).toBeLessThan(12500)
   expect(requests.filter((url) => url === '/qqq/v1/metaData/authentication')).toHaveLength(2)
-  expect(requests).not.toContain('/qqq/branding/logo')
+  expect(requests).not.toContain('/qqq/v1/branding/logo')
 }, 15000)
 
 it('applies public backend policy inputs to an actual HTML response with no operator additions', async () => {
@@ -116,4 +116,12 @@ it('applies public backend policy inputs to an actual HTML response with no oper
   expect(policy).toContain("object-src 'none'")
   expect(response.headers.get('x-frame-options')).toBe('DENY')
   expect(requests.every((url) => url === '/qqq/v1/metaData/authentication')).toBe(true)
+}, 15000)
+
+it('serves an older backend through the 404-only legacy fallback', async () => {
+  const { origin, requests } = await startWrapper(false, true)
+  const response = await fetch(`${origin}/brand/logo.png`)
+  expect(await response.text()).toBe('owned image bytes')
+  expect(requests).toContain('/qqq/v1/branding/logo')
+  expect(requests).toContain('/qqq/branding/logo')
 }, 15000)
