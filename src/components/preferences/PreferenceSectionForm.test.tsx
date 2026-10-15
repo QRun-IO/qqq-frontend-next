@@ -26,6 +26,7 @@ import type { PreferenceSection } from '@/types/preferences'
 import type { QFieldMetaData } from '@/types/metadata'
 import { PreferenceSectionForm } from './PreferenceSectionForm'
 import { queryKeys } from '@/lib/query-client'
+import { normalizeQaCaptureCapability } from '@/lib/api/qa-capture'
 
 const layout = vi.hoisted(() => ({ width: 500 }))
 vi.mock('@/lib/hooks/use-container-width', () => ({
@@ -149,6 +150,24 @@ it('sends only changed scalar and row fields, with typed numeric enum IDs, then 
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled())
   expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.preferences() })
   expect(screen.getByLabelText('Daily digest hour')).toHaveValue('12')
+})
+
+it('refetches the QA capture capability only when its QA mode section is saved', async () => {
+  server.use(http.patch('/qqq/v1/preferences/notifications', () => HttpResponse.json({ ...structuredClone(notifications), values: { ...notifications.values, digestHour: 12 } })))
+  const { client } = renderForm()
+  client.setQueryData(queryKeys.qaCaptureCapability(), normalizeQaCaptureCapability({ qaMode: { available: true, preferenceSection: 'notifications' } }))
+  const invalidate = vi.spyOn(client, 'invalidateQueries')
+  const user = userEvent.setup()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Daily digest hour' }), '12')
+  await user.click(screen.getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.qaCaptureCapability() }))
+
+  invalidate.mockClear()
+  client.setQueryData(queryKeys.qaCaptureCapability(), normalizeQaCaptureCapability({ qaMode: { available: true, preferenceSection: 'qa-capture' } }))
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Daily digest hour' }), '13')
+  await user.click(screen.getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.preferences() }))
+  expect(invalidate).not.toHaveBeenCalledWith({ queryKey: queryKeys.qaCaptureCapability() })
 })
 
 it('keeps edits on a 400, shows all server messages, and discards back to saved values', async () => {

@@ -195,6 +195,10 @@ export const queryKeys = {
    * @returns The section key.
    */
   preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
+  /** The qa-capture extension's capability for the signed-in user.
+   * @returns The capability key.
+   */
+  qaCaptureCapability: () => [...queryKeys.all(), 'qa-capture', 'capability'] as const,
   ediAvailable: () => ['edi', 'available'] as const,
   ediMap: (id: number) => ['edi', 'map', id] as const,
   ediTarget: (id: number) => ['edi', 'target', id] as const,

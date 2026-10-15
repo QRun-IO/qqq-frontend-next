@@ -22,6 +22,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { PreferenceSection, PreferencesResponse } from '@/types/preferences'
+import type { QaCaptureCapabilityV1 } from '@/types/qa-capture'
 import { patchPreferenceSection } from '@/lib/api/preferences'
 import { queryKeys } from '@/lib/query-client'
 import { useContainerWidth } from '@/lib/hooks/use-container-width'
@@ -70,6 +71,10 @@ export function PreferenceSectionForm({
       client.setQueryData(queryKeys.preferenceSection(saved.name), saved)
       void client.invalidateQueries({ queryKey: queryKeys.preferences() })
       void client.invalidateQueries({ queryKey: queryKeys.alerts() })
+      // the QA mode toggle changes whether QA capture is on for this user
+      if (client.getQueryData<QaCaptureCapabilityV1>(queryKeys.qaCaptureCapability())?.qaMode.preferenceSection === saved.name) {
+        void client.invalidateQueries({ queryKey: queryKeys.qaCaptureCapability() })
+      }
       toast.success('Preferences saved')
     },
   })

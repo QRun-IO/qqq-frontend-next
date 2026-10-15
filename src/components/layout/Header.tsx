@@ -26,6 +26,7 @@ import { Command, Menu, Search, HelpCircle } from 'lucide-react'
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import { JobsHeaderButton } from '@/components/jobs/JobsHeaderButton'
+import { QaModeIndicator } from '@/components/qa-capture/QaModeIndicator'
 import { useToastTopBelow } from '@/components/feedback/Toast'
 import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
 import type { SearchableTable } from '@/lib/utils/record-search'
@@ -116,6 +117,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
 
       {/* Right section: search + help + notifications */}
       <div className="ml-2 md:ml-3 flex flex-shrink-0 items-center gap-0 md:gap-3">
+        <QaModeIndicator />
         {/* Mobile search icon — only visible below md breakpoint */}
         <button
           onClick={(event) => {
