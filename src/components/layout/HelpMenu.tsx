@@ -40,7 +40,7 @@ export interface HelpMenuItemsProps {
    * More help items from installed features (for example What's new), rendered before Report a
    * bug. Each must have a `menuitem` role; call `close` when chosen.
    */
-  extraItems?: (close: () => void) => React.ReactNode
+  extraItems?: (close: (then?: () => void) => void) => React.ReactNode
 }
 
 /**
@@ -50,26 +50,26 @@ export interface HelpMenuItemsProps {
  * @param props.close - Closes the enclosing menu.
  * @returns The items.
  */
-export function HelpMenuItems({ onSearchHelp, onShortcuts, extraItems, close }: HelpMenuItemsProps & { close: () => void }) {
+export function HelpMenuItems({ onSearchHelp, onShortcuts, extraItems, close }: HelpMenuItemsProps & { close: (then?: () => void) => void }) {
   const { searchEnabled } = useHelpPanel()
   const singleKeys = useSingleKeyShortcutsEnabled()
   return (
     <>
       {searchEnabled && (
         <button type="button" role="menuitem" className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-search-help"
-          onClick={() => { close(); onSearchHelp() }}>
+          onClick={() => close(onSearchHelp)}>
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Search help…
         </button>
       )}
       <button type="button" role="menuitem" className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-keyboard-shortcuts"
-        onClick={() => { close(); onShortcuts() }}>
+        onClick={() => close(onShortcuts)}>
         <Keyboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="flex-1">Keyboard shortcuts</span>
         {singleKeys && <kbd className="rounded border border-border px-1.5 font-mono text-xs text-muted-foreground" aria-hidden="true">?</kbd>}
       </button>
       {extraItems?.(close)}
-      <ReportBugMenuItems onSelect={close} />
+      <ReportBugMenuItems onSelect={() => close()} />
     </>
   )
 }

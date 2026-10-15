@@ -12,7 +12,7 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { expireTableSessions, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
+import { listCell, openUserMenu, recordRequests } from './support/ui'
 
 const TESS = { username: 'tess.table', password: 'table:pass-2026', name: 'Tess Table (table-based)' }
 const RAVI = { username: 'ravi.rows', password: 'rows-pass-2026', name: 'Ravi Rows (table-based)' }
@@ -69,9 +69,10 @@ test('[SEC-034] a deep link asks for credentials under the app branding, signs i
 
   await expect(page).toHaveURL(/\/app\/person\/?$/)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  const nav = await navigation(page)
-  await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(TESS.name)
-  await expect(nav.locator('[data-qqq-id="sidebar-user-email"]')).toHaveText(TESS.username)
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText(TESS.name)
+  await page.keyboard.press('Escape')
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-email"]')).toHaveText(TESS.username)
+  await page.keyboard.press('Escape')
 
   // one stored session, for Tess, and it is the one the browser holds
   const rows = await sessionRows()
@@ -91,7 +92,8 @@ test('[SEC-034] a deep link asks for credentials under the app branding, signs i
 
   await page.reload()
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(TESS.name)
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText(TESS.name)
+  await page.keyboard.press('Escape')
   expect((await sessionRows()).map((row) => row.id)).toEqual([sessionUUID])
 })
 
@@ -171,7 +173,7 @@ test('[SEC-037] logout deletes the stored session, keeps protected pages on the 
 
   const menu = await openUserMenu(page)
   const logout = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
-  await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+  await menu.getByRole('menuitem', { name: 'Sign out' }).click()
   expect((await logout).status()).toBe(200)
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   await expect(page.getByLabel('Username', { exact: true })).toBeVisible()
@@ -195,9 +197,10 @@ test('[SEC-037] logout deletes the stored session, keeps protected pages on the 
   await submitCredentials(page, RAVI)
   await expect(page).toHaveURL(/\/app\/person\/?$/)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  const nav = await navigation(page)
-  await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(RAVI.name)
-  await expect(nav.locator('[data-qqq-id="sidebar-user-email"]')).toHaveText(RAVI.username)
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText(RAVI.name)
+  await page.keyboard.press('Escape')
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-email"]')).toHaveText(RAVI.username)
+  await page.keyboard.press('Escape')
   expect((await sessionRows()).map((row) => row.username)).toEqual([RAVI.username])
 })
 

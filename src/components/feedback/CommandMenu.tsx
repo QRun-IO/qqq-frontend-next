@@ -241,6 +241,17 @@ export function CommandMenu({ open, onClose, navTargets, metaData, helpOnly: ope
   }, [open, firstFavoriteValue, firstStaticValue, selectedValue])
   const firstValueAfter = visibleRecent[0] ? `recent:${visibleRecent[0].path}` : undefined
 
+  // The input names the highlighted option (aria-activedescendant). cmdk only tracks it for its own
+  // selection, not a controlled value, so it is set here after every render.
+  useEffect(() => {
+    if (!open) return
+    const input = dialogRef.current?.querySelector<HTMLInputElement>('[cmdk-input]')
+    if (!input) return
+    const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('[cmdk-item]') ?? [])
+    const active = items.find((item) => item.getAttribute('data-value') === selectedValue)
+    input.setAttribute('aria-activedescendant', active?.id ?? '')
+  })
+
   /**
    * Runs a table action: navigates to it, or opens the record's audit dialog (`#audit`).
    *

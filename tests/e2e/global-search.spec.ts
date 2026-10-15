@@ -1,4 +1,4 @@
-// E2E: GlobalSearch (header search) without record search — local matches over pages and recent records, keyboard, Escape
+// E2E: Command palette search without record search — local matches over pages and recent records, keyboard, Escape
 
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
@@ -16,29 +16,30 @@ async function waitForAppReady(page: import('@playwright/test').Page) {
     .catch(() => null)
 }
 
-/** Locator for the GlobalSearch combobox in the header. */
+/** Locator for the command palette combobox opened from the header. */
 const searchInput = (page: import('@playwright/test').Page) =>
-  page.locator('[data-qqq-id="header-search"]').getByRole('combobox', { name: 'Search pages and recent records' })
+  page.locator('[data-qqq-id="command-menu-search"]')
 
-/** Locator for the GlobalSearch results listbox. */
+/** Locator for the command palette results listbox. */
 const searchDropdown = (page: import('@playwright/test').Page) =>
-  page.locator('[data-qqq-id="header-search"] [role="listbox"]')
+  page.locator('[data-qqq-id="command-menu-results"]')
 
-test.describe('GlobalSearch (header search)', () => {
+test.describe('Command palette search', () => {
   test.beforeEach(async ({ page }) => {
     await setupApiMocks(page)
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
   })
 
-  test('search input is visible in the header', async ({ page }) => {
+  test('header search button opens the palette input', async ({ page }) => {
     await expect(searchInput(page)).toBeVisible({ timeout: 10000 })
   })
 
   test('typing a label lists matching pages with their app', async ({ page }) => {
     await searchInput(page).fill('peo')
     // "People" starts with the term: it is the top hit
-    const top = searchDropdown(page).getByRole('group', { name: 'Top hits' })
+    const top = searchDropdown(page).getByRole('group', { name: 'Navigation' })
     await expect(top.getByRole('option').first()).toContainText('People')
     await expect(top.getByRole('option').first()).toContainText('CRM')
   })
@@ -59,10 +60,10 @@ test.describe('GlobalSearch (header search)', () => {
 
   test('shows an empty state when nothing matches', async ({ page }) => {
     await searchInput(page).fill('zzznoresults')
-    await expect(searchDropdown(page).getByText(/No pages or recent records match/)).toBeVisible({ timeout: 5000 })
+    await expect(searchDropdown(page).getByText(/No results found/)).toBeVisible({ timeout: 5000 })
   })
 
-  test('pressing Enter with no result selected opens the search page', async ({ page }) => {
+  test('pressing Enter on Search everything opens the search page', async ({ page }) => {
     await searchInput(page).fill('zzznoresults')
     await expect(searchDropdown(page)).toBeVisible({ timeout: 5000 })
     await searchInput(page).press('Enter')
@@ -86,5 +87,32 @@ test.describe('GlobalSearch (header search)', () => {
     await searchInput(page).fill('people')
     await expect(searchDropdown(page).getByRole('option').first()).toBeVisible({ timeout: 5000 })
     expect(searches).toEqual([])
+  })
+
+  test('matches label words without aliases and rejects unrelated text', async ({ page }) => {
+    await searchInput(page).fill('PEO crm')
+    await expect(searchDropdown(page).locator('[data-qqq-id="command-group-navigation"]').getByRole('option')).toHaveText([/People/])
+    await searchInput(page).fill('unrelated terminology')
+    await expect(searchDropdown(page).locator('[data-qqq-id="command-group-navigation"]')).toHaveCount(0)
+    await expect(searchDropdown(page).locator('[data-qqq-id="command-search-all"]')).toBeVisible()
+  })
+
+  test('a viewed record is searchable locally and Ctrl+Enter opens it in a new tab', async ({ page, context }) => {
+    await page.keyboard.press('Escape')
+    await page.goto('/app/person/1')
+    await expect(page.locator('[data-qqq-id="record-view-title-person"]')).toHaveText('Alice Johnson')
+    await page.goto('/app')
+    await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
+    await searchInput(page).fill('alice')
+    const recent = page.locator('[data-qqq-id="command-recent-person-1"]')
+    await expect(recent).toContainText('Alice Johnson')
+    await expect(recent).toContainText('People')
+    await expect(recent).toHaveAttribute('aria-selected', 'true')
+    const popupPromise = context.waitForEvent('page')
+    await searchInput(page).press('Control+Enter')
+    const popup = await popupPromise
+    await expect(popup).toHaveURL(/\/app\/person\/1\/?$/)
+    await expect(searchDropdown(page)).toBeVisible()
   })
 })

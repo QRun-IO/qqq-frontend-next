@@ -1158,7 +1158,7 @@
     },
     {
       "id": "REC-055",
-      "feature": "Record view keyboard shortcuts n, e, c, d, a (Material) and their help text",
+      "feature": "Record view keyboard shortcuts n, e, c, Shift+D, a (Material) and their help text",
       "source": [
         "material-dashboard src/qqq/pages/records/view/RecordView.tsx (keyboard shortcuts)",
         "src/lib/hooks/use-page-shortcuts.ts",
@@ -1168,13 +1168,13 @@
       "fixture": "sample person",
       "scenarios": [
         "e, c and n open edit, copy and create with the right values",
-        "a opens the audit history; d opens the delete confirmation, Escape keeps the row (SQL), confirming deletes it (SQL)",
+        "a opens the audit history; Shift+D opens the delete confirmation, Escape keeps the row (SQL), confirming deletes it (SQL)",
         "? lists Create a New Record, Edit/Copy/Delete/Audit the current Record with their keys"
       ],
       "negative": [
         "no shortcut fires while the audit or keyboard help dialog is open",
         "keys typed in the Jump to input are text",
-        "viewer persona: n, e, c, d do nothing (a still works); the backend refuses insert and delete (403, SQL unchanged)"
+        "viewer persona: n, e, c, Shift+D do nothing (a still works); the backend refuses insert and delete (403, SQL unchanged)"
       ],
       "issues": [
         "#714"

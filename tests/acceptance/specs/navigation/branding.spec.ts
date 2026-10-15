@@ -97,7 +97,7 @@ test.describe('branding', () => {
     // Sign out, then load the login page fresh: only the unauthenticated metadata is available
     await open(page, '/app')
     await waitForShell(page)
-    await (await openUserMenu(page)).getByRole('menuitem', { name: 'Log Out' }).click()
+    await (await openUserMenu(page)).getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
     const metadata = page.waitForResponse((reply) => new URL(reply.url()).pathname === '/qqq/v1/metaData/authentication')
     await page.reload()

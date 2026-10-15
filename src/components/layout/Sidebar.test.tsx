@@ -523,14 +523,27 @@ describe('Sidebar sections', () => {
 })
 
 describe('Sidebar drawer search', () => {
-  it('starts the drawer with the search field, which closes the drawer and opens search', async () => {
+  it('starts the drawer with the search field, which closes the drawer and then opens search', async () => {
     const user = userEvent.setup()
     const onSearchOpen = vi.fn()
-    const onClose = vi.fn()
     currentPathname = '/'
-    render(<Sidebar routes={leafRoutes} open onClose={onClose} onSearchOpen={onSearchOpen} />)
-    await user.click(screen.getByRole('button', { name: 'Search or jump to…' }))
-    expect(onClose).toHaveBeenCalled()
-    expect(onSearchOpen).toHaveBeenCalledTimes(1)
+    function Harness() {
+      const [open, setOpen] = React.useState(false)
+      const menu = React.useRef<HTMLButtonElement>(null)
+      return (
+        <>
+          <button ref={menu} type="button" onClick={() => setOpen(true)}>Menu</button>
+          <Sidebar routes={leafRoutes} open={open} onClose={() => setOpen(false)} returnFocusRef={menu} onSearchOpen={onSearchOpen} />
+        </>
+      )
+    }
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(await screen.findByRole('button', { name: 'Search or jump to…' }))
+    await waitFor(() => expect(onSearchOpen).toHaveBeenCalledTimes(1))
+    expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+    // focus went back to the menu button first, so search returns it there when it closes
+    expect(screen.getByRole('button', { name: 'Menu' })).toHaveFocus()
   })
+
 })

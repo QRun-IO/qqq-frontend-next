@@ -210,6 +210,8 @@ export default function Sidebar({
   const pathname = usePathname()
   const [openCollapses, setOpenCollapses] = React.useState<Record<string, boolean>>({})
   const drawerRef = useRef<HTMLDivElement>(null)
+  // the drawer's search field: open search once the drawer has closed and focus is back on the menu button
+  const searchAfterClose = useRef(false)
 
   // Expand every group that contains the current route
   useEffect(() => {
@@ -276,7 +278,7 @@ export default function Sidebar({
           <div className="px-3 pt-3">
             <button
               type="button"
-              onClick={() => { onClose?.(); onSearchOpen() }}
+              onClick={() => { searchAfterClose.current = true; onClose?.() }}
               className="flex h-11 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-qqq-id="sidebar-search"
             >
@@ -333,6 +335,10 @@ export default function Sidebar({
               if (trigger?.isConnected) {
                 event.preventDefault()
                 trigger.focus()
+              }
+              if (searchAfterClose.current) {
+                searchAfterClose.current = false
+                setTimeout(() => onSearchOpen?.(), 0)
               }
             }}
             onClick={(event) => {

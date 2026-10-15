@@ -48,8 +48,11 @@ export interface HeaderMenuProps {
   label: string
   /** The trigger's content (an icon, an avatar, optional text). */
   trigger: React.ReactNode
-  /** Menu content; call `close` from an item that should close the menu. */
-  children: (close: () => void) => React.ReactNode
+  /**
+   * Menu content. An item calls `close` to close the menu; `close(then)` runs `then` once focus is
+   * back on the menu button, so a dialog it opens returns focus there when it closes.
+   */
+  children: (close: (then?: () => void) => void) => React.ReactNode
   /** Stable hook for CSS and tests, on the trigger (`{qqqId}`) and the menu (`{qqqId}-menu`). */
   qqqId: string
   /** Extra classes for the trigger. */
@@ -69,7 +72,11 @@ export interface HeaderMenuProps {
 export function HeaderMenu({ label, trigger, children, qqqId, triggerClassName, menuClassName }: HeaderMenuProps) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const close = useCallback(() => setOpen(false), [])
+  const pending = useRef<(() => void) | null>(null)
+  const close = useCallback((then?: () => void) => {
+    pending.current = then ?? null
+    setOpen(false)
+  }, [])
 
   /**
    * Moves focus between the menu's items with the arrow, Home and End keys.
@@ -117,6 +124,12 @@ export function HeaderMenu({ label, trigger, children, qqqId, triggerClassName, 
           onOpenAutoFocus={(event) => {
             event.preventDefault()
             menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus()
+          }}
+          onCloseAutoFocus={() => {
+            // focus returns to the menu button first; then the chosen item's action runs
+            const then = pending.current
+            pending.current = null
+            if (then) setTimeout(then, 0)
           }}
           className={cn(
             'z-[160] w-72 max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg',

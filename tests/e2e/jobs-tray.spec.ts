@@ -74,7 +74,7 @@ test('inline run -> live phases/log -> background -> tray -> completed -> reopen
   await trigger.click()
   await expect(page.getByRole('dialog', { name: 'Jobs' }).getByText('running', { exact: true })).toBeVisible()
   mock.finish()
-  await expect(page.getByRole('button', { name: 'Jobs, 0 active' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'Jobs, none active' })).toBeVisible({ timeout: 15_000 })
   const dialog = page.getByRole('dialog', { name: 'Jobs' })
   await expect(dialog.getByText('completed', { exact: true })).toBeVisible({ timeout: 15_000 })
   await dialog.getByRole('link', { name: /Back up workspace/ }).click()

@@ -21,9 +21,10 @@ test.describe('MOCK sessions', () => {
     expect((await manageSession).status()).toBe(200)
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page).toHaveURL(/\/app\/person\/?$/)
-    const sidebar = await navigation(page)
-    await expect(sidebar.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Alice (sample)')
-    await expect(sidebar.locator('[data-qqq-id="sidebar-user-email"]')).toHaveText('sample:alice')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Alice (sample)')
+    await page.keyboard.press('Escape')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-email"]')).toHaveText('sample:alice')
+    await page.keyboard.press('Escape')
     // the session the UI uses is the persona session the backend resolves
     const probe = await backend.api.post('/qqq/v1/table/person/count', { data: {} })
     expect(probe.status()).toBe(200)
@@ -38,7 +39,7 @@ test.describe('MOCK sessions', () => {
 
     const menu = await openUserMenu(page)
     const logoutCall = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     expect((await logoutCall).status()).toBe(200)
     await expect(page).toHaveURL(/\/login\/?\?returnTo=%2Fapp%2Fperson/)
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
@@ -57,7 +58,8 @@ test.describe('MOCK sessions', () => {
     await expect(page).toHaveURL(/\/app\/pet\/?$/)
     // the grid on desktop, the card list on a phone
     await expect(page.getByRole('grid', { name: 'Pet records' }).or(page.getByRole('list', { name: 'Pet records' }))).toBeVisible()
-    await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Alice (sample)')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Alice (sample)')
+    await page.keyboard.press('Escape')
   })
 
   test('[SEC-021] logout clears cached data so the next user never sees the previous user\'s pages @mobile', async ({ page, backend, diagnostics, context }) => {
@@ -76,7 +78,7 @@ test.describe('MOCK sessions', () => {
       }
     })
     const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
     expect(await page.evaluate(() => ['person', 'pet'].flatMap((table) => [
       localStorage.getItem(`qqq.recordQueryView.${table}`),

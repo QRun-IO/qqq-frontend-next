@@ -361,7 +361,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                     <HelpMenuItems close={close} onSearchHelp={() => openSearch(true)} onShortcuts={() => setHelpOpen(true)} />
                     {assistantEnabled && (
                       <button type="button" role="menuitem" className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-ask"
-                        onClick={() => { close(); toggleAssistant() }}>
+                        onClick={() => close(toggleAssistant)}>
                         <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         Ask the assistant
                       </button>

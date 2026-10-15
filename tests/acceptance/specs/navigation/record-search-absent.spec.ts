@@ -35,33 +35,20 @@ test('[NAV-032] without searchable tables the header box, "/" dialog and search 
   await open(page, '/app')
   await waitForShell(page)
 
-  // a phone has no header box; its header "Open search" button opens the same dialog
-  const phoneSearch = page.getByRole('button', { name: 'Open search' })
-  const dialog = page.getByRole('dialog', { name: 'Search' })
-  if (await phoneSearch.isVisible()) {
-    await phoneSearch.click()
-    const box = dialog.getByRole('combobox', { name: 'Search pages and recent records' })
-    await box.fill(person.first_name!)
-    await expect(dialog.getByRole('listbox')).toContainText(`No pages or recent records match “${person.first_name}”`)
-    await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
-    await expectTouchReady(page, dialog)
-  } else {
-    // header box: local label, local matches only
-    const header = page.getByRole('combobox', { name: 'Search pages and recent records' })
-    await header.fill(person.first_name!)
-    await expect(page.getByRole('listbox', { name: 'Search results' })).toContainText(`No pages or recent records match “${person.first_name}”`)
-    await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
-    // Escape closes the dropdown and keeps focus in the box (a combobox); leave it to use "/"
-    await header.press('Escape')
-    await expect(page.getByRole('listbox', { name: 'Search results' })).toHaveCount(0)
-    await header.blur()
-    await page.locator('body').press('/')
-  }
+  await page.locator('[data-qqq-id="button-search"]').click()
+  const dialog = page.getByRole('dialog', { name: 'Command palette' })
+  await dialog.getByRole('combobox').fill(person.first_name!)
+  await expect(dialog.locator('[data-qqq-id="command-menu-empty"]')).toHaveText('No results found.')
+  await expect(dialog.locator('[data-value^="record:"]')).toHaveCount(0)
+  await expectTouchReady(page, dialog)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await page.locator('body').press('/')
 
   // the dialog: pages still match (the "Person" table is the top hit), and no record is listed
-  await dialog.getByRole('combobox', { name: 'Search pages and recent records' }).fill('person')
-  await expect(dialog.getByRole('group', { name: 'Top hits' }).getByRole('option').first()).toContainText('Person')
-  await expect(dialog.locator('[data-qqq-id="search-option-record"]')).toHaveCount(0)
+  await dialog.locator('[data-qqq-id="command-menu-search"]').fill('person')
+  await expect(dialog.getByRole('group', { name: 'Navigation' }).getByRole('option').first()).toContainText('Person')
+  await expect(dialog.locator('[data-value^="record:"]')).toHaveCount(0)
   await page.keyboard.press('Escape')
 
   // search page: no record results, no sort (nothing to order)

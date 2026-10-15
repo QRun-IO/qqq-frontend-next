@@ -54,7 +54,7 @@ export interface AccountMenuProps {
    * Items shown first on compact screens, where the header has no room for them (Help, Ask).
    * Each must have a `menuitem` role; call `close` when chosen.
    */
-  compactItems?: (close: () => void) => React.ReactNode
+  compactItems?: (close: (then?: () => void) => void) => React.ReactNode
 }
 
 /**
@@ -112,8 +112,8 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
   displayName: string
   userEmail?: string
   logout?: () => void
-  close: () => void
-  compactItems?: (close: () => void) => React.ReactNode
+  close: (then?: () => void) => void
+  compactItems?: (close: (then?: () => void) => void) => React.ReactNode
 }) {
   const { theme, isDarkMode, setDarkMode } = useTheme()
   const capability = useQaCaptureCapability()
@@ -136,12 +136,12 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
           <HeaderMenuSeparator />
         </div>
       )}
-      <Link href="/app/preferences" role="menuitem" onClick={close} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-preferences">
+      <Link href="/app/preferences" role="menuitem" onClick={() => close()} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-preferences">
         <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         Preferences
       </Link>
       {preferences.data?.sections.filter((section) => section.showInUserMenu).map((section) => (
-        <Link key={section.name} href={`/app/preferences?section=${encodeURIComponent(section.name)}`} role="menuitem" onClick={close}
+        <Link key={section.name} href={`/app/preferences?section=${encodeURIComponent(section.name)}`} role="menuitem" onClick={() => close()}
           className={HEADER_MENU_ITEM_CLASS} data-qqq-id={`menu-item-preferences-${section.name}`}>
           <MetadataIcon icon={section.icon} kind="section" className="h-4 w-4 text-muted-foreground" />
           {section.label}
@@ -166,7 +166,7 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
       </button>
       {capability?.enabled && capability.reason === 'QA_MODE' && (
         qaSection ? (
-          <Link href={`/app/preferences?section=${encodeURIComponent(qaSection)}`} role="menuitem" onClick={close}
+          <Link href={`/app/preferences?section=${encodeURIComponent(qaSection)}`} role="menuitem" onClick={() => close()}
             className={HEADER_MENU_ITEM_CLASS} data-qqq-id="qa-mode-indicator">
             <Bug className="h-4 w-4 text-amber-600" aria-hidden="true" />
             QA mode: on
@@ -181,7 +181,7 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
       {logout && (
         <>
           <HeaderMenuSeparator />
-          <button type="button" role="menuitem" onClick={() => { close(); logout() }} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="sidenav-logout-button">
+          <button type="button" role="menuitem" onClick={() => close(logout)} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="sidenav-logout-button">
             <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             Sign out
           </button>

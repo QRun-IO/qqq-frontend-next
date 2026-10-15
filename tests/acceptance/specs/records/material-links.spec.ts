@@ -61,7 +61,7 @@ async function choose(page: Page, scope: ReturnType<Page['locator']>, label: str
   await page.getByRole('option', { name: option, exact: true }).click()
 }
 
-test('[REC-055] record view shortcuts n, e, c, d and a open create, edit, copy, delete and audit @mobile', async ({ page, backend, diagnostics }) => {
+test('[REC-055] record view shortcuts n, e, c, Shift+D and a open create, edit, copy, delete and audit @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'person', 1, 'Avery Sample')
   await page.keyboard.press('e')
@@ -94,12 +94,12 @@ test('[REC-055] record view shortcuts n, e, c, d and a open create, edit, copy, 
 
   // d asks for confirmation: Escape keeps the record, confirming deletes it
   await openRecord(page, 'person', 5, 'Morgan Sample')
-  await page.keyboard.press('d')
+  await page.keyboard.press('Shift+D')
   await expect(deleteDialog(page)).toContainText('Are you sure you want to delete Morgan Sample? This action cannot be undone.')
   await page.keyboard.press('Escape')
   await expect(deleteDialog(page)).toHaveCount(0)
   expect(await sqlCount(backend, 'select count(*) as n from person where id = 5')).toBe(1)
-  await page.keyboard.press('d')
+  await page.keyboard.press('Shift+D')
   await deleteDialog(page).getByRole('button', { name: 'Delete' }).click()
   await expect(page).toHaveURL(/\/app\/person\/?$/)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
@@ -116,11 +116,11 @@ test('[REC-055] the keyboard help lists the record view shortcuts in Material wo
     ['Create a New Record', 'n'],
     ['Edit the current Record', 'e'],
     ['Copy the current Record', 'c'],
-    ['Delete the current Record', 'd'],
+    ['Delete the current Record (asks to confirm)', 'Shift+D'],
     ['Audit the current Record', 'a'],
   ])
   await page.keyboard.press('n')
-  await page.keyboard.press('d')
+  await page.keyboard.press('Shift+D')
   await expect(page.locator('[data-qqq-id="keyboard-shortcuts-dialog"]')).toBeVisible()
   await expect(deleteDialog(page)).toHaveCount(0)
   await expect(page).toHaveURL(/\/app\/person\/1\/?$/)
@@ -133,7 +133,8 @@ test('[REC-055] keys typed in a text input are text, not shortcuts', async ({ pa
   void backend
   await openRecord(page, 'person', 1, 'Avery Sample')
   // the header's page and record search box (its label names records when record search is available)
-  const jump = page.locator('[data-qqq-id="header-search"]').getByRole('combobox', { name: /^Search pages and (recent )?records$/ })
+  await page.locator('[data-qqq-id="button-search"]').click()
+  const jump = page.locator('[data-qqq-id="command-menu-search"]')
   await jump.click()
   await page.keyboard.type('necda')
   await expect(jump).toHaveValue('necda')
@@ -148,7 +149,7 @@ test.describe('read-only persona', () => {
   test('[REC-055] a read-only user gets no create, edit, copy or delete shortcut and the backend refuses those writes @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openRecord(page, 'person', 1, 'Avery Sample')
-    for (const key of ['n', 'e', 'c', 'd']) await page.keyboard.press(key)
+    for (const key of ['n', 'e', 'c', 'Shift+D']) await page.keyboard.press(key)
     // the audit shortcut still works, so the keys above were handled and ignored
     await page.keyboard.press('a')
     await expect(auditDialog(page).getByRole('heading', { name: 'Audit for Person: Avery Sample' })).toBeVisible()
@@ -164,15 +165,16 @@ test.describe('read-only persona', () => {
 test('[REC-055] the header help button opens the shortcut list by tap, and a hardware keyboard drives the record view @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'person', 5, 'Morgan Sample')
-  const help = page.getByRole('button', { name: 'Keyboard shortcuts (?)' })
+  const help = page.locator((page.viewportSize()?.width ?? 1280) < 640 ? '[data-qqq-id="button-account"]' : '[data-qqq-id="button-help"]')
   await expectTouchTargets(help)
   await help.click()
+  await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click()
   await expect(helpDialog(page).getByRole('heading', { name: 'Keyboard Shortcuts' })).toBeVisible()
   expect(await helpSection(page, 'Record View Page')).toEqual([
     ['Create a New Record', 'n'],
     ['Edit the current Record', 'e'],
     ['Copy the current Record', 'c'],
-    ['Delete the current Record', 'd'],
+    ['Delete the current Record (asks to confirm)', 'Shift+D'],
     ['Audit the current Record', 'a'],
   ])
   await expectFitsScreen(page, helpDialog(page))
@@ -185,7 +187,7 @@ test('[REC-055] the header help button opens the shortcut list by tap, and a har
   await expect(auditDialog(page).getByRole('heading', { name: 'Audit for Person: Morgan Sample' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(auditDialog(page)).toHaveCount(0)
-  await page.keyboard.press('d')
+  await page.keyboard.press('Shift+D')
   await expect(deleteDialog(page)).toContainText('Are you sure you want to delete Morgan Sample? This action cannot be undone.')
   await expectFitsScreen(page, deleteDialog(page))
   await deleteDialog(page).getByRole('button', { name: 'Delete' }).click()
