@@ -24,6 +24,7 @@
 
 import { isRestricted } from '@/lib/utils/secured-data'
 import { RestrictedValue } from '@/components/secured-data/RestrictedValue'
+import { SECURE_VALUE_ATTRIBUTES } from '@/lib/qa-capture/secure-attributes'
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { sanitizeHtml } from '@/lib/utils/sanitize-html'
@@ -205,7 +206,7 @@ export function DataCell({ field, value, displayValue, record, tableMetaData }: 
 
     case 'PASSWORD': {
       return (
-        <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${field.name}`}>
+        <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${field.name}`} {...SECURE_VALUE_ATTRIBUTES}>
           ••••••••
         </span>
       )
@@ -298,6 +299,7 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
       className="text-sm text-muted-foreground underline cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
       aria-label={revealed ? `Hide ${fieldName}` : `Reveal ${fieldName}`}
       data-qqq-id={`grid-cell-${fieldName}`}
+      {...SECURE_VALUE_ATTRIBUTES}
     >
       {revealed ? value : '••••••••'}
     </button>

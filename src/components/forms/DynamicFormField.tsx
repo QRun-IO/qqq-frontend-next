@@ -25,6 +25,7 @@
 // Includes help tooltip support via field.helpContents
 
 import { isRestricted } from '@/lib/utils/secured-data'
+import { isSecureField } from '@/lib/qa-capture/secure-attributes'
 import { MaskedValue } from '@/components/secured-data/MaskedValue'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -615,6 +616,7 @@ export function DynamicFormField({
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
+              secure={isSecureField(field)}
             />
           </FieldWithHelp>
         </DirtyWrapper>

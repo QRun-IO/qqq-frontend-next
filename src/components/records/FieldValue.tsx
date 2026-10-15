@@ -24,6 +24,7 @@
 
 import { isRestricted } from '@/lib/utils/secured-data'
 import { RestrictedValue } from '@/components/secured-data/RestrictedValue'
+import { SECURE_VALUE_ATTRIBUTES, secureValueAttributes } from '@/lib/qa-capture/secure-attributes'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
@@ -311,7 +312,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         return <a href={`mailto:${strValue}`} className={cn('text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)}
           data-qqq-id={dataQqqId}>{strValue}</a>
       }
-      return <PlainValue value={strValue} dataQqqId={dataQqqId} className={className} />
+      return <PlainValue value={strValue} dataQqqId={dataQqqId} className={className} secure={secureValueAttributes(field)} />
     }
   }
 }
@@ -339,9 +340,9 @@ function EmptyValue({ fieldName, className }: { fieldName: string; className?: s
  * @param props.className - Optional classes.
  * @returns The span.
  */
-function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId: string; className?: string }) {
+function PlainValue({ value, dataQqqId, className, secure }: { value: string; dataQqqId: string; className?: string; secure?: Partial<typeof SECURE_VALUE_ATTRIBUTES> }) {
   // a value with line breaks keeps them, as in the Material dashboard (ValueUtils: any string containing \n)
-  return <span className={cn('text-sm text-foreground', value.includes('\n') && 'whitespace-pre-wrap', className)} data-qqq-id={dataQqqId}>{value}</span>
+  return <span className={cn('text-sm text-foreground', value.includes('\n') && 'whitespace-pre-wrap', className)} data-qqq-id={dataQqqId} {...secure}>{value}</span>
 }
 
 /**
@@ -503,7 +504,7 @@ function RevealField({ value, field, className }: { value: string; field: QField
   const [copied, setCopied] = useState(false)
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
-      <span className="font-mono text-sm text-foreground" data-qqq-id={`field-value-${field.name}`} data-revealed={revealed}>
+      <span className="font-mono text-sm text-foreground" data-qqq-id={`field-value-${field.name}`} data-revealed={revealed} {...SECURE_VALUE_ATTRIBUTES}>
         {revealed ? value : '•'.repeat(8)}
       </span>
       <button type="button" onClick={() => setRevealed((current) => !current)}

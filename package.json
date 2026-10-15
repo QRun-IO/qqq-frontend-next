@@ -36,6 +36,8 @@
     "@codemirror/state": "6.5.2",
     "@codemirror/view": "6.38.1",
     "@hookform/resolvers": "^5.2.2",
+    "@jam.dev/recording-links": "0.4.0",
+    "@jam.dev/sdk": "1.0.1",
     "@lezer/highlight": "1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -114,6 +116,9 @@
       "serialize-javascript": ">=7.0.3",
       "@humanfs/node": ">=0.16.8",
       "@babel/core": ">=7.29.6 <8"
-    }
+    },
+    "ignoredOptionalDependencies": [
+      "electron"
+    ]
   }
 }

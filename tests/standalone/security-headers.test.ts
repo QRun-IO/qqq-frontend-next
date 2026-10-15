@@ -30,6 +30,7 @@ import {
   inlineScriptHashes,
   isBackendPath,
   parseSourceAdditions,
+  qaCaptureSourceAdditions,
   SECURITY_HEADERS,
 } from '../../standalone/security-headers.mjs'
 import nextConfig from '../../next.config'
@@ -165,6 +166,20 @@ describe('dashboard policy (QRun-IO/qqq#734)', () => {
     expect(policy).toContain('https://*.analytics.google.com')
     expect(policy).toContain('http://127.0.0.1:9000')
     expect(policy).not.toContain('https://accounts.google.com;')
+  })
+
+  it('adds the Jam origins only when QQQ_QA_CAPTURE_CSP=true', () => {
+    expect(qaCaptureSourceAdditions(undefined)).toEqual([])
+    expect(qaCaptureSourceAdditions('false')).toEqual([])
+    const policy = buildContentSecurityPolicy({ additions: qaCaptureSourceAdditions(' TRUE ') })
+    expect(policy).toContain("script-src 'self' https://js.jam.dev")
+    expect(policy).toContain("frame-src 'self' https://*.jam.dev")
+    expect(policy).toContain("connect-src 'self' https://*.jam.dev")
+    expect(buildContentSecurityPolicy()).not.toContain('jam.dev')
+  })
+
+  it('forwards the QA capture recorder page to the backend', () => {
+    expect(isBackendPath('/qa/recorder?jam-recording=x')).toBe(true)
   })
 
   it('refuses malformed additions', () => {

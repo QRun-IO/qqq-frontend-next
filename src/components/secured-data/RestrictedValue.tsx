@@ -20,6 +20,7 @@ import type { QFieldMetaData, QRecord, QTableMetaData } from '@/types'
 import { countdownText, remainingSeconds, securedValueKey } from '@/lib/utils/secured-data'
 import { useSecuredData } from './SecuredDataProvider'
 import { MaskedValue } from './MaskedValue'
+import { SECURE_VALUE_ATTRIBUTES } from '@/lib/qa-capture/secure-attributes'
 
 /**
  * Render a mask or a currently authorized reveal, with an optional record-view action.
@@ -66,7 +67,7 @@ export function RestrictedValue({
         className="inline-flex max-w-full flex-wrap items-center gap-2"
         data-qqq-id="revealed-value"
       >
-        <span className="break-all">{String(grant.displayValue ?? grant.value ?? '—')}</span>
+        <span className="break-all" {...SECURE_VALUE_ATTRIBUTES}>{String(grant.displayValue ?? grant.value ?? '—')}</span>
         <span
           className="font-mono text-xs text-muted-foreground"
           role="timer"
