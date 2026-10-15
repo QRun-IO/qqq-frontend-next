@@ -42,7 +42,7 @@ vi.mock('node:fs', async (original) => {
     ...await original<typeof import('node:fs')>(), existsSync: (file: string) => file.endsWith('next-dashboard/index.html') ? state.hasExport : true, mkdirSync: () => {}, rmSync: () => {},
     readdirSync: () => ['Fixture.java'],
     readFileSync: (file: string) => file.endsWith('routes-manifest.json')
-      ? JSON.stringify({ rewrites: { beforeFiles: [], afterFiles: ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession', 'apis.json', 'api'].map((prefix) => ({ source: `/${prefix}/:path*`, destination: `http://127.0.0.1:${state.wrongTarget ? '18765' : '18775'}/${prefix}/:path*` })), fallback: [] } })
+      ? JSON.stringify({ rewrites: { beforeFiles: [], afterFiles: ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession', 'apis.json', 'api', 'qa'].map((prefix) => ({ source: `/${prefix}/:path*`, destination: `http://127.0.0.1:${state.wrongTarget ? '18765' : '18775'}/${prefix}/:path*` })), fallback: [] } })
       : 'http://127.0.0.1:18775\n',
   }
   return { ...fs, default: fs }
