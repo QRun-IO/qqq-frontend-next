@@ -179,6 +179,11 @@ const PERSON_RECORD_1 = PERSON_RECORDS[0]
 export async function setupApiMocks(page: Page): Promise<void> {
   // ── GENERIC routes (registered first = lowest priority) ──────────────────
 
+  // UI API version: a 1.4.0 server with no extensions (specs that need an extension route their own)
+  await page.route('**/qqq/v1/version', (route) => {
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [] }) })
+  })
+
   // Global search
   await page.route('**/qqq/v1/search**', (route) => {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [] }) })
