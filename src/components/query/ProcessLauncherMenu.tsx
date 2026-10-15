@@ -90,9 +90,13 @@ interface MenuEntry {
 export function buildActionEntries({ tableMetaData, allProcesses, processes, selectionCount }: Omit<ProcessLauncherMenuProps, 'onLaunch' | 'onBlocked'>): { bulk: MenuEntry[]; table: MenuEntry[]; added: MenuEntry[] } {
   const bulk: MenuEntry[] = []
   for (const action of BULK_ACTIONS) {
-    const process = allProcesses[`${tableMetaData.name}.${action.suffix}`]
+    const capabilities = tableMetaData.clientCapabilities
+    const declared = capabilities?.[action.suffix]
+    const name = capabilities === undefined ? `${tableMetaData.name}.${action.suffix}` : declared?.available ? declared.processName : undefined
+    if (!name) continue
+    const process = allProcesses[name]
     if (!process || process.hasPermission === false) continue
-    if (!hasCapability(tableMetaData, action.capability) || !tableMetaData[action.permission]) continue
+    if (capabilities === undefined && (!hasCapability(tableMetaData, action.capability) || !tableMetaData[action.permission])) continue
     bulk.push({
       key: action.suffix,
       label: action.label,

@@ -19,7 +19,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import { brandingImagePath, createBrandingAssetAlias } from '../../standalone/branding-assets.mjs'
+import { brandingImagePath, createBrandingAssetAlias, fetchBrandingAsset } from '../../standalone/branding-assets.mjs'
 
 const invalid = ['logo.png', 'https://images.example/a.png', '//images.example/a.png', 'data:image/png;base64,a', '/', '/brand/../a.png', '/brand/%2e%2e/a.png', '/brand/%252e%252e/a.png', '/brand/a%2fb.png', '/brand/a%5cb.png', '/brand//a.png', '/brand/./a.png', '/brand/a%00.png', '/brand/a%ZZ.png', '/brand/a%FF.png', '/brand/index.html', '/brand/private.js', '/app/a.png', '/login/a.png', '/callback/a.png', '/_next/a.png', '/qqq/a.png', '/data/a.png', '/metaData/a.png']
 const roots: string[] = []
@@ -40,8 +40,8 @@ it('uses at most two declared roles with GET/HEAD and leaves other methods/route
   expect(await alias('POST', '/brand/logo.png')).toBeNull()
   for (const value of invalid) expect(await alias('GET', value)).toBeNull()
   expect(load).not.toHaveBeenCalled()
-  expect(await alias('GET', '/brand/logo.png?cache=2')).toBe('/qqq/branding/logo')
-  expect(await alias('HEAD', '/brand/icon.svg')).toBe('/qqq/branding/icon')
+  expect(await alias('GET', '/brand/logo.png?cache=2')).toBe('/qqq/v1/branding/logo')
+  expect(await alias('HEAD', '/brand/icon.svg')).toBe('/qqq/v1/branding/icon')
   expect(await alias('GET', '/brand/unlisted.png')).toBeNull()
   expect(load).toHaveBeenCalledTimes(1)
 })
@@ -55,19 +55,19 @@ it('keeps a real public file with Next, while outside-root symlinks do not grant
   const alias = createBrandingAssetAlias(load, root)
   expect(await alias('GET', '/brand/logo.png')).toBeNull()
   expect(load).not.toHaveBeenCalled()
-  expect(await alias('GET', '/brand/icon.svg')).toBe('/qqq/branding/icon')
+  expect(await alias('GET', '/brand/icon.svg')).toBe('/qqq/v1/branding/icon')
 })
 it('refreshes expired declarations before use and removes old aliases on failed refresh', async () => {
   let now = 100; vi.spyOn(Date, 'now').mockImplementation(() => now)
   const load = vi.fn().mockResolvedValueOnce({ branding: { logo: '/first.png' } }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ branding: { logo: '/second.png' } })
   const alias = createBrandingAssetAlias(load, directory())
-  expect(await alias('GET', '/first.png')).toBe('/qqq/branding/logo')
+  expect(await alias('GET', '/first.png')).toBe('/qqq/v1/branding/logo')
   now += 60_000
   expect(await alias('GET', '/first.png')).toBeNull()
   expect(await alias('GET', '/second.png')).toBeNull()
   expect(load).toHaveBeenCalledTimes(2)
   now += 5_000
-  expect(await alias('GET', '/second.png')).toBe('/qqq/branding/logo')
+  expect(await alias('GET', '/second.png')).toBe('/qqq/v1/branding/logo')
   expect(await alias('GET', '/first.png')).toBeNull()
 })
 it('coalesces concurrent initial loads and consistently prefers logo for identical paths', async () => {
@@ -77,11 +77,23 @@ it('coalesces concurrent initial loads and consistently prefers logo for identic
   const first = alias('GET', '/same.png'); const second = alias('HEAD', '/same.png')
   await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1))
   finish({ branding: { logo: '/same.png', icon: '/same.png' } })
-  expect(await first).toBe('/qqq/branding/logo'); expect(await second).toBe('/qqq/branding/logo')
+  expect(await first).toBe('/qqq/v1/branding/logo'); expect(await second).toBe('/qqq/v1/branding/logo')
 })
 it('missing and external-only branding adds no aliases', async () => {
   for (const value of [undefined, {}, { branding: null }, { branding: { logo: 'https://images.example/logo.png', icon: 'data:image/png;base64,a' } }]) {
     const alias = createBrandingAssetAlias(async () => value, directory())
     expect(await alias('GET', '/logo.png')).toBeNull()
   }
+})
+
+it('retries the legacy branding route only after a versioned 404', async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(null, { status: 404 })).mockResolvedValueOnce(new Response('logo'))
+  expect(await (await fetchBrandingAsset(fetcher, '/qqq/v1/branding/logo')).text()).toBe('logo')
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/qqq/v1/branding/logo', '/qqq/branding/logo'])
+})
+it.each([200, 401, 403, 500])('does not fall back from status %i', async (status) => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(null, { status }))
+  expect((await fetchBrandingAsset(fetcher, '/qqq/v1/branding/icon', 'HEAD')).status).toBe(status)
+  expect(fetcher).toHaveBeenCalledTimes(1)
+  expect(fetcher).toHaveBeenCalledWith('/qqq/v1/branding/icon', expect.objectContaining({ method: 'HEAD' }))
 })

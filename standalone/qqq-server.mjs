@@ -28,7 +28,7 @@
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { createBrandingAssetAlias } from './branding-assets.mjs'
+import { createBrandingAssetAlias, fetchBrandingAsset } from './branding-assets.mjs'
 import {
   applyDashboardSecurityHeaders,
   buildContentSecurityPolicy,
@@ -48,7 +48,7 @@ const dashboardPolicyInputs = createDashboardPolicyInputs(async () => {
 })
 
 // These two fields are already public before sign-in. The fixed role endpoint requires
-// a backend containing QQQ #1009; old backends retain their real 404, never a fallback UI.
+// UI API 1.6; its 404 fallback supports the older public role endpoint.
 const brandingAlias = createBrandingAssetAlias(async () => {
   const response = await fetch(`http://${selfHost}:${port}/qqq/v1/metaData/authentication`, { signal: AbortSignal.timeout(5_000) })
   if (!response.ok) throw new Error('Could not load public branding metadata')
@@ -64,7 +64,18 @@ http.createServer = function (...args) {
   const listener = args[index]
   args[index] = async function (req, res) {
     const asset = await brandingAlias(req.method, req.url ?? '/')
-    if (asset) req.url = asset
+    if (asset) {
+      try {
+        const response = await fetchBrandingAsset((url, options) => fetch(`http://${selfHost}:${port}${url}`, options), asset, req.method)
+        res.statusCode = response.status
+        for (const name of ['content-type', 'cache-control', 'etag', 'last-modified']) {
+          const value = response.headers.get(name)
+          if (value) res.setHeader(name, value)
+        }
+        res.end(Buffer.from(await response.arrayBuffer()))
+      } catch { res.statusCode = 502; res.end() }
+      return
+    }
     if (!isBackendPath(req.url ?? '/')) {
       const policyInputs = await dashboardPolicyInputs()
       applyDashboardSecurityHeaders(req, res, (scriptHashes) => buildContentSecurityPolicy({ ...policyInputs, additions, scriptHashes }))

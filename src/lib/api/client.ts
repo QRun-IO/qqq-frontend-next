@@ -18,6 +18,8 @@
  * @file API Client — Singleton Axios instance with global 401 interceptor for all QQQ API calls.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import axios, { type AxiosInstance, type AxiosError, type AxiosRequestConfig } from 'axios'
 
 /** Base URL for all QQQ API requests, read from the environment at module load time. */
@@ -100,7 +102,7 @@ class APIClient {
         }
         // Surface the backend's own explanation (e.g. "Permission denied.") instead of
         // axios' generic "Request failed with status code 403".
-        const backendMessage = (error.response?.data as { error?: unknown } | undefined)?.error
+        const backendMessage = getErrorMessage(error, error.message)
         if (typeof backendMessage === 'string' && backendMessage.trim()) {
           error.message = backendMessage.trim()
         }

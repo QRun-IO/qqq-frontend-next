@@ -151,8 +151,8 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   // ------------------------------------------------------------------
   // Saved views
   // ------------------------------------------------------------------
-  const savedViews = useSavedViews(tableName, metaData, userId)
-  const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable)
+  const savedViews = useSavedViews(tableName, metaData, userId, tableMetaData.clientCapabilities)
+  const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable, tableMetaData.clientCapabilities)
   const currentView: SavedView | null = savedViewId !== undefined ? savedViewQuery.data ?? null : null
   const [viewWarnings, setViewWarnings] = useState<string[]>([])
   const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize', 'view'].some((key) => searchParams.has(key)))
@@ -443,7 +443,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     onCopyFullQueryValues: (name: string) => {
       void (async () => {
         const label = queryColumns.find((column) => column.name === name)?.label ?? name
-        const setting = metaData?.supplementalInstanceMetaData?.materialDashboard
+        const setting = (metaData?.supplementalInstanceMetaData?.uiSettings ?? metaData?.supplementalInstanceMetaData?.materialDashboard)
         const configuredLimit = setting && typeof setting === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in setting
           ? setting.queryScreenCopyFullQueryColumnValuesLimit : undefined
         const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT

@@ -407,3 +407,44 @@ describe('defaultValuesFromRecord', () => {
     expect(defaults.active).toBeNull()
   })
 })
+
+
+describe('UI API 1.6 validation', () => {
+  it('uses required and length policy from validation instead of legacy hints', () => {
+    const field = makeField({ isRequired: true, maxLength: 1, behaviors: ['ERROR'], validation: { required: false, maxLength: 3, tooLongBehavior: 'PASS_THROUGH' } })
+    expect(zodFieldFromMetadata(field).safeParse('').success).toBe(true)
+    expect(zodFieldFromMetadata(field).safeParse('long value').success).toBe(true)
+    expect(zodFieldFromMetadata({ ...field, validation: { required: true } }).safeParse('').success).toBe(false)
+    expect(zodFieldFromMetadata({ ...field, validation: {} }).safeParse('long value').success).toBe(true)
+  })
+  it.each(['ERROR', 'TRUNCATE', 'TRUNCATE_ELLIPSIS', 'PASS_THROUGH'] as const)('obeys the %s length policy', (tooLongBehavior) => {
+    const schema = zodFieldFromMetadata(makeField({ validation: { maxLength: 3, tooLongBehavior } }), { enforceMaxLength: false })
+    expect(schema.safeParse('abcd').success).toBe(tooLongBehavior !== 'ERROR')
+    expect(schema.safeParse('abc').success).toBe(true)
+  })
+  it.each(['INTEGER', 'DECIMAL', 'LONG'] as const)('enforces exclusive %s bounds with server wording', (type) => {
+    const schema = zodFieldFromMetadata(makeField({ type, minValue: 100, maxValue: 101, validation: { minValue: '2', maxValue: '4', minInclusive: false, maxInclusive: false } }))
+    expect(schema.safeParse('3').success).toBe(true)
+    for (const [value, wording] of [['2', 'greater than 2'], ['4', 'less than 4']]) {
+      const parsed = schema.safeParse(value)
+      expect(parsed.success).toBe(false)
+      if (!parsed.success) expect(parsed.error.issues[0].message).toContain(wording)
+    }
+  })
+  it('keeps LONG boundaries exact beyond JavaScript number precision', () => {
+    const schema = zodFieldFromMetadata(makeField({ type: 'LONG', validation: { minValue: '9007199254740993', minInclusive: false } }))
+    expect(schema.safeParse('9007199254740993').success).toBe(false)
+    expect(schema.safeParse('9007199254740994').success).toBe(true)
+  })
+  it('defaults bounds to inclusive and allows optional blanks', () => {
+    const schema = zodFieldFromMetadata(makeField({ type: 'INTEGER', validation: { minValue: '2', maxValue: '4' } }))
+    for (const value of ['2', '4', '']) expect(schema.safeParse(value).success).toBe(true)
+  })
+  it('matches a pattern against the whole nonempty value and shows patternMessage', () => {
+    const schema = zodFieldFromMetadata(makeField({ validation: { pattern: 'AB|CD', patternMessage: 'Choose AB or CD' } }))
+    for (const value of ['AB', 'CD', '']) expect(schema.safeParse(value).success).toBe(true)
+    const parsed = schema.safeParse('xAB')
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) expect(parsed.error.issues[0].message).toBe('Choose AB or CD')
+  })
+})

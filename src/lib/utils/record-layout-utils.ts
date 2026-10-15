@@ -191,7 +191,7 @@ function asPlacement(value: unknown): RecordViewActionsPlacement | undefined {
  * @returns The placement.
  */
 export function recordViewActionsPlacement(instance: QInstance | undefined, table: QTableMetaData): RecordViewActionsPlacement {
-  const settings = instance?.supplementalInstanceMetaData?.[MATERIAL_DASHBOARD_TYPE]
+  const settings = instance?.supplementalInstanceMetaData?.uiSettings ?? instance?.supplementalInstanceMetaData?.[MATERIAL_DASHBOARD_TYPE]
   const fromInstance = settings && typeof settings === 'object'
     ? asPlacement((settings as { recordViewActionsPlacement?: unknown }).recordViewActionsPlacement)
     : undefined

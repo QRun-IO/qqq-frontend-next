@@ -23,7 +23,7 @@ import React from 'react'
 
 import type { QInstance, QRecord } from '@/types'
 import apiClient from '@/lib/api/client'
-import { AUDIT_LIMIT, auditSource, groupAuditRows } from '@/lib/api/audits'
+import { AUDIT_LIMIT, getAuditRecords, auditSource, groupAuditRows } from '@/lib/api/audits'
 import { useAuditRecords } from './use-audit-records'
 
 vi.mock('@/lib/api/client', () => ({ default: { post: vi.fn(), get: vi.fn() } }))
@@ -164,4 +164,22 @@ describe('useAuditRecords', () => {
     expect(unavailable.result.current.auditRecords).toEqual([])
     expect(apiClient.post).not.toHaveBeenCalled()
   })
+})
+
+it('uses table audit availability instead of instance-wide legacy discovery', () => {
+  const instance = { processes: { GetAuditsForRecord: {} }, tables: { audit: {} } } as unknown as QInstance
+  expect(auditSource(instance, {})).toBeNull()
+  expect(auditSource(instance, { audits: { available: false, processName: 'custom' } })).toBeNull()
+  expect(auditSource(instance, { audits: { available: true, processName: 'custom', tableName: 'history' } })).toBe('process')
+  expect(auditSource(instance, { audits: { available: true, tableName: 'history' } })).toBe('table')
+})
+it('routes audits to declared process and table/detail names', async () => {
+  vi.mocked(apiClient.post).mockResolvedValueOnce({ type: 'COMPLETE', values: { audits: [] } })
+  await getAuditRecords('process', 'person', 1, false, { audits: { available: true, processName: 'historyForRecord' } })
+  expect(apiClient.post).toHaveBeenLastCalledWith('/processes/historyForRecord/init', expect.any(FormData), expect.any(Object))
+  vi.mocked(apiClient.post).mockResolvedValueOnce({ records: [{ values: { id: 1, 'changes.id': 2, 'changes.fieldName': 'name' } }] })
+  const history = await getAuditRecords('table', 'person', 1, false, { audits: { available: true, tableName: 'history', detailTableName: 'changes' } })
+  expect(apiClient.post).toHaveBeenLastCalledWith('/table/history/query', expect.objectContaining({ joins: expect.arrayContaining([{ joinTable: 'changes', select: true, type: 'LEFT' }]) }))
+  expect(history.records[0].fieldChanges[0].fieldName).toBe('name')
+  await expect(getAuditRecords('process', 'person', 1, false, {})).rejects.toThrow('unavailable')
 })

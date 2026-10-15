@@ -103,7 +103,7 @@ export const DEPRECATED_ALL_SCREENS_PROCESS = 'runRecordScript'
  */
 export function getProcessesForAllScreens(metaData: QInstance): QProcessMetaData[] {
   const processes = metaData.processes ?? {}
-  const supplemental = metaData.supplementalInstanceMetaData?.materialDashboard
+  const supplemental = (metaData.supplementalInstanceMetaData?.uiSettings ?? metaData.supplementalInstanceMetaData?.materialDashboard)
   let names: unknown[]
   if (supplemental && typeof supplemental === 'object') {
     const configured = (supplemental as { processNamesToAddToAllQueryAndViewScreens?: unknown }).processNamesToAddToAllQueryAndViewScreens

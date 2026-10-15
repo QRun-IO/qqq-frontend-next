@@ -16,6 +16,19 @@
 
 /** @file Generated from the vendored edi.json. Run scripts/generate-edi-types.mjs; do not edit. */
 
+/** The error body of every UI API operation (core and extensions). */
+export type BasicErrorResponseV1 = {
+  error?: string
+  code?: string
+  message?: string
+  fieldErrors?: Array<{
+  field?: string
+  message?: string
+  code?: string
+}>
+  traceId?: string
+}
+
 /** Concatenated acknowledgement previews; type is 997, 999, TA1, CONTRL, NONE or MIXED. text is null for PHI. */
 export type EdiAckV1 = {
   text?: string | null
@@ -57,7 +70,7 @@ export type EdiElementV1 = {
   usage?: string | null
 }
 
-/** Core middleware error body. */
+/** Deprecated since 1.1.0: errors use BasicErrorResponseV1. */
 export type EdiErrorV1 = {
   error?: string | null
 }

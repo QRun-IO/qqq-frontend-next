@@ -221,3 +221,8 @@ describe('applyMaterialTheme', () => {
     expect(document.getElementById(THEME_STYLE_ID)).toBeNull()
   })
 })
+
+it('prefers uiSettings.theme to the deprecated Material theme', () => {
+  const metaData = { supplementalInstanceMetaData: { uiSettings: { theme: { primaryColor: '#654321' } }, materialDashboardTheme: { primaryColor: '#123456' } } } as unknown as QInstance
+  expect(readMaterialTheme(metaData)).toEqual({ primaryColor: '#654321' })
+})

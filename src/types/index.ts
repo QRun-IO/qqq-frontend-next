@@ -36,6 +36,9 @@ export type {
 
 export type {
   QInstance,
+  TableCapabilitiesV1,
+  ProcessCapabilityV1,
+  FieldValidationV1,
   QAuthenticationMetaData,
   QBrandingMetaData,
   QLoginBranding,

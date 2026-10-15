@@ -23,10 +23,12 @@
 
 'use client'
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import type { QInstance } from '@/types'
+import type { QInstance, TableCapabilitiesV1 } from '@/types'
 import { processInit } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { parseViewJson, type RecordQueryView, type SavedView } from '@/lib/utils/saved-view-utils'
@@ -43,7 +45,7 @@ export const SAVED_VIEW_PROCESSES = { query: 'querySavedView', store: 'storeSave
  */
 export async function runSavedViewProcess(processName: string, values: Record<string, unknown>): Promise<SavedView[]> {
   const response = await processInit(processName, { values, stepTimeoutMillis: 60 * 1000 })
-  if (response.type === 'ERROR') throw new Error(response.userFacingError ?? response.error)
+  if (response.type === 'ERROR') throw new Error(getErrorMessage(response))
   if (response.type !== 'COMPLETE') throw new Error('The saved view request did not complete.')
   const list = (response.values.savedViewList ?? []) as Array<{ values?: Record<string, unknown> }>
   return list.map((record) => {
@@ -95,26 +97,37 @@ export interface SavedViewsResult {
  * @param metaData - Instance metadata (to discover the saved view processes).
  * @param currentUserId - The session user's id (`values.user.email` from manageSession).
  * @returns Saved view lists and actions.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export function useSavedViews(tableName: string, metaData: QInstance | undefined, currentUserId: string | undefined): SavedViewsResult {
+export function useSavedViews(tableName: string, metaData: QInstance | undefined, currentUserId: string | undefined, capabilities?: TableCapabilitiesV1): SavedViewsResult {
   const queryClient = useQueryClient()
   const processes = metaData?.processes ?? {}
   const permitted = (name: string) => Boolean(processes[name]) && processes[name].hasPermission !== false
-  const isAvailable = permitted(SAVED_VIEW_PROCESSES.query)
-  const listKey = useMemo(() => [...queryKeys.all(), 'savedViews', tableName] as const, [tableName])
+  const declared = capabilities?.savedViews
+  const names = capabilities === undefined ? SAVED_VIEW_PROCESSES : {
+    query: declared?.available ? declared.queryProcessName : undefined,
+    store: declared?.available ? declared.storeProcessName : undefined,
+    delete: declared?.available ? declared.deleteProcessName : undefined,
+  }
+  const isAvailable = capabilities === undefined ? permitted(names.query!) : Boolean(names.query)
+  const listKey = useMemo(() => [...queryKeys.all(), 'savedViews', tableName, names.query] as const, [tableName, names.query])
 
   const listQuery = useQuery({
     queryKey: listKey,
-    queryFn: () => runSavedViewProcess(SAVED_VIEW_PROCESSES.query, { tableName }),
+    queryFn: () => {
+      if (!names.query) throw new Error('Saved views are unavailable.')
+      return runSavedViewProcess(names.query, { tableName })
+    },
     enabled: isAvailable,
     staleTime: 60 * 1000,
   })
 
   const isOwner = useCallback((view: SavedView) => Boolean(currentUserId) && view.userId === currentUserId, [currentUserId])
-  const all = useMemo(() => [...(listQuery.data ?? [])].sort((a, b) => a.label.localeCompare(b.label)), [listQuery.data])
+  const all = useMemo(() => [...(isAvailable ? listQuery.data ?? [] : [])].sort((a, b) => a.label.localeCompare(b.label)), [listQuery.data, isAvailable])
 
   const storeView = useCallback(async ({ id, label, view }: { id?: number; label: string; view: RecordQueryView }) => {
-    const stored = await runSavedViewProcess(SAVED_VIEW_PROCESSES.store, {
+    if (!names.store) throw new Error('Saving views is unavailable.')
+    const stored = await runSavedViewProcess(names.store, {
       tableName,
       label,
       viewJson: JSON.stringify(view),
@@ -124,18 +137,19 @@ export function useSavedViews(tableName: string, metaData: QInstance | undefined
     await queryClient.invalidateQueries({ queryKey: listKey })
     await queryClient.invalidateQueries({ queryKey: [...queryKeys.all(), 'savedView', tableName, stored[0].id] })
     return stored[0]
-  }, [tableName, queryClient, listKey])
+  }, [tableName, queryClient, listKey, names.store])
 
   const deleteView = useCallback(async (id: number) => {
-    await runSavedViewProcess(SAVED_VIEW_PROCESSES.delete, { id })
+    if (!names.delete) throw new Error('Deleting views is unavailable.')
+    await runSavedViewProcess(names.delete, { id })
     queryClient.removeQueries({ queryKey: [...queryKeys.all(), 'savedView', tableName, id] })
     await queryClient.invalidateQueries({ queryKey: listKey })
-  }, [queryClient, listKey, tableName])
+  }, [queryClient, listKey, tableName, names.delete])
 
   return {
     isAvailable,
-    canStore: permitted(SAVED_VIEW_PROCESSES.store),
-    canDelete: permitted(SAVED_VIEW_PROCESSES.delete),
+    canStore: capabilities === undefined ? permitted(SAVED_VIEW_PROCESSES.store) : Boolean(names.store),
+    canDelete: capabilities === undefined ? permitted(SAVED_VIEW_PROCESSES.delete) : Boolean(names.delete),
     yourViews: all.filter(isOwner),
     sharedViews: all.filter((v) => !isOwner(v)),
     quickViews: [...all.filter(isOwner), ...all.filter((v) => !isOwner(v))]
@@ -156,17 +170,20 @@ export function useSavedViews(tableName: string, metaData: QInstance | undefined
  * @param viewId - Saved view id, or undefined when not on a saved-view route.
  * @param enabled - Whether the backend supports saved views.
  * @returns The TanStack query for the view.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export function useSavedView(tableName: string, viewId: number | undefined, enabled: boolean) {
+export function useSavedView(tableName: string, viewId: number | undefined, enabled: boolean, capabilities?: TableCapabilitiesV1) {
+  const queryProcess = capabilities === undefined ? SAVED_VIEW_PROCESSES.query : capabilities.savedViews?.available ? capabilities.savedViews.queryProcessName : undefined
   return useQuery({
-    queryKey: [...queryKeys.all(), 'savedView', tableName, viewId],
+    queryKey: [...queryKeys.all(), 'savedView', tableName, viewId, queryProcess],
     queryFn: async () => {
-      const [view] = await runSavedViewProcess(SAVED_VIEW_PROCESSES.query, { id: viewId })
+      if (!queryProcess) throw new Error('Saved views are unavailable.')
+      const [view] = await runSavedViewProcess(queryProcess, { id: viewId })
       if (!view) throw new Error('The requested view was not found.')
       if (view.tableName !== tableName) throw new Error('The requested view belongs to a different table.')
       return view
     },
-    enabled: enabled && viewId !== undefined && Number.isFinite(viewId),
+    enabled: enabled && Boolean(queryProcess) && viewId !== undefined && Number.isFinite(viewId),
     retry: false,
     staleTime: 60 * 1000,
   })

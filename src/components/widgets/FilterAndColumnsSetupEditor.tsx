@@ -238,7 +238,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
   const copyValues = async (name: string, all: boolean) => {
     const label = queryColumns.find((column) => column.name === name)?.label ?? name
     const textValues = (records: QRecord[]) => records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? ''))
-    const settings = metaData?.supplementalInstanceMetaData?.materialDashboard
+    const settings = (metaData?.supplementalInstanceMetaData?.uiSettings ?? metaData?.supplementalInstanceMetaData?.materialDashboard)
     const configuredLimit = settings && typeof settings === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in settings
       ? settings.queryScreenCopyFullQueryColumnValuesLimit : undefined
     const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT
@@ -370,7 +370,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const [viewRevision, setViewRevision] = useState(0)
   const { data: metaData } = useMetaData()
   const { userId } = useQContext()
-  const savedViews = useSavedViews(table.name, metaData, userId)
+  const savedViews = useSavedViews(table.name, metaData, userId, table.clientCapabilities)
   const selectionTable = useMemo(() => omitExposedJoins(table, data?.omitExposedJoins), [table, data?.omitExposedJoins])
   const fields = buildFilterFields(table)
   const offeredFields = buildFilterFields(selectionTable)

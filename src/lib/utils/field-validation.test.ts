@@ -174,3 +174,9 @@ describe('mapServerErrors', () => {
     expect(mapServerErrors(['Missing value in required field: Name', 'Name is wrong'], fields).fieldErrors).toEqual({ name: 'Name is required' })
   })
 })
+
+it('reads new validation policies without falling back to contradictory legacy behaviors', () => {
+  expect(tooLongPolicy({ behaviors: ['ERROR'], validation: {} })).toBe('soft')
+  expect(tooLongPolicy({ behaviors: ['ERROR'], validation: { tooLongBehavior: 'TRUNCATE_ELLIPSIS' } })).toBe('truncate')
+  expect(tooLongPolicy({ validation: { tooLongBehavior: 'ERROR' } })).toBe('error')
+})

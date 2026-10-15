@@ -88,9 +88,9 @@ describe('APIClient', () => {
         { status, data, statusText: '', headers: {}, config })
       throw error
     }
-    await expect(instance.get('/data/person/1', { adapter: reply(403, { error: 'Permission denied.' }) })).rejects.toThrow('Permission denied.')
+    await expect(instance.get('/data/person/1', { adapter: reply(403, { message: 'Permission denied.', error: 'Legacy error', traceId: 'trace-403' }) })).rejects.toThrow('Permission denied.')
     expect(callback).not.toHaveBeenCalled()
-    await expect(instance.post('/manageSession', {}, { adapter: reply(401, { error: 'Denied' }) })).rejects.toThrow('Denied')
+    await expect(instance.post('/manageSession', {}, { adapter: reply(401, { message: 'Denied', error: 'Legacy error', traceId: 'trace-401' }) })).rejects.toThrow('Denied')
     expect(callback).not.toHaveBeenCalled()
     await expect(instance.get('/metaData', { adapter: reply(401, {}) })).rejects.toThrow('Request failed with status code 401')
     expect(callback).toHaveBeenCalledTimes(1)

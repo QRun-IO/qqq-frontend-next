@@ -21,6 +21,8 @@
  * dropped connection through `/turns/{id}/events?after={seq}`.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import type {
   ActiveAssistantTurn,
   AssistantConcurrency,
@@ -413,8 +415,8 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
  */
 async function errorMessage(response: Response): Promise<{ message: string; code?: string }> {
   try {
-    const body = (await response.json()) as { error?: unknown; code?: unknown }
-    if (typeof body?.error === 'string' && body.error.trim()) return { message: body.error.trim(), code: typeof body.code === 'string' ? body.code : undefined }
+    const body = (await response.json()) as { error?: unknown; message?: unknown; code?: unknown }
+    if (getErrorMessage(body, '')) return { message: getErrorMessage(body), code: typeof body.code === 'string' ? body.code : undefined }
   } catch {
     // not JSON
   }

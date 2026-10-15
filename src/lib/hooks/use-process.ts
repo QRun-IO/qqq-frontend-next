@@ -21,6 +21,8 @@
 
 'use client'
 
+import { getErrorMessage, getErrorTraceId } from '@/lib/utils/error-utils'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QProcessMetaData } from '@/types'
@@ -69,6 +71,7 @@ export interface ProcessJobProgress {
 export interface ProcessRunError {
   message: string
   /** `true` when the backend wrote the message for users (shown directly). */
+  traceId?: string
   isUserFacing: boolean
 }
 
@@ -179,9 +182,9 @@ export function useProcess(
     return () => { mountedRef.current = false }
   }, [])
 
-  const fail = useCallback((message: string, isUserFacing: boolean) => {
+  const fail = useCallback((message: string, isUserFacing: boolean, traceId?: string) => {
     clearPoll()
-    setState((previous) => ({ ...previous, phase: 'error', jobUUID: null, progress: null, error: { message, isUserFacing } }))
+    setState((previous) => ({ ...previous, phase: 'error', jobUUID: null, progress: null, error: { message, isUserFacing, traceId } }))
   }, [clearPoll])
 
   /////////////////////////////////////////////////////////////////////////////
@@ -194,7 +197,7 @@ export function useProcess(
     if (generation !== generationRef.current || !mountedRef.current) return
     switch (response.type) {
       case 'ERROR':
-        fail(response.userFacingError ?? response.error, Boolean(response.userFacingError))
+        fail(getErrorMessage(response), Boolean(response.message || response.userFacingError), getErrorTraceId(response))
         return
       case 'JOB_STARTED':
         setState((previous) => ({

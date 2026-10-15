@@ -57,3 +57,17 @@ describe('sharing API', () => {
     await expect(insertSharedRecord('savedReport', 101, 'user', 'sample:bob', 'READ_ONLY')).rejects.toThrow('You are not the owner of this record')
   })
 })
+
+it('routes every sharing operation through declared processes and refuses missing permissions', async () => {
+  initMock.mockReset().mockResolvedValue({ type: 'COMPLETE', processUUID: 'test-run', values: {} })
+  const capabilities = { sharing: { available: true, listProcessName: 'listCustom', insertProcessName: 'insertCustom', editProcessName: 'editCustom', deleteProcessName: 'deleteCustom' } }
+  await getSharedRecords('thing', 1, capabilities)
+  await insertSharedRecord('thing', 1, 'user', '2', 'READ_ONLY', capabilities)
+  await editSharedRecord('thing', 1, 3, 'READ_WRITE', capabilities)
+  await deleteSharedRecord('thing', 1, 3, capabilities)
+  expect(initMock.mock.calls.map(([name]) => name)).toEqual(['listCustom', 'insertCustom', 'editCustom', 'deleteCustom'])
+  await expect(getSharedRecords('thing', 1, {})).rejects.toThrow('unavailable')
+  await expect(insertSharedRecord('thing', 1, 'user', '2', 'READ_ONLY', { sharing: { available: true, listProcessName: 'listCustom' } })).rejects.toThrow('unavailable')
+  await expect(getSharedRecords('thing', 1, { sharing: { available: false, listProcessName: 'listCustom' } })).rejects.toThrow('unavailable')
+  expect(initMock).toHaveBeenCalledTimes(4)
+})

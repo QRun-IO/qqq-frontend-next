@@ -160,7 +160,7 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
  * @returns The settings; enabled unless the instance turns them off.
  */
 export function weekdayCriteriaSettings(metaData: Pick<QInstance, 'supplementalInstanceMetaData'> | undefined): WeekdayCriteriaSettings {
-  const settings = asObject(asObject(asObject(metaData?.supplementalInstanceMetaData)?.materialDashboard)?.weekdayCriteriaSettings)
+  const settings = asObject(asObject(metaData?.supplementalInstanceMetaData?.uiSettings ?? metaData?.supplementalInstanceMetaData?.materialDashboard)?.weekdayCriteriaSettings)
   if (!settings) return DEFAULT_WEEKDAY_CRITERIA_SETTINGS
   const args = asObject(settings.dateTimeFieldFunctionArguments)
   return { enabled: settings.enabled !== false, ...(args && Object.keys(args).length > 0 ? { dateTimeFieldFunctionArguments: args } : {}) }

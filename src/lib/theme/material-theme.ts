@@ -150,7 +150,8 @@ export function parseMaterialTheme(raw: unknown): QThemeMetaData | null {
  * @returns The theme, or null when the application defines none.
  */
 export function readMaterialTheme(metaData: QInstance | undefined): QThemeMetaData | null {
-  return parseMaterialTheme(metaData?.supplementalInstanceMetaData?.materialDashboardTheme)
+  const settings = metaData?.supplementalInstanceMetaData?.uiSettings as { theme?: unknown } | undefined
+  return parseMaterialTheme(settings?.theme ?? metaData?.supplementalInstanceMetaData?.materialDashboardTheme)
 }
 
 /**

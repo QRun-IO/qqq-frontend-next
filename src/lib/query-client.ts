@@ -21,7 +21,7 @@
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { getErrorStatusCode, getErrorMessage } from '@/lib/utils/error-utils'
+import { getErrorStatusCode, getErrorMessage, getErrorTraceId } from '@/lib/utils/error-utils'
 
 /**
  * Returns a toast message for a query/mutation error based on HTTP status.
@@ -40,30 +40,33 @@ function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
     return
   }
 
+  const traceId = getErrorTraceId(error)
+  const details = traceId ? { description: `Trace ID: ${traceId}` } : undefined
+
   if (status === 403) {
-    toast.error(getErrorMessage(error, 'Permission denied'))
+    toast.error(getErrorMessage(error, 'Permission denied'), details)
     return
   }
 
   if (status === 404) {
-    toast.error('Resource not found')
+    toast.error(getErrorMessage(error, 'Resource not found'), details)
     return
   }
 
   if (status !== undefined && status >= 500) {
     if (context === 'mutation') {
-      toast.error('Server error — please try again')
+      toast.error(getErrorMessage(error, 'Server error — please try again'), details)
     } else {
-      toast.error('Server error — retrying…')
+      toast.error(getErrorMessage(error, 'Server error — retrying…'), details)
     }
     return
   }
 
   // Network failure (no status) or unexpected status codes.
   if (context === 'mutation') {
-    toast.error('Something went wrong')
+    toast.error(getErrorMessage(error, 'Something went wrong'), details)
   } else {
-    toast.error('Something went wrong')
+    toast.error(getErrorMessage(error, 'Something went wrong'), details)
   }
 }
 
