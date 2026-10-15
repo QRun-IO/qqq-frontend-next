@@ -24,6 +24,7 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { SECURE_VALUE_ATTRIBUTES } from '@/lib/qa-capture/secure-attributes'
 import { FieldFooter } from '../FieldFooter'
 import type { LengthLimit } from '../FieldFooter'
 import { transformInputValue } from '@/lib/utils/form-layout'
@@ -58,6 +59,8 @@ interface TextFieldProps {
   describedBy?: string
   /** Changes the value as the user types (a field's TO_UPPER_CASE / TO_LOWER_CASE behavior), keeping the caret. */
   transform?: (value: string) => string
+  /** Marks the input as a secure value (blurred in QA captures). */
+  secure?: boolean
 }
 
 /**
@@ -83,6 +86,7 @@ export function TextField({
   'data-qqq-id': dataQqqId,
   describedBy,
   transform,
+  secure = false,
 }: TextFieldProps) {
   const onChange: UseFormRegisterReturn['onChange'] = transform
     ? (event) => {
@@ -115,6 +119,7 @@ export function TextField({
         aria-invalid={error ? true : undefined}
         aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
         data-qqq-id={dataQqqId}
+        {...(secure ? SECURE_VALUE_ATTRIBUTES : {})}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',
           'bg-background',

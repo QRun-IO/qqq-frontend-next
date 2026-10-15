@@ -25,6 +25,7 @@ import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { SECURE_VALUE_ATTRIBUTES } from '@/lib/qa-capture/secure-attributes'
 import { FieldFooter } from '../FieldFooter'
 import { transformInputValue } from '@/lib/utils/form-layout'
 
@@ -116,6 +117,7 @@ export function PasswordField({
           aria-invalid={error ? true : undefined}
           aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
           data-qqq-id={dataQqqId}
+          {...SECURE_VALUE_ATTRIBUTES}
           className={cn(
             'w-full rounded-md border px-3 py-2 pr-10 text-sm text-foreground',
             'bg-background',
