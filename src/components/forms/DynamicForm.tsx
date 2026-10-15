@@ -20,6 +20,7 @@
 
 'use client'
 
+import { isRestricted } from '@/lib/utils/secured-data'
 import React from 'react'
 
 import { Controller } from 'react-hook-form'
@@ -231,7 +232,7 @@ export function renderableFormSections(tableMetaData: QTableMetaData, options: R
         .filter((f): f is QFieldMetaData => {
           if (!f) return false
           if (f.isHidden) return false
-          if (!f.isEditable && !showReadOnlyFields && !disabled) return false
+          if (!f.isEditable && !isRestricted(f) && !showReadOnlyFields && !disabled) return false
           if (fieldNamesToInclude && !fieldNamesToInclude.includes(f.name)) return false
           return true
         })

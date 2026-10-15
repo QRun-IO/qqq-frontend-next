@@ -21,6 +21,8 @@
 
 'use client'
 
+import { isRestricted, sanitizeAccessFilter } from '@/lib/utils/secured-data'
+import { toast } from 'sonner'
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams, usePathname } from 'next/navigation'
@@ -434,9 +436,18 @@ export function useRecordQuery({
   // ------------------------------------------------------------------
   const fieldFor = useCallback((fieldName: string): QFieldMetaData | undefined => (tableMetaData ? resolveField(tableMetaData, fieldName)?.field : undefined), [tableMetaData])
 
+  const accessFilter = useMemo(() => tableMetaData ? sanitizeAccessFilter({ ...state.userFilter, orderBys: state.sortOrder }, fieldFor) : { ...state.userFilter, orderBys: state.sortOrder }, [tableMetaData, state.userFilter, state.sortOrder, fieldFor])
+  const removedAccessCriteria = JSON.stringify(accessFilter) !== JSON.stringify({ ...state.userFilter, orderBys: state.sortOrder })
+  useEffect(() => {
+    if (!removedAccessCriteria) return
+    toast.info('Some filters or sorts were removed because your field access has changed.', { id: 'secured-data-filter-cleanup' })
+    dispatch({ type: 'SET_USER_FILTER', filter: { ...accessFilter, orderBys: [] } })
+    dispatch({ type: 'SET_SORT', sortOrder: accessFilter.orderBys ?? [] })
+  }, [removedAccessCriteria, accessFilter])
+
   const quickFilter = useMemo<QQueryFilter | null>(() => {
     if (!state.quickSearchTerm.trim() || !tableMetaData) return null
-    const visible = Object.values(tableMetaData.fields).filter((f) => !f.isHidden && isColumnVisible(f.name, state.columnVisibility)).map((f) => f.name)
+    const visible = Object.values(tableMetaData.fields).filter((f) => !f.isHidden && !isRestricted(f) && isColumnVisible(f.name, state.columnVisibility)).map((f) => f.name)
     const types = Object.fromEntries(Object.values(tableMetaData.fields).map((f) => [f.name, f.type]))
     const quick = buildQuickFilter(state.quickSearchTerm, visible, types, state.pageSize)
     return quick.criteria.length ? quick : null
@@ -444,9 +455,9 @@ export function useRecordQuery({
 
   /** Criteria, quick search and sort, prepared for the backend, without paging. */
   const baseFilter = useMemo<QQueryFilter>(() => {
-    const combined = combineWithQuickFilter({ ...state.userFilter, orderBys: state.sortOrder }, quickFilter)
+    const combined = combineWithQuickFilter(accessFilter, quickFilter)
     return prepFilterForBackend(combined, fieldFor)
-  }, [state.userFilter, state.sortOrder, quickFilter, fieldFor])
+  }, [accessFilter, quickFilter, fieldFor])
 
   const effectiveFilter = useMemo<QQueryFilter>(() => applyPagination(baseFilter, state.pageNum, state.pageSize), [baseFilter, state.pageNum, state.pageSize])
   const countFilter = useMemo<QQueryFilter>(() => ({ ...baseFilter, skip: 0, limit: 0, orderBys: [] }), [baseFilter])

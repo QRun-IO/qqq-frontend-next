@@ -22,10 +22,12 @@
 
 // DataCell — dispatches to the correct renderer based on field type and adornments
 
+import { isRestricted } from '@/lib/utils/secured-data'
+import { RestrictedValue } from '@/components/secured-data/RestrictedValue'
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { sanitizeHtml } from '@/lib/utils/sanitize-html'
-import type { QFieldMetaData, QRecord } from '@/types'
+import type { QFieldMetaData, QRecord, QTableMetaData } from '@/types'
 import { chipStyle, CHIP_COLOR_CLASSES, fileDownload, linkTarget, tooltipText } from '@/lib/utils/adornment-utils'
 import { DateTimeText } from '@/components/ui/DateTimeText'
 import { filePreview } from '@/lib/utils/file-preview'
@@ -36,6 +38,7 @@ import { FileThumbnail } from '@/components/preview/FileThumbnail'
  */
 interface DataCellProps {
   /** Metadata for the field this cell represents, including type and adornments. */
+  tableMetaData?: QTableMetaData
   field: QFieldMetaData
   /** Raw value from the record for this field (may be any JSON-compatible type). */
   value: unknown
@@ -56,7 +59,8 @@ interface DataCellProps {
  * @param props - Component properties.
  * @returns The rendered cell element.
  */
-export function DataCell({ field, value, displayValue, record }: DataCellProps) {
+export function DataCell({ field, value, displayValue, record, tableMetaData }: DataCellProps) {
+  if (isRestricted(field)) return <RestrictedValue field={field} record={{ ...record, values: { ...record.values, [field.name]: value }, displayValues: { ...record.displayValues, [field.name]: displayValue ?? String(value ?? '') } }} table={tableMetaData} />
   const display = displayValue ?? (value != null ? String(value) : '')
 
   // FILE_PREVIEW wins over the other adornments: a thumbnail that opens the preview

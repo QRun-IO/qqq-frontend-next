@@ -18,6 +18,7 @@
  * @file zod-from-metadata — builds Zod validation schemas dynamically from QQQ field and table metadata.
  */
 
+import { isRestricted } from './secured-data'
 import { z } from 'zod'
 
 import type { QFieldMetaData, QTableMetaData } from '@/types'
@@ -259,8 +260,8 @@ export function zodSchemaFromTableMetadata(
   for (const fieldName of fieldsToProcess) {
     const field = tableMetaData.fields[fieldName]
     if (!field) continue
-    if (field.isHidden) continue
-    if (!field.isEditable) continue
+    if (field.isHidden || isRestricted(field)) continue
+    if (!field.isEditable || isRestricted(field)) continue
 
     const fieldSchema = zodFieldFromMetadata(field, { enforceMaxLength: false })
     shape[fieldName] = allowNullValues && !field.isRequired ? fieldSchema.nullable() : fieldSchema
@@ -284,7 +285,7 @@ export function zodSchemaFromFields(
   const shape: Record<string, z.ZodTypeAny> = {}
 
   for (const field of fields) {
-    if (field.isHidden) continue
+    if (field.isHidden || isRestricted(field)) continue
     shape[field.name] = zodFieldFromMetadata(field)
   }
 
@@ -328,7 +329,7 @@ export function defaultValuesFromRecord(
 ): Record<string, unknown> {
   const defaults: Record<string, unknown> = {}
   for (const [fieldName, field] of Object.entries(tableMetaData.fields)) {
-    if (field.isHidden || !field.isEditable) continue
+    if (field.isHidden || !field.isEditable || isRestricted(field)) continue
     // A stored password reads back as a mask, not its value: start empty (typing replaces it).
     defaults[fieldName] = field.type === 'PASSWORD' && !field.adornments?.some((item) => item.type === 'REVEAL')
       ? ''
@@ -362,7 +363,7 @@ export function metadataDefaultValue(field: QFieldMetaData): unknown {
 export function defaultValuesForCreate(tableMetaData: QTableMetaData): Record<string, unknown> {
   const defaults: Record<string, unknown> = {}
   for (const [fieldName, field] of Object.entries(tableMetaData.fields)) {
-    if (field.isHidden || !field.isEditable) continue
+    if (field.isHidden || !field.isEditable || isRestricted(field)) continue
     const value = metadataDefaultValue(field)
     if (value !== undefined) defaults[fieldName] = value
   }
@@ -379,7 +380,7 @@ export function defaultValuesForCreate(tableMetaData: QTableMetaData): Record<st
  * @returns A new object with wire values.
  */
 export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>, originalValues?: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(values).map(([name, value]) => [name,
+  return Object.fromEntries(Object.entries(values).filter(([name]) => !isRestricted(tableMetaData.fields[name])).map(([name, value]) => [name,
     tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value, originalValues?.[name]) : value]))
 }
 

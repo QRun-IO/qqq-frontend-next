@@ -327,6 +327,8 @@ export interface QRelatedRecordPicker {
 }
 
 export interface QTableMetaData {
+  /** Whether any visible field has restricted access. */
+  hasRestrictedFields?: boolean
   /** Effective collaboration features and session capabilities from core. */
   recordFeatures?: import('./collaboration').RecordFeaturesV1
   /** Optional backend version column; empty disables optimistic checks. */
@@ -435,6 +437,12 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  /** Effective server access; absent means FULL. HIDDEN fields are never sent. */
+  accessTier?: 'FULL' | 'REVEALABLE' | 'MASKED'
+  /** Allowed criteria operators for a restricted field. */
+  allowedFilterOperators?: string[]
+  /** False disables sorting. */
+  isSortable?: boolean
   /** Explicitly supported virtual-field criteria operators. */
   supportedOperators?: import('./enums').QCriteriaOperator[]
   /** Backend name for this field (used as the key in record value maps). */

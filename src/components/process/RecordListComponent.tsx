@@ -22,6 +22,8 @@
 
 'use client'
 
+import { MaskedValue } from '@/components/secured-data/MaskedValue'
+import { isRestricted } from '@/lib/utils/secured-data'
 import React, { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -48,6 +50,7 @@ export interface RecordListComponentProps {
 export function recordCellText(record: QRecord, field: QFieldMetaData): string {
   const display = record.displayValues?.[field.name]
   if (display !== undefined && display !== null) return String(display)
+  if (isRestricted(field)) return String(record.values?.[field.name] ?? '—')
   return formatProcessValue(field, record.values?.[field.name])
 }
 
@@ -112,7 +115,7 @@ export function RecordListComponent({ index }: RecordListComponentProps) {
                 ) : records.map((record, rowIndex) => (
                   <tr key={rowIndex} data-qqq-id={`process-record-row-${page * pageSize + rowIndex}`}>
                     {fields.map((field) => (
-                      <td key={field.name} className="px-3 py-2 text-foreground">{recordCellText(record, field)}</td>
+                      <td key={field.name} className="px-3 py-2 text-foreground">{isRestricted(field) ? <MaskedValue value={recordCellText(record, field)} tier={field.accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : recordCellText(record, field)}</td>
                     ))}
                   </tr>
                 ))}

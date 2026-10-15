@@ -22,6 +22,8 @@
 
 'use client'
 
+import { canSortField, isRestricted } from '@/lib/utils/secured-data'
+import { SecuredCellMenu } from '@/components/secured-data/SecuredCellMenu'
 import React, { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -369,10 +371,10 @@ export function DataGrid({
       return {
         id: column.name,
         size: widthOf(column),
-        enableSorting: column.isQueryCriteria,
+        enableSorting: column.isQueryCriteria && canSortField(field),
         header: () => (
           <div className="flex w-full min-w-0 items-center gap-0.5 overflow-hidden">
-            {column.isQueryCriteria ? (
+            {column.isQueryCriteria && canSortField(field) ? (
               <button
                 type="button"
                 className={cn('flex min-w-0 flex-1 items-center gap-0.5 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring', filtered && 'text-primary')}
@@ -406,7 +408,7 @@ export function DataGrid({
                 <Filter className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
-            {onColumnStats && !compactHeader && (
+            {onColumnStats && !isRestricted(field) && !compactHeader && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onColumnStats(column.name, column.label) }}
@@ -431,18 +433,20 @@ export function DataGrid({
           </div>
         ),
         cell: ({ row }) => (
+          <SecuredCellMenu field={cellField} record={row.original} table={column.isJoin ? undefined : tableMetaData}>
           <DataCell
+            tableMetaData={column.isJoin ? undefined : tableMetaData}
             field={cellField}
             value={trimValue(row.original.values[column.name])}
             displayValue={trimValue(row.original.displayValues?.[column.name])}
             record={row.original}
-          />
+          /></SecuredCellMenu>
         ),
       }
     })
 
     return selectable ? [selectColumn, ...fieldColumns] : fieldColumns
-  }, [tableName, visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins, selectable])
+  }, [tableName, visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins, selectable, tableMetaData])
 
   const table = useReactTable<QRecord>({
     data: records,

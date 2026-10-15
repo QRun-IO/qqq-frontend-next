@@ -31,6 +31,8 @@
 
 'use client'
 
+import { canSortField, isRestricted, sanitizeAccessFilter, writableValues } from '@/lib/utils/secured-data'
+import { MaskedValue } from '@/components/secured-data/MaskedValue'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Check, ExternalLink, Filter, Loader2, Plus, Search } from 'lucide-react'
@@ -155,7 +157,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
         primaryKey: multiple ? primaryKey : undefined,
         values: multiple ? undefined : formValues,
         searchTerm: term || undefined,
-        filter: { criteria: filter.criteria, subFilters: filter.subFilters, booleanOperator: filter.booleanOperator, orderBys },
+        filter: target ? sanitizeAccessFilter({ ...filter, orderBys }, (name) => target.fields[name]) : { criteria: filter.criteria, subFilters: filter.subFilters, booleanOperator: filter.booleanOperator, orderBys },
         skip: loaded.length,
         limit: PAGE_SIZE,
       })
@@ -177,7 +179,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
     } finally {
       if (current === sequence.current) setLoading(false)
     }
-  }, [tableName, picker.name, multiple, primaryKey, formValues, term, filter, sort, filterReady, idOf])
+  }, [tableName, picker.name, multiple, primaryKey, formValues, term, filter, sort, filterReady, idOf, target])
 
   useEffect(() => {
     if (!target || step !== 'browse') return
@@ -263,7 +265,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
     try {
       const childTargetField = picker.childTargetFieldName ?? ''
       const rows = drafts.map((draft, index) => ({ ...rowValues.current[index], [childTargetField]: draft.values?.[childTargetField] }))
-      const result = await addRelatedPicker(tableName, picker.name, primaryKey, { records: rows })
+      const result = await addRelatedPicker(tableName, picker.name, primaryKey, { records: rows.map((row) => child ? writableValues(row, child.fields) : row) })
       onDone?.({ added: result.records.length, removed: 0 })
     } catch (caught) {
       setError(getErrorMessage(caught))
@@ -396,7 +398,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
             )}
             <select aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value)} className={cn(SELECT_CLASS, 'w-auto')} data-qqq-id="related-picker-sort">
               <option value="">Default order</option>
-              {columns.flatMap((name) => [
+              {columns.filter((name) => canSortField(target?.fields[name])).flatMap((name) => [
                 <option key={`${name}:asc`} value={`${name}:asc`}>{`${fieldLabel(name)} (A to Z)`}</option>,
                 <option key={`${name}:desc`} value={`${name}:desc`}>{`${fieldLabel(name)} (Z to A)`}</option>,
               ])}
@@ -456,7 +458,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
                           {columns.map((name, columnIndex) => (
                             <span key={name} className={cn('min-w-0 truncate', columnIndex === 0 ? 'font-medium' : 'col-start-2 text-xs text-muted-foreground sm:col-start-auto sm:text-sm sm:text-foreground')} title={recordText(record, name)}>
                               {columnIndex === 0 && present && <span className="mr-1 rounded bg-muted px-1 text-xs text-muted-foreground" data-qqq-id="related-picker-present">Added</span>}
-                              {recordText(record, name) || (columnIndex === 0 ? record.recordLabel ?? id : '')}
+                              {isRestricted(target?.fields[name]) ? <MaskedValue value={recordText(record, name)} tier={target?.fields[name].accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : recordText(record, name) || (columnIndex === 0 ? record.recordLabel ?? id : '')}
                             </span>
                           ))}
                         </li>
@@ -488,7 +490,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
                     return (
                       <div key={name} className="flex gap-2">
                         <dt className="shrink-0 text-muted-foreground">{fieldLabel(name)}</dt>
-                        <dd className="min-w-0 break-words">{text}</dd>
+                        <dd className="min-w-0 break-words">{isRestricted(target?.fields[name]) ? <MaskedValue value={text} tier={target?.fields[name].accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : text}</dd>
                       </div>
                     )
                   })}

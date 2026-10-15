@@ -21,7 +21,7 @@
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { getErrorStatusCode, getErrorMessage } from '@/lib/utils/error-utils'
 
 /**
  * Returns a toast message for a query/mutation error based on HTTP status.
@@ -41,11 +41,7 @@ function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
   }
 
   if (status === 403) {
-    if (context === 'mutation') {
-      toast.error('You do not have permission to perform this action')
-    } else {
-      toast.error('Permission denied')
-    }
+    toast.error(getErrorMessage(error, 'Permission denied'))
     return
   }
 
@@ -180,6 +176,8 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  revealOptions: (table: string, field: string) => [...queryKeys.all(), 'secured-data', 'options', table, field] as const,
+  securedDataStatus: (path: string) => [...queryKeys.all(), 'secured-data', 'status', path] as const,
   /** All current-user preference queries.
    * @returns The preferences namespace.
    */

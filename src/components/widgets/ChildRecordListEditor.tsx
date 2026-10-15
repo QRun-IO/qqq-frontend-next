@@ -24,6 +24,8 @@
  */
 'use client'
 
+import { writableValues, isRestricted } from '@/lib/utils/secured-data'
+import { MaskedValue } from '@/components/secured-data/MaskedValue'
 import React, { useMemo, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useForm } from 'react-hook-form'
@@ -86,7 +88,7 @@ export function ChildRecordListEditor({ widgetMetaData, data, table, onChange }:
    */
   const change = (next: QRecord[]) => {
     setRecords(next)
-    onChange({ ...data, queryOutput: { records: next }, totalRows: next.length })
+    onChange({ ...data, queryOutput: { records: next.map((record) => ({ ...record, values: writableValues(record.values, table.fields ?? {}) })) }, totalRows: next.length })
   }
 
   return (
@@ -125,7 +127,7 @@ export function ChildRecordListEditor({ widgetMetaData, data, table, onChange }:
                   <tr key={rowIndex} className="border-b border-border/50 last:border-0" data-qqq-id={`child-record-row-${widgetName}-${rowIndex}`}>
                     {columns.map((field) => {
                       const display = displayValues[field.name]
-                      return <td key={field.name} className="px-2 py-1.5 text-foreground">{displayText(display !== undefined && display !== null ? display : values[field.name])}</td>
+                      return <td key={field.name} className="px-2 py-1.5 text-foreground">{isRestricted(field) ? <MaskedValue value={display ?? values[field.name]} tier={field.accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : displayText(display !== undefined && display !== null ? display : values[field.name])}</td>
                     })}
                     {(allowEdit || allowDelete) && (
                       <td className="whitespace-nowrap px-2 py-1 text-right">
