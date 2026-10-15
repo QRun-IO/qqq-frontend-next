@@ -8,6 +8,7 @@
 // Phone and tablet record screens (QRun-IO/qqq#708): the record header and action sheet, tap
 // equivalents of hover tooltips, dialogs that fit a phone, and forms with every editor type.
 import type { Locator, Page } from '@playwright/test'
+
 import { expect, test } from '../../support/fixtures'
 import { expectTouchReady, expectTouchTargets } from '../../support/touch'
 import { listCell, tabKey } from '../security/support/ui'
@@ -159,20 +160,17 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('tooltip')).toHaveCount(0)
   })
 
-  test('[REC-039] a tap on a field label shows its help; forms print the help under the field @mobile', async ({ page, diagnostics }) => {
+  test('[REC-039] field and form help icons open the panel on a phone @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
     await page.getByRole('radio', { name: 'List view' }).click()
-    const label = page.locator('[data-qqq-id="field-label-website"]').first()
-    await label.tap()
-    await expect(page.getByRole('tooltip')).toContainText('Opens outside this application.')
-    await label.tap()
-    await expect(page.getByRole('tooltip')).toHaveCount(0)
-
+    await page.locator('[data-qqq-id="field-label-website"]').first().getByRole('button').tap()
+    await expect(page.locator('[data-qqq-id="help-panel-content"]')).toContainText('Opens outside this application.')
+    await page.getByRole('button', { name: 'Close help', exact: true }).tap()
     await openForm(page, '/app/recordLab/create', 'Create Record Lab')
-    const help = page.locator('[data-qqq-id="field-help-text-website"]')
-    await expect(help).toBeVisible()
-    await expect(help).toHaveText('Include the https:// prefix.')
+    await page.locator('[data-qqq-id="field-help-website"]').tap()
+    await expect(page.locator('[data-qqq-id="help-panel-content"]')).toHaveText('Include the https:// prefix.')
+    await page.getByRole('button', { name: 'Close help', exact: true }).tap()
     await expect(control(page, 'website')).toHaveAttribute('aria-describedby', /field-help-content-website/)
   })
 
@@ -265,8 +263,8 @@ test.describe('on a tablet', () => {
     await expect(icon).toBeVisible()
     await expectTouchTargets(icon.locator('xpath=..'))
     await icon.tap()
-    await expect(page.getByRole('tooltip')).toContainText('Include the https:// prefix.')
-    await icon.tap()
-    await expect(page.getByRole('tooltip')).toHaveCount(0)
+    await expect(page.locator('[data-qqq-id="help-panel-content"]')).toHaveText('Include the https:// prefix.')
+    await page.getByRole('button', { name: 'Close help', exact: true }).tap()
+    await expect(page.locator('[data-qqq-id="help-panel"]')).toHaveCount(0)
   })
 })

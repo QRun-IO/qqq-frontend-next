@@ -93,8 +93,12 @@ test.describe('routing', () => {
     await expect(page).toHaveTitle('Dashboard | QQQ Sample')
     await open(page, '/app/person')
     await expect(page).toHaveTitle('Person | Greetings App | People App | QQQ Sample')
+    // Let each list finish its reads before the next navigation tears it down: WebKit reports an
+    // API read cut off by navigation as "due to access control checks" (QRun-IO/qqq#985).
+    await expectRecordsLoaded(page, 'Person')
     await open(page, '/app/navDeepItem')
     await expect(page).toHaveTitle('Nav Deep Item | Nav Level Three | Nav Level Two | Nav Level One | QQQ Sample')
+    await expectRecordsLoaded(page, 'Nav Deep Item')
     await open(page, '/app/person/1')
     await expect(page).toHaveTitle(`${await personLabel(backend, 1)} | Person | Greetings App | People App | QQQ Sample`)
     await open(page, '/app/noSuchThing')

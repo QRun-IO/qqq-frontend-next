@@ -14,6 +14,7 @@ describe('resolveRouteParams', () => {
   })
 
   it('reads export placeholders from the browser path', () => {
+    expect(resolveRouteParams({ jobId: '_' }, '/app/jobs/42')).toEqual({ jobId: '42' })
     expect(resolveRouteParams({ slug: '_', recordId: '_' }, '/app/pet/42/edit')).toEqual({ slug: 'pet', recordId: '42' })
     expect(resolveRouteParams({ slug: '_', viewId: '_' }, '/app/person/savedView/7')).toEqual({ slug: 'person', viewId: '7' })
     expect(resolveRouteParams({ slug: '_', recordId: '_', action: '_' }, '/app/person/3/person.bulkEdit'))

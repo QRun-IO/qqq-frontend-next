@@ -18,6 +18,7 @@
 
 'use client'
 
+import { allowedOperators } from '@/lib/utils/secured-data'
 import { useState } from 'react'
 
 import type { QFilterCriteria, QQueryFilter } from '@/types'
@@ -52,12 +53,12 @@ export function QuickFilterBar(props: QuickFilterBarProps) {
   const { weekday } = useFilterSettings()
   const [openField, setOpenField] = useState<string | null>(null)
   const current = fields.find((field) => field.name === openField)
-  const available = allFields.filter((field) => !fields.some((visible) => visible.name === field.name))
+  const available = allFields.filter((field) => allowedOperators(field)?.length !== 0 && !fields.some((visible) => visible.name === field.name))
 
   return (
     <div className="space-y-2" data-qqq-id="quick-filter-bar">
       <div className="flex flex-wrap items-center gap-2">
-        {fields.map((field) => {
+        {fields.filter((field) => allowedOperators(field)?.length !== 0).map((field) => {
           const state = quickFilterCriterion(filter, field.name, field, { weekday })
           // a date condition reads in plain language ("Oct 1 – Oct 12, 2026", "Last 7 days"); exact times keep their date-time text
           const dates = state.kind === 'criterion' && isDateField(field)
@@ -175,6 +176,7 @@ function QuickFilterEditor(props: QuickFilterEditorProps) {
     <div role="group" aria-label={`${field.label} quick filter`} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3"
       data-qqq-id={`quick-filter-editor-${field.name}`}>
       <span className="text-sm font-medium">{field.label}</span>
+      {field.accessTier === 'REVEALABLE' && <p className="w-full text-sm text-muted-foreground">Exact match only. Searches are audited.</p>}
       {dateRow.dateMode ? (
         <DateModeInputs field={field} row={dateRow} pairAllowed settings={{ weekday }} criterion={draft} dataId={`quick-filter-${field.name}`} touch operatorLabel={`Operator for ${field.label}`} />
       ) : (

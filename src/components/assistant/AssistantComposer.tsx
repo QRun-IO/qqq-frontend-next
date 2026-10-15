@@ -39,6 +39,8 @@ interface AssistantComposerProps {
   onRefreshContext: () => void
   /** Whether a reply is streaming in this conversation. */
   streaming: boolean
+  /** Sending during an answer replaces it unless concurrent is selected. */
+  concurrency?: 'supersede' | 'concurrent'
   /** Whether a stop was requested. */
   stopping: boolean
   /**
@@ -83,7 +85,7 @@ const MAX_TEXTAREA_HEIGHT = 160
  * @returns The composer form.
  */
 function AssistantComposerInner(
-  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, onSend, onStop, prefill, attachments = [], onAttach, onRemoveAttachment, attaching = false }: AssistantComposerProps,
+  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, concurrency = 'supersede', onSend, onStop, prefill, attachments = [], onAttach, onRemoveAttachment, attaching = false }: AssistantComposerProps,
   ref: React.ForwardedRef<HTMLTextAreaElement>
 ) {
   const [text, setText] = useState('')
@@ -111,9 +113,9 @@ function AssistantComposerInner(
     element.style.height = `${Math.min(element.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`
   }, [text])
 
-  /** Sends the text unless empty or a reply is streaming. */
+  /** Sends the text unless empty. */
   const submit = () => {
-    if (!text.trim() || streaming) return
+    if (!text.trim()) return
     onSend(text)
     setText('')
   }
@@ -220,12 +222,12 @@ function AssistantComposerInner(
               submit()
             }
           }}
-          placeholder="Ask about your data..."
+          placeholder={streaming ? 'Ask something else...' : 'Ask about your data...'}
           aria-describedby={hintId}
           className="max-h-40 min-h-6 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-1 text-base text-foreground placeholder:text-muted-foreground focus:outline-none md:text-sm"
           data-qqq-id="assistant-composer"
         />
-        {streaming ? (
+        {streaming && (
           <button
             type="button"
             onClick={onStop}
@@ -236,7 +238,7 @@ function AssistantComposerInner(
           >
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
           </button>
-        ) : (
+        )}
           <button
             type="submit"
             disabled={!text.trim()}
@@ -246,9 +248,8 @@ function AssistantComposerInner(
           >
             <SendHorizontal className="h-4 w-4" aria-hidden="true" />
           </button>
-        )}
       </div>
-      <p id={hintId} className="mt-1 hidden text-[11px] text-muted-foreground pointer-fine:block">Enter to send, Shift+Enter for a new line</p>
+      <p id={hintId} className={`mt-1 text-[11px] text-muted-foreground ${streaming ? '' : 'hidden pointer-fine:block'}`}>{streaming ? (concurrency === 'concurrent' ? 'Both answers will continue' : 'Sending stops the current answer') : 'Enter to send, Shift+Enter for a new line'}</p>
     </form>
   )
 }

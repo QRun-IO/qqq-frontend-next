@@ -34,7 +34,7 @@ test('[PRF-005] a 10-second job over 10,000 rows reports progress, polls at a bo
   await expectRunTouchReady(page, 'prfLongRun')
   await advance(page, 'Submit')
 
-  const message = page.locator('[data-qqq-id="process-working"] [data-qqq-id="process-working-message"]')
+  const message = page.locator('[data-qqq-id="process-working"] [data-qqq-id="job-progress-message"]')
   await expect(message).toHaveText(/^Walked \d+ of 10000 rows$/, { timeout: 20_000 })
   const walked = async () => Number((await message.textContent())?.match(/^Walked (\d+)/)?.[1] ?? NaN)
   const first = await walked()

@@ -29,6 +29,7 @@ import { server } from '@/mocks/node'
 import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { AssistantProvider, useAssistantController } from './AssistantProvider'
 import { AssistantHeaderButton } from './AssistantHeaderButton'
+import * as assistantApi from '@/lib/api/assistant'
 import { AssistantMount } from './AssistantMount'
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }))
@@ -40,6 +41,9 @@ vi.mock('next/navigation', () => ({
 
 const BASE = '/qqq/v1/assistant'
 const META = { tables: { person: { name: 'person', label: 'People' } }, supplementalInstanceMetaData: { assistant: {} } } as unknown as QInstance
+/** Matches rendered message text, not the screen-reader announcer that repeats it. */
+const MESSAGE_TEXT = ':not([data-qqq-id="assistant-announcer"])'
+
 const CONVERSATION = { id: 4, title: null, status: 'ACTIVE', pinned: false, lastMessageAt: null, unreadCount: 0, createDate: '2026-10-12T00:00:00Z' }
 
 /**
@@ -126,6 +130,7 @@ function mockAssistant(config: Record<string, unknown> | number = { enabled: tru
   persisted.messages = []
   server.use(
     uiApiVersionHandler('assistant'),
+    http.get(`${BASE}/turns/active`, () => HttpResponse.json({ error: 'Not found' }, { status: 404 })),
     http.get(`${BASE}/config`, () => (typeof config === 'number' ? HttpResponse.json({ error: 'x' }, { status: config }) : HttpResponse.json(config))),
     http.get(`${BASE}/conversations`, () => HttpResponse.json({ conversations: [] })),
     http.post(`${BASE}/conversations`, () => HttpResponse.json(CONVERSATION, { status: 201 })),
@@ -146,6 +151,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   window.history.replaceState(null, '', '/')
 })
 
@@ -204,7 +210,7 @@ describe('asking a question', () => {
     const action = await screen.findByRole('button', { name: 'Show PNG' })
     await waitFor(() => expect(action).toBeEnabled())
     await user.click(action)
-    await waitFor(() => expect(requests[1]).toEqual({ text: 'Show me PNG files', pageContext: { route: '/app/person', tableName: 'person' } }))
+    await waitFor(() => expect(requests[1]).toEqual({ concurrency: 'supersede', text: 'Show me PNG files', pageContext: { route: '/app/person', tableName: 'person' } }))
   })
 
   it('streams the reply with a tool step and record chip, follows navigation, and passes axe', async () => {
@@ -223,7 +229,7 @@ describe('asking a question', () => {
     expect(within(panel).getByText('On: People')).toBeInTheDocument()
     await user.type(composer, 'Who is active?{Enter}')
 
-    await waitFor(() => expect(turnBody).toEqual({ text: 'Who is active?', pageContext: { route: '/app/person', tableName: 'person' } }))
+    await waitFor(() => expect(turnBody).toEqual({ concurrency: 'supersede', text: 'Who is active?', pageContext: { route: '/app/person', tableName: 'person' } }))
     expect(within(panel).getByText('Who is active?')).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: 'Stop the reply' })).toBeInTheDocument()
 
@@ -356,7 +362,7 @@ describe('asking a question', () => {
     const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
     await user.click(within(panel).getByRole('button', { name: "Don't send page context (People)" }))
     await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'Hi{Enter}')
-    await waitFor(() => expect(turnBody).toEqual({ text: 'Hi' }))
+    await waitFor(() => expect(turnBody).toEqual({ concurrency: 'supersede', text: 'Hi' }))
   })
 })
 
@@ -417,5 +423,280 @@ describe('deep link', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(router.replace).not.toHaveBeenCalled()
+  })
+})
+
+
+/** A discovered turn with a seven-second head start. */
+function activeTurn() {
+  return { turnId: 9, conversationId: 4, assistantMessageId: 11, userMessageId: 10, status: 'RUNNING', phase: 'thinking', startedAt: new Date(Date.now() - 7000).toISOString(), heartbeatAt: new Date().toISOString(), elapsedMs: 7000, live: true, concurrencyMode: 'supersede' }
+}
+
+/** Opens the panel and returns its composer. */
+async function openComposer(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+  return screen.findByRole('textbox', { name: 'Message the assistant' })
+}
+
+describe('answer lifecycle and recovery', () => {
+  it('keeps partial text and the error notice when a running answer fails', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => stream.response()))
+    const user = userEvent.setup()
+    renderShell()
+    const composer = await openComposer(user)
+    await user.type(composer, 'Explain this{Enter}')
+    act(() => stream.write(sse(START, ['tool.start', { seq: 2, messageId: 11, toolCallId: 'search', name: 'query_records', summary: 'Search records' }], ['text.delta', { seq: 3, messageId: 11, text: 'Partial explanation' }])))
+    expect(await screen.findByText('Partial explanation')).toBeInTheDocument()
+    persisted.messages = storedTurn('Explain this', [{ type: 'tool', toolCallId: 'search', name: 'query_records', summary: 'Search records' }, { type: 'text', text: 'Partial explanation' }, { type: 'notice', level: 'error', text: 'The server restarted.' }], 'ERROR')
+    act(() => {
+      stream.write(sse(['error', { seq: 4, messageId: 11, message: 'The server restarted.' }], ['message.end', { seq: 5, messageId: 11, status: 'ERROR' }]))
+      stream.close()
+    })
+    expect(await screen.findByText('The server restarted.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())
+    expect(screen.getByText('Partial explanation')).toBeInTheDocument()
+    expect(document.querySelector('[data-qqq-id="assistant-tool-step"]')).toHaveAttribute('data-outcome', 'INCOMPLETE')
+    await user.type(composer, 'Next question')
+    expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+  })
+
+  it('shows a busy header on refresh while closed, then a background banner with Open and Stop', async () => {
+    mockAssistant()
+    const turn = activeTurn()
+    const stream = controllableStream()
+    const events = vi.fn(() => stream.response())
+    let active = true
+    persisted.messages = storedTurn('Find records', [], 'STREAMING')
+    server.use(
+      http.get(`${BASE}/turns/active`, () => HttpResponse.json({ turns: active ? [turn] : [] })),
+      http.get(`${BASE}/conversations/4`, () => HttpResponse.json({ conversation: { ...CONVERSATION, title: 'People search' }, messages: persisted.messages })),
+      http.get(`${BASE}/turns/9/events`, events),
+      http.post(`${BASE}/turns/9/cancel`, () => {
+        active = false
+        persisted.messages = storedTurn('Find records', [], 'CANCELLED')
+        stream.write(sse(['message.end', { seq: 2, messageId: 11, status: 'CANCELLED' }]))
+        stream.close()
+        return HttpResponse.json({ status: 'CANCELLING' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    expect(await screen.findByRole('status', { name: 'Assistant is answering' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await openComposer(user)
+    const banner = document.querySelector('[data-qqq-id="assistant-background-run"]') as HTMLElement
+    expect(banner).toHaveTextContent('Answering in People search - 0:0')
+    expect(within(banner).getByRole('button', { name: 'Stop' })).toBeEnabled()
+    await user.click(within(banner).getByRole('button', { name: 'Open' }))
+    expect(await screen.findByText('Thinking...')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Stop the reply' })).toBeEnabled()
+    expect(screen.getByPlaceholderText('Ask something else...')).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Stop the reply' }))
+    expect(await screen.findByText('Stopped.', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Assistant is answering' })).not.toBeInTheDocument())
+    expect(events).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops a background conversation without opening it', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    const cancel = vi.fn(() => {
+      persisted.messages = storedTurn('Find records', [], 'CANCELLED')
+      stream.write(sse(['message.end', { seq: 2, messageId: 11, status: 'CANCELLED' }]))
+      stream.close()
+      return HttpResponse.json({ status: 'CANCELLING' })
+    })
+    server.use(
+      http.get(`${BASE}/turns/active`, () => HttpResponse.json({ turns: [activeTurn()] })),
+      http.get(`${BASE}/turns/9/events`, () => stream.response()),
+      http.post(`${BASE}/turns/9/cancel`, cancel),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    await user.click(await screen.findByRole('button', { name: 'Stop' }))
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(document.querySelector('[data-qqq-id="assistant-background-run"]')).toBeNull())
+  })
+
+  it.each(['supersede', 'concurrent'] as const)('sends while running with %s and retains both replies', async (mode) => {
+    mockAssistant()
+    const first = controllableStream()
+    const second = controllableStream()
+    const bodies: Array<{ text: string; concurrency: string }> = []
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      bodies.push(await request.json() as { text: string; concurrency: string })
+      return bodies.length === 1 ? first.response() : second.response()
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    const composer = await openComposer(user)
+    await user.type(composer, 'First question{Enter}')
+    act(() => first.write(sse(START, ['text.delta', { seq: 2, messageId: 11, text: 'First answer' }])))
+    expect(await screen.findByText('First answer', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    if (mode === 'concurrent') {
+      await user.click(screen.getByRole('button', { name: 'Conversation actions' }))
+      await user.click(await screen.findByRole('menuitemradio', { name: 'Answer both' }))
+      expect(localStorage.getItem('qqq.assistant.concurrency')).toBe('concurrent')
+    }
+    expect(screen.getByText(mode === 'concurrent' ? 'Both answers will continue' : 'Sending stops the current answer')).toBeInTheDocument()
+    expect(composer).toBeEnabled()
+    await user.type(composer, 'Second question')
+    expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Stop the reply' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(bodies).toHaveLength(2))
+    expect(bodies[0].concurrency).toBe('supersede')
+    expect(bodies[1].concurrency).toBe(mode)
+    act(() => second.write(sse(
+      ['message.start', { seq: 1, turnId: 12, conversationId: 4, userMessageId: 13, messageId: 14 }],
+      ['text.delta', { seq: 2, messageId: 14, text: 'Second answer' }],
+    )))
+    expect(await screen.findByText('Second answer', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    // The newer answer finishes first: it must not overwrite the older stream in the cache.
+    act(() => {
+      second.write(sse(['message.end', { seq: 3, messageId: 14, status: 'COMPLETE' }]))
+      second.close()
+    })
+    await waitFor(() => expect(document.querySelector('[data-status="COMPLETE"][data-role="assistant"]')).not.toBeNull())
+    expect(screen.getByRole('button', { name: 'Stop the reply' })).toBeInTheDocument()
+    const notice = 'Stopped because you asked something else.'
+    persisted.messages = [
+      ...storedTurn('First question', [{ type: 'text', text: 'First answer' }, ...(mode === 'supersede' ? [{ type: 'notice', level: 'info', text: notice }] : [])], mode === 'supersede' ? 'CANCELLED' : 'COMPLETE'),
+      { id: 13, role: 'USER', status: 'COMPLETE', turnId: 12, createDate: new Date().toISOString(), parts: [{ type: 'text', text: 'Second question' }] },
+      { id: 14, role: 'ASSISTANT', status: 'COMPLETE', turnId: 12, createDate: new Date().toISOString(), parts: [{ type: 'text', text: 'Second answer' }] },
+    ]
+    act(() => {
+      if (mode === 'supersede') first.write(sse(['notice', { seq: 3, level: 'info', text: notice }]))
+      first.write(sse(['message.end', { seq: 4, messageId: 11, status: mode === 'supersede' ? 'CANCELLED' : 'COMPLETE' }]))
+      first.close()
+    })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())
+    expect(screen.getByText('First answer', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    expect(screen.getByText('Second answer', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    if (mode === 'supersede') expect(screen.getByText(notice)).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Assistant is answering' })).not.toBeInTheDocument()
+  })
+
+  it('falls back to STREAMING messages on an old server and reconciles cancel 409', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    persisted.messages = storedTurn('Find records', [{ type: 'text', text: 'Old partial' }], 'STREAMING')
+    server.use(
+      http.get(`${BASE}/conversations`, () => HttpResponse.json({ conversations: [{ ...CONVERSATION, title: 'Saved conversation' }] })),
+      http.get(`${BASE}/turns/9/events`, () => stream.response()),
+      http.post(`${BASE}/turns/9/cancel`, () => {
+        persisted.messages = storedTurn('Find records', [{ type: 'text', text: 'Finished on another pod' }])
+        return HttpResponse.json({ error: 'already finished' }, { status: 409 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    await user.click(screen.getByRole('button', { name: 'Show conversations' }))
+    await user.click(await screen.findByRole('option', { name: /Saved conversation/ }))
+    await user.click(await screen.findByRole('button', { name: 'Stop the reply' }))
+    expect(await screen.findByText('Finished on another pod', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())
+  })
+
+  it('ends a stuck run, then Retry check discovers its finished answer', async () => {
+    mockAssistant()
+    const actualStart = assistantApi.streamAssistantTurn
+    vi.spyOn(assistantApi, 'streamAssistantTurn').mockImplementation((id, body, options) => actualStart(id, body, { ...options, resumeDelayMs: 1, resumeBudgetMs: 100 }))
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => new HttpResponse(sse(START, ['ping', {}]), { headers: { 'Content-Type': 'text/event-stream' } })),
+      http.get(`${BASE}/turns/9/events`, () => new HttpResponse(sse(['ping', {}]), { headers: { 'Content-Type': 'text/event-stream' } })),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    const composer = await openComposer(user)
+    await user.type(composer, 'Find records{Enter}')
+    expect(await screen.findByText('Lost connection to the assistant. It may still be answering - reopen the panel to check.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument()
+    persisted.messages = storedTurn('Find records', [{ type: 'text', text: 'Recovered finished answer' }])
+    await user.click(screen.getByRole('button', { name: 'Retry check' }))
+    expect(await screen.findByText('Recovered finished answer')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry check' })).not.toBeInTheDocument())
+  })
+
+  it('rechecks on online and after being hidden longer than thirty seconds', async () => {
+    mockAssistant()
+    const active = vi.fn(() => HttpResponse.json({ turns: [] }))
+    server.use(http.get(`${BASE}/turns/active`, active))
+    renderShell()
+    await waitFor(() => expect(active).toHaveBeenCalledTimes(1))
+    act(() => window.dispatchEvent(new Event('online')))
+    await waitFor(() => expect(active).toHaveBeenCalledTimes(2))
+    const hidden = vi.spyOn(document, 'hidden', 'get')
+    const now = vi.spyOn(Date, 'now')
+    const time = Date.now()
+    now.mockReturnValue(time)
+    hidden.mockReturnValue(true)
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    now.mockReturnValue(time + 31000)
+    hidden.mockReturnValue(false)
+    act(() => window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(active).toHaveBeenCalledTimes(3))
+    act(() => window.dispatchEvent(new Event('focus')))
+    expect(active).toHaveBeenCalledTimes(3)
+  })
+})
+
+
+describe('multiple run controls', () => {
+  it('Stop cancels every known run in the conversation', async () => {
+    mockAssistant()
+    const streams = [controllableStream(), controllableStream()]
+    let posts = 0
+    const cancelled: string[] = []
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => streams[posts++].response()),
+      http.post(`${BASE}/turns/:id/cancel`, ({ params }) => {
+        cancelled.push(String(params.id))
+        const index = params.id === '9' ? 0 : 1
+        streams[index].write(sse(['message.end', { seq: 3, messageId: index === 0 ? 11 : 14, status: 'CANCELLED' }]))
+        streams[index].close()
+        return HttpResponse.json({ status: 'CANCELLING' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    const composer = await openComposer(user)
+    await user.type(composer, 'First{Enter}')
+    act(() => streams[0].write(sse(START)))
+    await screen.findByText('Thinking...')
+    await user.type(composer, 'Second{Enter}')
+    act(() => streams[1].write(sse(['message.start', { seq: 1, turnId: 12, conversationId: 4, userMessageId: 13, messageId: 14 }])))
+    await waitFor(() => expect(screen.getAllByText('Thinking...')).toHaveLength(2))
+    await user.click(screen.getByRole('button', { name: 'Stop the reply' }))
+    await waitFor(() => expect(cancelled.sort()).toEqual(['12', '9']))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())
+  })
+
+  it('renders persisted phase events and the server start time', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => stream.response()))
+    const user = userEvent.setup()
+    renderShell()
+    const composer = await openComposer(user)
+    await user.type(composer, 'Find records{Enter}')
+    expect(await screen.findByText('Starting...')).toBeInTheDocument()
+    const startedAt = new Date(Date.now() - 30000).toISOString()
+    act(() => stream.write(sse(['message.start', { ...START[1], startedAt }], ['turn.phase', { seq: 2, phase: 'thinking' }])))
+    expect(await screen.findByText('Thinking...')).toBeInTheDocument()
+    expect(document.querySelector('[data-qqq-id="assistant-run-status"]')).toHaveTextContent(/0:3[0-9]/)
+    act(() => stream.write(sse(['turn.phase', { seq: 3, phase: 'tool', toolName: 'query_records', label: 'Search records' }])))
+    expect(await screen.findByText('Using Search records...')).toBeInTheDocument()
+    act(() => stream.write(sse(['turn.phase', { seq: 4, phase: 'writing' }])))
+    expect(await screen.findByText('Writing...')).toBeInTheDocument()
+    act(() => {
+      stream.write(sse(['message.end', { seq: 5, messageId: 11, status: 'COMPLETE' }]))
+      stream.close()
+    })
+    await waitFor(() => expect(screen.queryByText('Writing...')).not.toBeInTheDocument())
   })
 })

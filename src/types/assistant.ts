@@ -312,7 +312,8 @@ export type AssistantStreamErrorCode = 'KILL_SWITCH' | 'BUDGET' | 'RATE_LIMIT' |
 /** Typed events of a turn stream; every event carries its `seq`. */
 export type AssistantStreamEvent =
   | { type: 'presentation'; seq: number; messageId: number; part: AssistantPresentationPart }
-  | { type: 'message.start'; seq: number; turnId: number; conversationId: number; userMessageId: number; messageId: number }
+  | { type: 'message.start'; seq: number; turnId: number; conversationId: number; userMessageId: number; messageId: number; startedAt?: string }
+  | { type: 'turn.phase'; seq: number; phase: AssistantPhase; toolName?: string; label?: string }
   | { type: 'text.delta'; seq: number; messageId: number; text: string }
   | { type: 'tool.start'; seq: number; messageId: number; toolCallId: string; name: string; summary: string }
   | {
@@ -328,3 +329,24 @@ export type AssistantStreamEvent =
   | { type: 'message.end'; seq: number; messageId: number; status: 'COMPLETE' | 'CANCELLED' | 'ERROR'; stopReason?: string }
   | { type: 'error'; seq: number; code: AssistantStreamErrorCode; message: string }
   | { type: 'ping'; seq?: number }
+
+/** How sending during an answer affects existing turns. */
+export type AssistantConcurrency = 'supersede' | 'concurrent'
+
+/** The server's current stage of an answer. */
+export type AssistantPhase = 'thinking' | 'tool' | 'writing'
+
+/** A running turn discovered across backend replicas. */
+export interface ActiveAssistantTurn {
+  turnId: number
+  conversationId: number
+  assistantMessageId: number
+  userMessageId: number
+  status: 'RUNNING' | 'CANCELLING'
+  phase: AssistantPhase
+  startedAt: string
+  heartbeatAt: string
+  elapsedMs: number
+  live: boolean
+  concurrencyMode: AssistantConcurrency
+}

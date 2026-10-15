@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { NavTarget } from '@/lib/hooks/use-routes'
 import { useRecordSearch, type RecordSearchState } from '@/lib/hooks/use-record-search'
+import { UI_API_EXTENSION, useUiApiExtensionInstalled } from '@/lib/api/ui-api-extensions'
 import { getRecentRecords, type RecentRecord } from '@/lib/utils/recent-records'
 import type { SearchableTable } from '@/lib/utils/record-search'
 import { addRecentSearch, clearRecentSearches, getRecentSearches } from '@/lib/search/recent-searches'
@@ -100,7 +101,8 @@ export function useQuickSearch({ open, term, setTerm: setTermProp, navTargets, s
     setRecentSearches(getRecentSearches())
   }, [open])
 
-  const recordSearch = useRecordSearch(open ? term : '', searchTables, QUICK_SEARCH_RECORDS_PER_TABLE)
+  const suggest = useUiApiExtensionInstalled(UI_API_EXTENSION.quickSearch, open)
+  const recordSearch = useRecordSearch(open ? term : '', searchTables, QUICK_SEARCH_RECORDS_PER_TABLE, { suggest })
   const groups = useMemo(() => buildQuickSearchGroups({
     term,
     navTargets,

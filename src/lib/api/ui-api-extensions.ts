@@ -27,6 +27,7 @@ export const UI_API_EXTENSION = {
   esb: 'esb',
   collaboration: 'collaboration',
   dataAnalysis: 'data-analysis',
+  quickSearch: 'quick-search',
 } as const
 
 /**
@@ -95,4 +96,13 @@ export function useUiApiExtensionInstalled(name: string, enabled = true): boolea
     retry: false,
   })
   return enabled && !isError && Boolean(data?.extensions.some((extension) => extension?.name === name))
+}
+
+/** Observes a core capability using the shared server discovery query.
+ * @param name - Feature name from the version response.
+ * @returns Whether the server advertises the feature.
+ */
+export function useUiApiFeatureSupported(name: string): boolean {
+  const { data } = useQuery({ queryKey: UI_API_VERSION_QUERY_KEY, queryFn: loadVersion, staleTime: Infinity, retry: false })
+  return data?.features.includes(name) ?? false
 }

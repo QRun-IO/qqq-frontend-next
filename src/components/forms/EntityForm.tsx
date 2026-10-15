@@ -21,6 +21,7 @@
 
 'use client'
 
+import { writableValues } from '@/lib/utils/secured-data'
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import type { FieldErrors, Resolver } from 'react-hook-form'
@@ -51,6 +52,7 @@ import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm } from './DynamicForm'
@@ -677,7 +679,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       if (isCopy) validateCopyPasswords(tableMetaData, insertValues, fieldNamesToInclude)
       if (copyAssociations?.error) throw new Error(copyAssociations.error)
       const associationGroups = copyAssociations ? copyAssociations.getRecords(insertValues) : widgetAssociations()
-      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, recordWireValues(insertValues), associationGroups))
+      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, recordWireValues(writableValues(insertValues, formTableRef.current.fields)), associationGroups))
       copyAssociations?.validateResult?.(saved)
       return saved
     },
@@ -713,7 +715,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       // Unversioned backends keep Material's round-trip rules for ordinary values.
       const submitted = Object.fromEntries(Object.entries(values).filter(([name]) =>
         Boolean(dirtyFieldsRef.current[name]) || (expectedVersion.current === undefined && !onlyWhenChanged(tableMetaData.fields[name]))))
-      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations(), expectedVersion.current))
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(writableValues(submitted, formTableRef.current.fields)), widgetAssociations(), expectedVersion.current))
     },
     meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
@@ -995,11 +997,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
-          <div className="border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
             <h2 className="text-xl font-semibold text-foreground" aria-label={recordLabel && (isEdit || isCopy) ? `${heading}: ${recordLabel}` : undefined}
               data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>
               {heading}
             </h2>
+            <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};slot:help`} data-qqq-id={`table-help-${tableMetaData.name}`} />
           </div>
         </div>
       )}

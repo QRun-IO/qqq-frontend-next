@@ -21,6 +21,7 @@
  * (Material `PivotTableDefinitionModels.ts` and `PivotTableSetupWidget.tsx`).
  */
 
+import { canSortField } from '@/lib/utils/secured-data'
 import type { QFieldMetaData, QFieldType, QTableMetaData } from '@/types'
 import { asList, isPlainObject } from '../widget-types'
 
@@ -310,6 +311,7 @@ export function pivotFieldOptions(table: QTableMetaData, availableFieldNames: re
   const addTable = (source: QTableMetaData, joinName: string | null) => {
     const fields = Object.values(source.fields ?? {}).sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name))
     for (const field of fields) {
+      if (!canSortField(field) || field.isHidden) continue
       const fieldName = joinName ? `${joinName}.${field.name}` : field.name
       if (availableFieldNames.length > 0 && !availableFieldNames.includes(fieldName)) continue
       options.push({ fieldName, label: field.label || field.name, group: `${source.label} fields`, field })

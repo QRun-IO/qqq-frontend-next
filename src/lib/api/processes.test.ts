@@ -70,6 +70,12 @@ describe('Processes API', () => {
   })
 
   describe('normalizeProcessResponse', () => {
+    it.each(['top-level', 'jobStatus'])('preserves rich progress and the redacted log tail from %s', async (shape) => {
+      const { normalizeProcessResponse } = await import('./processes')
+      const status = { message: 'Uploading', progress: { percent: 25, phases: [{ name: 'upload', label: 'Upload', status: 'RUNNING' }] }, logTail: [{ id: 12, level: 'INFO', message: 'Wrote manifest' }] }
+      const body = shape === 'jobStatus' ? { processUUID: 'p', jobStatus: status } : { type: 'RUNNING', processUUID: 'p', ...status }
+      expect(normalizeProcessResponse(body)).toMatchObject({ type: 'RUNNING', ...status })
+    })
     it('normalizes the registered-route shapes', async () => {
       const { normalizeProcessResponse } = await import('./processes')
       expect(normalizeProcessResponse({ processUUID: 'p', jobUUID: 'j' })).toEqual({ type: 'JOB_STARTED', processUUID: 'p', jobUUID: 'j' })

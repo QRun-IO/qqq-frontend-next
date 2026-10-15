@@ -24,7 +24,7 @@ import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
 import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { useAlertsInstalled } from '@/components/alerts/AlertsBell'
-import { isUiApiExtensionInstalled, isUiApiFeatureSupported, resetUiApiExtensions, useUiApiExtensionInstalled } from './ui-api-extensions'
+import { isUiApiExtensionInstalled, isUiApiFeatureSupported, resetUiApiExtensions, useUiApiExtensionInstalled, useUiApiFeatureSupported } from './ui-api-extensions'
 
 /** Gives each hook test an isolated query cache. */
 function wrapper() {
@@ -75,6 +75,13 @@ describe('extension discovery', () => {
 })
 
 describe('extension hooks', () => {
+  it.each([true, false])('gates Jobs on the advertised core feature (%s)', async (installed) => {
+    server.use(http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.3.0', features: installed ? ['durableJobs'] : [], extensions: [] })))
+    const { result } = renderHook(() => useUiApiFeatureSupported('durableJobs'), { wrapper: wrapper() })
+    expect(result.current).toBe(false)
+    await waitFor(async () => expect(await isUiApiFeatureSupported('durableJobs')).toBe(installed))
+    await waitFor(() => expect(result.current).toBe(installed))
+  })
   it('starts false and shares discovery with imperative callers and other names', async () => {
     const handler = vi.fn(() => HttpResponse.json({ apiVersion: '1.1.0', extensions: [{ name: 'alerts' }] }))
     server.use(http.get('/qqq/v1/version', handler))

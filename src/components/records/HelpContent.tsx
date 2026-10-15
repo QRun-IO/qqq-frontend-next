@@ -46,7 +46,7 @@ interface HelpContentProps {
  */
 export function HelpContent({ helpContent, id, 'data-qqq-id': dataQqqId, className }: HelpContentProps) {
   const format = helpContent.format ?? 'TEXT'
-  const html = format === 'HTML' ? helpContent.content : format === 'MARKDOWN' ? helpContent.contentAsHtml : undefined
+  const html = format === 'HTML' ? (helpContent.content || helpContent.contentAsHtml) : format === 'MARKDOWN' ? helpContent.contentAsHtml : undefined
   const sanitized = useMemo(() => (html ? sanitizeHtml(html) : undefined), [html])
 
   if (sanitized !== undefined) {

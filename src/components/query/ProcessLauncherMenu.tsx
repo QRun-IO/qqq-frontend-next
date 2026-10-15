@@ -27,12 +27,15 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+
 import { Play, ChevronDown } from 'lucide-react'
 
 import type { QIcon, QProcessMetaData, QTableMetaData } from '@/types'
+
 import { hasCapability } from '@/lib/utils/query-columns'
 import { menuItemQqqId } from '@/lib/utils/qqq-id'
 
+import { ProcessActionHelp } from '@/components/help/ProcessActionHelp'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 /** Bulk actions offered by the menu, in Material's order, with Material's icons. */
@@ -131,6 +134,7 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('[data-help-surface]')) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false)
     }
     document.addEventListener('mousedown', handler)
@@ -160,6 +164,7 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
   // Material's menu-item-{label} hook sits on a layout-neutral wrapper (QRun-IO/qqq#731)
   const item = (entry: MenuEntry) => (
     <span key={entry.key} role="none" className="contents" data-qqq-id={menuItemQqqId(undefined, entry.label)}>
+    <span role="none" className="flex items-center">
     <button
       type="button"
       role="menuitem"
@@ -170,6 +175,8 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
       <MetadataIcon icon={entry.icon} iconName={entry.iconName} kind="process" className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="truncate">{entry.label}</span>
     </button>
+    <ProcessActionHelp process={entry.process} />
+    </span>
     </span>
   )
 
@@ -201,6 +208,7 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
             {/* Material always ends the menu with the table's developer page */}
             <Link
               href={`/app/${encodeURIComponent(props.tableMetaData.name)}/dev`}
+              prefetch={false}
               role="menuitem"
               onClick={() => setIsOpen(false)}
               className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent focus:outline-none"

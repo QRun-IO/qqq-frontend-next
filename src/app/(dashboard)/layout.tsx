@@ -22,8 +22,10 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
+import { SecuredDataProvider, SecuredDataBannerSlot } from '@/components/secured-data/SecuredDataProvider'
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+
 import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/lib/auth/use-auth'
@@ -40,6 +42,7 @@ import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 import dynamic from 'next/dynamic'
+
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -49,6 +52,7 @@ import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadc
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
+import { HelpPanelProvider } from '@/components/help/HelpPanelProvider'
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
@@ -281,8 +285,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // cannot clip it, and one near the end of a long page (the company footer's "opens in a new
   // tab") makes the document taller than the window, a second scrollbar beside main's.
   return (
-    <AssistantProvider value={assistant}>
+    <HelpPanelProvider instance={metaData}>
+    <SecuredDataProvider enabled={isAuthenticated}><AssistantProvider value={assistant}>
     <div className="relative flex h-screen flex-col overflow-hidden bg-background" data-qqq-id="app-shell">
+      <SecuredDataBannerSlot />
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
       <BrandedHeaderBar theme={theme} />
@@ -384,7 +390,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Keyboard Shortcuts Help Dialog */}
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
     </div>
-    </AssistantProvider>
+    </AssistantProvider></SecuredDataProvider>
+    </HelpPanelProvider>
   )
 }
 

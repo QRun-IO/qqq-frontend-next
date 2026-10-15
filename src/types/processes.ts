@@ -50,6 +50,10 @@ export interface QJobRunning {
   current?: number
   /** Total units of work expected (optional — used for progress denominator). */
   total?: number
+  /** Structured phase and measurement snapshot. */
+  progress?: import('./jobs').JobProgressV1
+  /** Server-redacted recent lines. */
+  logTail?: import('./jobs').JobLogLineV1[]
 }
 
 /**

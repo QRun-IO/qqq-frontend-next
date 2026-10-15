@@ -62,6 +62,8 @@ interface PossibleValueSelectProps {
   id: string
   /** Human-readable field label displayed above the combobox. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** The React Hook Form field name used by the `Controller`. */
   name: string
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -157,6 +159,7 @@ export function PossibleValueSelect({
   fieldsByName,
   enabledFields,
   label,
+  labelExtra,
   name,
   control,
   fieldName,
@@ -409,15 +412,18 @@ export function PossibleValueSelect({
 
   return (
     <div className="flex flex-col gap-1">
-      <label
-        id={`${id}-label`}
-        htmlFor={id}
-        className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
-        data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-      >
-        {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
-      </label>
+      <div className="flex items-center">
+        <label
+          id={`${id}-label`}
+          htmlFor={id}
+          className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
+          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+        >
+          {label}
+          {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        </label>
+        {labelExtra}
+      </div>
       <Controller
         name={name}
         control={control}

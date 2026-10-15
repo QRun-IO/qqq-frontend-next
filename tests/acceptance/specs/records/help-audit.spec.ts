@@ -16,20 +16,24 @@ test('[REC-039] field help follows the screen roles and renders each format @mob
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   await page.getByRole('radio', { name: 'List view' }).click()
   const titleLabel = page.locator('[data-qqq-id="field-label-title"]').first()
-  await titleLabel.focus()
+  await titleLabel.getByRole('button').focus()
   await expect(page.getByRole('tooltip')).toContainText('The headline shown for this record.')
   await page.keyboard.press('Escape')
   const websiteLabel = page.locator('[data-qqq-id="field-label-website"]').first()
-  await websiteLabel.focus()
+  await websiteLabel.getByRole('button').focus()
   const viewTip = page.getByRole('tooltip')
-  await expect(viewTip.locator('em')).toHaveText('outside')
   await expect(viewTip).toContainText('Opens outside this application.')
   await expect(viewTip).not.toContainText('Include the https:// prefix.')
+  await websiteLabel.getByRole('button').press('Enter')
+  await expect(page.locator('[data-qqq-id="help-panel-content"] em')).toHaveText('outside')
+  await page.keyboard.press('Escape')
   await expect(page.locator('[data-qqq-id="field-label-ownerId"]').first()).not.toHaveAttribute('data-has-help', 'true')
 
   // Edit screen: WRITE_SCREENS markdown (rendered) and EDIT_SCREEN text; INSERT_SCREEN help is not shown.
   await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
-  await expect(page.locator('#field-help-content-title strong')).toHaveText('short')
+  await page.locator('[data-qqq-id="field-help-title"]').click()
+  await expect(page.locator('[data-qqq-id="help-panel-content"] strong')).toHaveText('short')
+  await page.keyboard.press('Escape')
   await expect(page.locator('#field-help-content-title')).toHaveText('Use a short, unique title.')
   await expect(control(page, 'title')).toHaveAttribute('aria-describedby', /field-help-content-title/)
   await expect(page.locator('#field-help-content-website')).toHaveText('Changing the address updates every link.')
@@ -39,23 +43,22 @@ test('[REC-039] field help follows the screen roles and renders each format @mob
   await openForm(page, '/app/recordLab/create', 'Create Record Lab')
   await expect(page.locator('#field-help-content-ownerId')).toHaveText('Pick the person who owns this record.')
   await expect(page.locator('#field-help-content-website')).toHaveText('Include the https:// prefix.')
-  if ((page.viewportSize()?.width ?? 1280) < 640) {
-    // Below the sm breakpoint the help is printed under the field instead of behind an icon.
-    await expect(page.locator('[data-qqq-id="field-help-text-website"]')).toBeVisible()
-    await expect(page.locator('[data-qqq-id="field-help-website"]')).toBeHidden()
-  } else {
-    await page.locator('[data-qqq-id="field-help-website"]').focus()
-    await expect(page.getByRole('tooltip')).toContainText('Include the https:// prefix.')
-  }
+  // Help icons now open the same panel on touch and desktop; the summary still describes the input.
+  await page.locator('[data-qqq-id="field-help-website"]').focus()
+  await expect(page.getByRole('tooltip')).toContainText('Include the https:// prefix.')
+
 })
 
-test('[REC-040] section help appears under the section heading @mobile', async ({ page, diagnostics }) => {
+test('[REC-040] section help beside the heading opens formatted long help @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   await expandOnPhone(page, 'Presentation')
   const help = shown(page, '[data-qqq-id="section-help-presentation"]').first()
-  await expect(help).toHaveText('These fields show each adornment.')
-  await expect(help.locator('b')).toHaveText('adornment')
+  await help.focus()
+  await expect(page.getByRole('tooltip')).toContainText('These fields show each adornment.')
+  await help.press('Enter')
+  await expect(page.locator('[data-qqq-id="help-panel-content"] b')).toHaveText('adornment')
+  await page.keyboard.press('Escape')
   await expect(page.locator('[data-qqq-id="section-help-links"]')).toHaveCount(0)
 })
 

@@ -38,6 +38,8 @@ import type {
 import { sendAssistantFeedback } from '@/lib/api/assistant'
 import { internalAppHref } from '@/lib/utils/assistant-links'
 import { cn } from '@/lib/utils/cn'
+import { AssistantRunStatus } from './AssistantRunStatus'
+import type { AssistantRun } from './use-assistant-engine'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AssistantPresentation, type AssistantPresentationActions } from './AssistantPresentation'
 import { AssistantRenderView, RecordChips } from './AssistantRenders'
@@ -58,15 +60,17 @@ const OUTCOME_LABEL: Record<AssistantToolOutcome, string> = {
  *
  * @param props - Component properties.
  * @param props.part - The tool part.
+ * @param props.finished - Whether the answer has ended, even if no tool result arrived.
  * @returns The step.
  */
-function ToolStep({ part }: { part: AssistantToolPart }) {
+function ToolStep({ part, finished = false }: { part: AssistantToolPart; finished?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
-  const running = !part.outcome
+  const running = !part.outcome && !finished
+  const outcome = part.outcome ? OUTCOME_LABEL[part.outcome] ?? part.outcome : 'Not completed'
   const ok = part.outcome === 'OK' || part.outcome === 'TRUNCATED'
   return (
-    <div className="space-y-1.5" data-qqq-id="assistant-tool-step" data-outcome={part.outcome ?? 'RUNNING'}>
+    <div className="space-y-1.5" data-qqq-id="assistant-tool-step" data-outcome={part.outcome ?? (finished ? 'INCOMPLETE' : 'RUNNING')}>
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -82,14 +86,14 @@ function ToolStep({ part }: { part: AssistantToolPart }) {
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden="true" />
         )}
         <span className="min-w-0 truncate">{part.summary || part.name}</span>
-        <span className="sr-only">{running ? ', running' : `, ${OUTCOME_LABEL[part.outcome as AssistantToolOutcome] ?? part.outcome}`}</span>
+        <span className="sr-only">{running ? ', running' : `, ${outcome}`}</span>
         <ChevronRight className={cn('h-3 w-3 shrink-0 motion-safe:transition-transform', expanded && 'rotate-90')} aria-hidden="true" />
       </button>
       <dl id={detailsId} hidden={!expanded} className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs text-muted-foreground">
         <dt>Tool</dt>
         <dd className="break-all font-mono">{part.name}</dd>
         <dt>Result</dt>
-        <dd>{running ? 'Running' : OUTCOME_LABEL[part.outcome as AssistantToolOutcome] ?? part.outcome}</dd>
+        <dd>{running ? 'Running' : outcome}</dd>
       </dl>
       {part.render && <AssistantRenderView render={part.render} />}
     </div>
@@ -141,7 +145,7 @@ function NavigateView({ part }: { part: AssistantNavigatePart }) {
 }
 
 /** Renders one part type. */
-type PartRenderer<T extends AssistantPart> = (props: { part: T } & AssistantPresentationActions) => React.ReactNode
+type PartRenderer<T extends AssistantPart> = (props: { part: T; finished?: boolean } & AssistantPresentationActions) => React.ReactNode
 
 /**
  * Renderers by part type. Phase 2 adds `approval` here; anything without a renderer is skipped.
@@ -149,7 +153,7 @@ type PartRenderer<T extends AssistantPart> = (props: { part: T } & AssistantPres
 export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extract<AssistantPart, { type: K }>> } = {
   presentation: ({ part, onSend, sending }) => <AssistantPresentation part={part} onSend={onSend} sending={sending} />,
   text: ({ part }: { part: AssistantTextPart }) => (part.text ? <AssistantMarkdown text={part.text} /> : null),
-  tool: ({ part }: { part: AssistantToolPart }) => <ToolStep part={part} />,
+  tool: ({ part, finished }) => <ToolStep part={part} finished={finished} />,
   record_refs: ({ part }: { part: AssistantRecordRefsPart }) => <RecordChips refs={part.refs} />,
   navigate: ({ part }: { part: AssistantNavigatePart }) => <NavigateView part={part} />,
   notice: ({ part }: { part: AssistantNoticePart }) => <NoticeView part={part} />,
@@ -162,9 +166,9 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
  * @param props.part - Any part, including types this version does not know.
  * @returns The rendered part, or null.
  */
-function PartView({ part, onSend, sending }: { part: AssistantPart } & AssistantPresentationActions) {
+function PartView({ part, onSend, sending, finished }: { part: AssistantPart; finished?: boolean } & AssistantPresentationActions) {
   const render = (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type]
-  return render ? <>{render({ part, onSend, sending })}</> : null
+  return render ? <>{render({ part, onSend, sending, finished })}</> : null
 }
 
 /**
@@ -237,7 +241,7 @@ function FeedbackButtons({ messageId }: { messageId: number }) {
  * @param props.message - The message.
  * @returns The message article.
  */
-export function AssistantMessageView({ message, onSend, sending }: { message: AssistantMessage } & AssistantPresentationActions) {
+export function AssistantMessageView({ message, onSend, sending, run }: { message: AssistantMessage; run?: AssistantRun } & AssistantPresentationActions) {
   if (message.role === 'USER') {
     const text = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
     return (
@@ -255,9 +259,14 @@ export function AssistantMessageView({ message, onSend, sending }: { message: As
   }
   const streaming = message.status === 'STREAMING'
   return (
-    <article className="min-w-0 space-y-2" aria-label="Assistant" aria-busy={streaming} data-qqq-id="assistant-message" data-role="assistant" data-status={message.status}>
-      {message.parts.map((part, index) => <PartView key={part.type === 'tool' ? part.toolCallId : index} part={part} onSend={onSend} sending={sending || streaming} />)}
-      {streaming && message.parts.length === 0 && (
+    <article className="min-w-0 space-y-2" aria-label="Assistant" data-qqq-id="assistant-message" data-role="assistant" data-status={message.status}>
+      {message.parts.length > 0 && (
+        <div className="space-y-2" aria-busy={streaming}>
+          {message.parts.map((part, index) => <PartView key={part.type === 'tool' ? part.toolCallId : index} part={part} onSend={onSend} sending={sending || streaming} finished={!streaming} />)}
+        </div>
+      )}
+      {run && <AssistantRunStatus run={run} />}
+      {streaming && !run && message.parts.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-thinking">
           <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
           Working on it...

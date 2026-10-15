@@ -121,7 +121,7 @@ export function clearStoredQueryState(tableName: string): void {
 
 /** Column settings the query screen stored per table before it stored whole views. */
 export interface LegacyColumnState {
-  columnVisibility: Record<string, boolean>
+  columnVisibility?: Record<string, boolean>
   columnOrder: string[]
   columnWidths: Record<string, number>
 }
@@ -142,10 +142,10 @@ export function readLegacyColumnState(tableName: string): LegacyColumnState | nu
       return valid(value) ? value as T : fallback
     }
     const isRecord = (value: unknown) => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-    const columnVisibility = read<Record<string, boolean>>('columns', isRecord, {})
+    const columnVisibility = read<Record<string, boolean> | undefined>('columns', (value) => isRecord(value) && Object.values(value as Record<string, unknown>).every((visible) => typeof visible === 'boolean'), undefined)
     const columnOrder = read<string[]>('column-order', (value) => Array.isArray(value) && value.every((v) => typeof v === 'string'), [])
     const columnWidths = read<Record<string, number>>('column-widths', isRecord, {})
-    if (!Object.keys(columnVisibility).length && !columnOrder.length && !Object.keys(columnWidths).length) return null
+    if (columnVisibility === undefined && !columnOrder.length && !Object.keys(columnWidths).length) return null
     return { columnVisibility, columnOrder, columnWidths }
   } catch {
     return null

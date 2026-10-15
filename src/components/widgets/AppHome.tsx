@@ -22,10 +22,13 @@
 
 import React from 'react'
 import Link from 'next/link'
+
 import { useQuery } from '@tanstack/react-query'
 
 import type { QAppMetaData, QAppSection, QAppTreeNode, QIcon, QInstance, QWidgetMetaData } from '@/types'
 import { useRecordRecentView } from '@/lib/hooks/use-collaboration-core'
+
+import { APP_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
@@ -36,6 +39,8 @@ import { cssMaxWidth } from '@/lib/utils/responsive-grid'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { ConnectedWidget } from './ConnectedWidget'
 import { WIDGET_ANCHOR, widgetColumnClasses } from './widget-utils'
 
@@ -187,7 +192,9 @@ function EntryGroup({ title, showTitle = true, idPrefix, kind, entries, instance
  * Layout follows Material Dashboard's app home: the app label, the app's
  * widgets, then one card per section listing its processes ("Actions"),
  * reports ("Reports") and tables ("Data", with record counts), and the app's
- * child apps ("Apps"). Entries use metadata labels and icons; hidden or
+ * child apps ("Apps"), which give way to the app's widgets when it declares any;
+ * the app hint nextUi.showChildGrid (boolean) shows or hides both grids.
+ * Entries use metadata labels and icons; hidden or
  * unpermitted entries are omitted. An app with none of these shows an empty state.
  *
  * @param props - Component properties.
@@ -195,6 +202,11 @@ function EntryGroup({ title, showTitle = true, idPrefix, kind, entries, instance
  */
 export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps) {
   const { name, label, widgets: widgetNames = [], children = [] } = appMetaData
+  const nextUi = appMetaData.supplementalAppMetaData?.nextUi as { showChildGrid?: unknown } | undefined
+  // The hint decides both grids; by default only the child-app grid gives way to widgets.
+  const hint = typeof nextUi?.showChildGrid === 'boolean' ? nextUi.showChildGrid : undefined
+  const showSections = hint ?? true
+  const showChildGrid = hint ?? (widgetNames ?? []).length === 0
 
   useRecordRecentView({ targetType: 'APP', targetName: name })
 
@@ -229,7 +241,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
     .filter((child) => child.type === 'APP')
     .map((child) => ({ name: child.name, label: child.label, icon: iconOf(child) ?? iconOf(instance.apps?.[child.name]) }))
 
-  const isEmpty = widgetItems.length === 0 && resolvedSections.length === 0 && childApps.length === 0
+  const isEmpty = widgetItems.length === 0 && (!showSections || resolvedSections.length === 0) && (!showChildGrid || childApps.length === 0)
 
   // Material app settings (MaterialDashboardAppMetaData): both default to on
   const homeSettings = appMetaData.supplementalAppMetaData?.materialDashboard as
@@ -246,12 +258,12 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
       {showLabel ? (
         <div className="flex items-center gap-3">
           <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
-          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground">{label}</h1>
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground">{label}</h1><HelpIcon label={label} helpContents={appMetaData.helpContents?.help} roles={APP_SCREEN_HELP_ROLES} helpKey={`app:${name};slot:help`} data-qqq-id={`app-help-${name}`} />
           <LazyFavoriteToggle target={{ targetType: 'APP', targetName: name }} label={label} href={`/app/${encodeURIComponent(name)}`} />
         </div>
       ) : (
         // the page keeps its name for screen readers when the app hides its label
-        <h1 className="sr-only">{label}</h1>
+        <><h1 className="sr-only">{label}</h1><HelpIcon label={label} helpContents={appMetaData.helpContents?.help} roles={APP_SCREEN_HELP_ROLES} helpKey={`app:${name};slot:help`} data-qqq-id={`app-help-${name}`} /></>
       )}
 
       {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}
@@ -266,7 +278,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
       )}
 
       {/* Sections: actions, reports, data */}
-      {resolvedSections.map(({ section, processes, reports, tables }) => (
+      {showSections && resolvedSections.map(({ section, processes, reports, tables }) => (
         <section
           key={section.name}
           aria-labelledby={`app-section-heading-${section.name}`}
@@ -284,7 +296,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
       ))}
 
       {/* Child apps */}
-      {childApps.length > 0 && (
+      {showChildGrid && childApps.length > 0 && (
         <section aria-labelledby={`app-children-heading-${name}`} className="space-y-4 rounded-xl border border-border bg-card/50 p-5" data-qqq-id={`app-children-${name}`}>
           <h2 id={`app-children-heading-${name}`} className="text-lg font-semibold text-foreground">Apps</h2>
           <EntryGroup title="Apps" showTitle={false} idPrefix="app-child" kind="app" entries={childApps} />

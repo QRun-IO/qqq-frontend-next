@@ -22,7 +22,11 @@
 
 'use client'
 
+import { canSortField, isRestricted } from '@/lib/utils/secured-data'
+import { SecuredCellMenu } from '@/components/secured-data/SecuredCellMenu'
 import React, { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+
 import {
   useReactTable,
   getCoreRowModel,
@@ -31,25 +35,24 @@ import {
   type SortingState,
   type RowSelectionState,
 } from '@tanstack/react-table'
-import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import { ArrowUp, ArrowDown, BarChart3, CircleHelp, Filter, Inbox } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ArrowUp, ArrowDown, BarChart3, Filter, Inbox } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
-import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
+
 import { MAX_GRID_VALUE_LENGTH } from '@/lib/constants'
-import { selectHelpContent, QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { arrangePinnedColumns, effectivePins, getQueryColumns, orderColumns, type ColumnPins, type QueryColumn } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 import { joinedPreviewField } from '@/lib/utils/file-preview'
-import { HelpContent } from '@/components/records/HelpContent'
-import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
 import { tableHeaderQqqId } from '@/lib/utils/qqq-id'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
+import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
 import { DataCell } from './DataCell'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
-import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 
 /**
  * Props for the DataGrid component.
@@ -360,7 +363,6 @@ export function DataGrid({
       // join values are keyed `joinTable.field`; a FILE_PREVIEW field reads them so
       const cellField = column.isJoin ? joinedPreviewField(field, column.tableName) : field
       const sortInfo = sortMap.get(column.name)
-      const help = selectHelpContent(field.helpContents, QUERY_SCREEN_HELP_ROLES)
       const filtered = column.isQueryCriteria && filteredColumns?.has(column.name)
       // Explicitly narrow columns keep extra actions in the menu so those controls cannot
       // overflow a sticky cell and cover its neighbor.
@@ -369,10 +371,10 @@ export function DataGrid({
       return {
         id: column.name,
         size: widthOf(column),
-        enableSorting: column.isQueryCriteria,
+        enableSorting: column.isQueryCriteria && canSortField(field),
         header: () => (
           <div className="flex w-full min-w-0 items-center gap-0.5 overflow-hidden">
-            {column.isQueryCriteria ? (
+            {column.isQueryCriteria && canSortField(field) ? (
               <button
                 type="button"
                 className={cn('flex min-w-0 flex-1 items-center gap-0.5 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring', filtered && 'text-primary')}
@@ -393,7 +395,7 @@ export function DataGrid({
               // a virtual field the backend cannot sort or filter on (Material hides both)
               <span className="min-w-0 flex-1 line-clamp-2 whitespace-normal font-semibold" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
             )}
-            {help && !compactHeader && <ColumnHelp column={column} help={help} />}
+            <HelpIcon label={column.label} helpContents={field.helpContents} roles={QUERY_SCREEN_HELP_ROLES} helpKey={`table:${column.tableName || tableName};field:${field.name}`} data-qqq-id={`grid-header-help-${column.name}`} tooltipId={`grid-header-help-tooltip-${column.name}`} />
             {filtered && !compactHeader && (
               <button
                 type="button"
@@ -406,7 +408,7 @@ export function DataGrid({
                 <Filter className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
-            {onColumnStats && !compactHeader && (
+            {onColumnStats && !isRestricted(field) && !compactHeader && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onColumnStats(column.name, column.label) }}
@@ -431,18 +433,20 @@ export function DataGrid({
           </div>
         ),
         cell: ({ row }) => (
+          <SecuredCellMenu field={cellField} record={row.original} table={column.isJoin ? undefined : tableMetaData}>
           <DataCell
+            tableMetaData={column.isJoin ? undefined : tableMetaData}
             field={cellField}
             value={trimValue(row.original.values[column.name])}
             displayValue={trimValue(row.original.displayValues?.[column.name])}
             record={row.original}
-          />
+          /></SecuredCellMenu>
         ),
       }
     })
 
     return selectable ? [selectColumn, ...fieldColumns] : fieldColumns
-  }, [visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins, selectable])
+  }, [tableName, visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins, selectable, tableMetaData])
 
   const table = useReactTable<QRecord>({
     data: records,
@@ -887,55 +891,6 @@ export function DataGrid({
     </FilePreviewGallery>
   )
 }
-
-/** Props for {@link ColumnHelp}. */
-interface ColumnHelpProps {
-  /** The column. */
-  column: QueryColumn
-  /** The field's help for the query screen. */
-  help: NonNullable<ReturnType<typeof selectHelpContent>>
-}
-
-/**
- * The field-help icon of a column header: its tooltip shows the field's query-screen help, headed
- * by the column label (Material shows it on the header title).
- *
- * @param props - Component properties.
- * @returns The help icon with its tooltip.
- */
-function ColumnHelp({ column, help }: ColumnHelpProps) {
-  const tooltip = useFocusSafeTooltip()
-  return (
-    <TooltipPrimitive.Provider delayDuration={300}>
-      <TooltipPrimitive.Root open={tooltip.open} onOpenChange={tooltip.onOpenChange}>
-        <TooltipPrimitive.Trigger asChild onFocus={tooltip.onFocus} onBlur={tooltip.onBlur} onKeyDown={tooltip.onKeyDown}
-          onPointerDown={tooltip.onPointerDown} onClick={(e) => { e.stopPropagation(); tooltip.onClick(e) }}>
-          <button
-            type="button"
-            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            aria-label={`Help for ${column.label}`}
-            data-qqq-id={`grid-header-help-${column.name}`}
-          >
-            <CircleHelp className="h-3 w-3" aria-hidden="true" />
-          </button>
-        </TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Content
-            side="top"
-            sideOffset={4}
-            data-qqq-id={`grid-header-help-tooltip-${column.name}`}
-            className="z-[170] max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm font-normal text-foreground shadow-md"
-          >
-            <p className="mb-1 font-semibold">{column.label}</p>
-            <HelpContent helpContent={help} />
-            <TooltipPrimitive.Arrow className="fill-border" />
-          </TooltipPrimitive.Content>
-        </TooltipPrimitive.Portal>
-      </TooltipPrimitive.Root>
-    </TooltipPrimitive.Provider>
-  )
-}
-
 
 /** Props for {@link GridRow}. */
 interface GridRowProps {

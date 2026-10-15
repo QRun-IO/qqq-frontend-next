@@ -23,8 +23,22 @@ import { generatePolicy, parsePolicy, roundTrips, splitPermission } from './poli
 const FORMAT = { spec: 'qqq-iam', version: '1.0.0' }
 
 describe('generatePolicy', () => {
+  it('writes only the full-access statement, even beside named grants', () => {
+    const full = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action: ['*'], Resource: ['*'] },
+    ] }, FORMAT)
+    expect(full.ok).toBe(true)
+    if (!full.ok) return
+    expect(full.permissions.size).toBe(1)
+    expect(roundTrips(full.permissions, FORMAT)).toBe(true)
+    const generated = generatePolicy([...full.permissions, 'person.read', 'person.analyze'], FORMAT)
+    expect(generated.compact).toBe('{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["*"],"Resource":["*"]}]}')
+    expect(generated.statementCount).toBe(1)
+    expect(parsePolicy(generated.pretty, FORMAT)).toEqual(full)
+  })
+
   it('writes the canonical form the qbit writes (byte for byte)', () => {
-    const doc = generatePolicy(['cms_page.edit', 'contentApp.hasAccess', 'cms_page.read', 'cms_media.read', 'bad', 'x.write'], FORMAT)
+    const doc = generatePolicy(['cms_page.edit', 'contentApp.hasAccess', 'cms_page.read', 'cms_media.read', 'bad', 'x.bad-action'], FORMAT)
     expect(doc.compact).toBe('{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":['
       + '{"Effect":"Allow","Action":["hasAccess"],"Resource":["contentApp"]},'
       + '{"Effect":"Allow","Action":["read"],"Resource":["cms_media","cms_page"]},'
@@ -69,13 +83,26 @@ describe('generatePolicy', () => {
     expect(doc.pretty).toBe('{\n  "PolicySpec": "qqq-iam",\n  "PolicyVersion": "1.0.0",\n  "Statement": []\n}\n')
   })
 
+  it('orders named features after standard actions and preserves unknown names', () => {
+    const permissions = new Set(['person.write', 'person.comment', 'person.analyze', 'person.read', 'other.analyze', 'person.retiredFeature'])
+    const doc = generatePolicy(permissions, FORMAT)
+    expect(JSON.parse(doc.compact).Statement).toEqual([
+      { Effect: 'Allow', Action: ['read'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['analyze'], Resource: ['other', 'person'] },
+      { Effect: 'Allow', Action: ['comment'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['retiredFeature'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['write'], Resource: ['person'] },
+    ])
+    expect(roundTrips(permissions, FORMAT)).toBe(true)
+  })
+
   it('sorts resources like Java (UTF-16 code units: upper case first)', () => {
     expect(generatePolicy(['b.read', 'B.read', 'a_1.read', 'a.read'], FORMAT).compact).toContain('["B","a","a_1","b"]')
   })
 
   it('round-trips random sets', () => {
     const resources = ['a', 'B_2', 'cms_page', 'contentApp', 'x9']
-    const actions = ['hasAccess', 'read', 'insert', 'edit', 'delete']
+    const actions = ['hasAccess', 'read', 'insert', 'edit', 'delete', 'analyze', 'comment', 'write', 'Export_2']
     let seed = 7
     const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) % 3
     for (let run = 0; run < 200; run++) {
@@ -89,6 +116,37 @@ describe('generatePolicy', () => {
 })
 
 describe('parsePolicy', () => {
+  it('canonicalizes redundant grants only after validating all statements', () => {
+    const parsed = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action: ['read', 'analyze'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['*'], Resource: ['*', 'article'] },
+    ] }, FORMAT)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.permissions).toEqual(new Set(['*.*']))
+    expect(parsed.resources).toEqual(['*'])
+    expect(roundTrips(parsed.permissions, FORMAT)).toBe(true)
+  })
+
+  it.each([['read'], ['analyze'], ['*', 'read'], ['*', '*'], []].map((Action) => ({ Action })))('rejects Resource "*" with actions $Action', ({ Action }) => {
+    const parsed = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action, Resource: ['*'] },
+    ] }, FORMAT)
+    expect(parsed).toEqual({ ok: false, error: 'Statement 1: Resource "*" requires Action ["*"]' })
+  })
+
+  it.each([
+    { Effect: 'Deny', Action: ['read'], Resource: ['person'] },
+    { Effect: 'Allow', Action: ['read'], Resource: ['*'] },
+    { Effect: 'Allow', Action: ['bad-action'], Resource: ['person'] },
+    { Effect: 'Allow', Action: ['*'], Resource: ['*', 'bad.resource'] },
+  ])('fails closed on invalid statements beside full access: %j', (invalid) => {
+    const full = { Effect: 'Allow', Action: ['*'], Resource: ['*'] }
+    for (const Statement of [[full, invalid], [invalid, full]]) {
+      expect(parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement }, FORMAT).ok).toBe(false)
+    }
+  })
+
   it('grants resource.action, with * as all five', () => {
     const parsed = parsePolicy({ PolicySpec: 'qqq-iam', PolicyVersion: '1.0.0', Statement: [{ Effect: 'Allow', Action: ['*'], Resource: ['p'] }, { Effect: 'Allow', Action: ['read'], Resource: ['q', 'p'] }] }, FORMAT)
     expect(parsed.ok).toBe(true)
@@ -112,7 +170,7 @@ describe('parsePolicy', () => {
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[1]}', 'must be an object'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Deny","Action":["read"],"Resource":["a"]}]}', 'Deny is not supported'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":"read","Resource":["a"]}]}', 'Action must be an array'],
-    ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["write"],"Resource":["a"]}]}', 'unknown action "write"'],
+    ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["bad-action"],"Resource":["a"]}]}', 'invalid action "bad-action"'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["read"],"Resource":[2]}]}', 'Resource must be an array'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["read"],"Resource":["a.b"]}]}', 'must match'],
   ])('fails closed on %s', (text, message) => {
@@ -130,7 +188,9 @@ describe('parsePolicy', () => {
 describe('splitPermission', () => {
   it('splits valid policy permissions only', () => {
     expect(splitPermission('cms_page.read')).toEqual({ resource: 'cms_page', action: 'read' })
-    expect(splitPermission('a.write')).toBeNull()
+    expect(splitPermission('a.write')).toEqual({ resource: 'a', action: 'write' })
+    expect(splitPermission('a.2bad')).toBeNull()
+    expect(splitPermission('a.bad-action')).toBeNull()
     expect(splitPermission('.read')).toBeNull()
     expect(splitPermission('a.')).toBeNull()
     expect(splitPermission('authentik.users.read')).toBeNull()
