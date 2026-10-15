@@ -176,6 +176,10 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  jobs: () => ['qqq', 'jobs'] as const,
+  jobList: (filter: import('@/types/jobs').JobListFilter) => [...queryKeys.jobs(), 'list', filter] as const,
+  jobDetail: (id: number) => [...queryKeys.jobs(), 'detail', id] as const,
+  jobProgress: (id: number) => [...queryKeys.jobs(), 'progress', id] as const,
   revealOptions: (table: string, field: string) => [...queryKeys.all(), 'secured-data', 'options', table, field] as const,
   securedDataStatus: (path: string) => [...queryKeys.all(), 'secured-data', 'status', path] as const,
   /** All current-user preference queries.

@@ -135,6 +135,18 @@ describe('useProcess', () => {
     expect(result.current.state.currentStep?.name).toBe('done')
   })
 
+  it('preserves structured progress and the redacted log tail while polling', async () => {
+    const progress = { phases: [{ name: 'upload', label: 'Upload', status: 'RUNNING' }], percent: 25 }
+    const logTail = [{ id: 1, level: 'INFO', message: 'Wrote manifest' }]
+    vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'run-1', jobUUID: 'job-1' })
+    vi.mocked(processStatus).mockResolvedValue({ type: 'RUNNING', processUUID: 'run-1', progress, logTail })
+    const { result } = renderHook(() => useProcess('lab', process, request))
+    act(() => result.current.start())
+    await flush()
+    await act(async () => { await vi.advanceTimersByTimeAsync(POLL_INITIAL_MILLIS) })
+    expect(result.current.state.progress).toMatchObject({ progress, logTail })
+  })
+
   it('gives up polling with an error once the status endpoint keeps failing', async () => {
     vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'run-1', jobUUID: 'job-1' })
     vi.mocked(processStatus).mockRejectedValue(new Error('Network Error'))

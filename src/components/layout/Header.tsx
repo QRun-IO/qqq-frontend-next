@@ -25,6 +25,7 @@ import { Command, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
+import { JobsHeaderButton } from '@/components/jobs/JobsHeaderButton'
 import { useToastTopBelow } from '@/components/feedback/Toast'
 import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
 import type { SearchableTable } from '@/lib/utils/record-search'
@@ -163,6 +164,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
 
         {/* Notifications bell (the Alerts qbit's; renders nothing when Alerts is not available) */}
         {notificationsButton}
+        <JobsHeaderButton />
       </div>
     </header>
   )

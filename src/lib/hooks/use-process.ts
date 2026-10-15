@@ -59,6 +59,8 @@ export interface ProcessJobProgress {
   message?: string
   current?: number
   total?: number
+  progress?: import('@/types/jobs').JobProgressV1
+  logTail?: import('@/types/jobs').JobLogLineV1[]
   /** When the latest progress report arrived. */
   updatedAt: Date
 }
@@ -254,7 +256,7 @@ export function useProcess(
           setState((previous) => ({
             ...previous,
             phase: 'working',
-            progress: { message: response.message, current: response.current, total: response.total, updatedAt: new Date() },
+            progress: { message: response.message, current: response.current, total: response.total, progress: response.progress, logTail: response.logTail, updatedAt: new Date() },
           }))
           pollRef.current(generation, processUUID, jobUUID, POLL_INITIAL_MILLIS)
           return
