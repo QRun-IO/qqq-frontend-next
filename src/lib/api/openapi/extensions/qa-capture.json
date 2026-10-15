@@ -1,0 +1,411 @@
+{
+ "components": {
+  "schemas": {
+   "QaCaptureCapabilityV1": {
+    "description": "Whether QA capture is enabled for the signed-in user, and how to run it. Never 403: disabled users get enabled=false.",
+    "properties": {
+     "blurSelectors": {
+      "description": "CSS selectors blurred while recording; empty when not enabled.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "canReport": {
+      "type": "boolean"
+     },
+     "context": {
+      "$ref": "#/components/schemas/QaCaptureContextV1"
+     },
+     "cspOrigins": {
+      "$ref": "#/components/schemas/QaCaptureCspOriginsV1"
+     },
+     "enabled": {
+      "type": "boolean"
+     },
+     "provider": {
+      "description": "Provider name (jam), or null when not enabled.",
+      "nullable": true,
+      "type": "string"
+     },
+     "providerConfig": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/QaCaptureProviderConfigV1"
+       }
+      ],
+      "nullable": true
+     },
+     "qaMode": {
+      "$ref": "#/components/schemas/QaCaptureQaModeV1"
+     },
+     "reason": {
+      "enum": [
+       "AUDIENCE",
+       "QA_MODE",
+       "OFF",
+       "NOT_CONFIGURED",
+       "NO_ACCESS",
+       "QA_MODE_OFF"
+      ],
+      "type": "string"
+     },
+     "reportsHref": {
+      "description": "Link to the reports table when the user can view reports. Clients follow it and never build it.",
+      "nullable": true,
+      "type": "string"
+     },
+     "requestIdHeader": {
+      "description": "Response header carrying the request id.",
+      "type": "string"
+     },
+     "sanitizer": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/QaCaptureSanitizerV1"
+       }
+      ],
+      "nullable": true
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureContextV1": {
+    "description": "Backend context attached to captures.",
+    "properties": {
+     "backendVersion": {
+      "nullable": true,
+      "type": "string"
+     },
+     "environment": {
+      "nullable": true,
+      "type": "string"
+     },
+     "node": {
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureCspOriginsV1": {
+    "description": "Origins the provider needs in the page Content-Security-Policy.",
+    "properties": {
+     "connectSrc": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "frameSrc": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "scriptSrc": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureErrorV1": {
+    "description": "Framework error response.",
+    "properties": {
+     "error": {
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureProviderConfigV1": {
+    "description": "Provider settings the browser needs. Jam: team id, optional reusable Recording Link id, script URLs.",
+    "properties": {
+     "recordingLinkId": {
+      "description": "Reusable Recording Link id for in-app Report a bug, or null.",
+      "nullable": true,
+      "type": "string"
+     },
+     "scriptUrls": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "teamId": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureQaModeV1": {
+    "description": "Self-serve QA mode.",
+    "properties": {
+     "active": {
+      "type": "boolean"
+     },
+     "available": {
+      "type": "boolean"
+     },
+     "preferenceSection": {
+      "description": "Preference section that toggles QA mode, or null when unavailable.",
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureRecordingParamsV1": {
+    "additionalProperties": {
+     "type": "string"
+    },
+    "description": "jam-* query parameters that open the Recording Link for this report.",
+    "type": "object"
+   },
+   "QaCaptureReportRequestV1": {
+    "description": "A bug report started from the UI. Only pageUrl is required.",
+    "properties": {
+     "appName": {
+      "nullable": true,
+      "type": "string"
+     },
+     "frontendVersion": {
+      "nullable": true,
+      "type": "string"
+     },
+     "pageUrl": {
+      "type": "string"
+     },
+     "processName": {
+      "nullable": true,
+      "type": "string"
+     },
+     "recordId": {
+      "nullable": true,
+      "type": "string"
+     },
+     "requestIds": {
+      "description": "Recent request ids; the server keeps at most 50, each at most 128 characters.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "tableName": {
+      "nullable": true,
+      "type": "string"
+     },
+     "title": {
+      "nullable": true,
+      "type": "string"
+     },
+     "userAgent": {
+      "nullable": true,
+      "type": "string"
+     },
+     "viewport": {
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "required": [
+     "pageUrl"
+    ],
+    "type": "object"
+   },
+   "QaCaptureReportV1": {
+    "description": "The created report.",
+    "properties": {
+     "id": {
+      "type": "integer"
+     },
+     "recordingParams": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/QaCaptureRecordingParamsV1"
+       }
+      ],
+      "description": "Null when no Recording Link is configured.",
+      "nullable": true
+     },
+     "reference": {
+      "type": "string"
+     },
+     "title": {
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "QaCaptureSanitizerV1": {
+    "description": "Rules for the client-side capture sanitizers.",
+    "properties": {
+     "bodyFieldNames": {
+      "description": "JSON keys (any depth, case-insensitive) and form fields whose values are redacted.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "dropPathPrefixes": {
+      "description": "Same-origin path prefixes whose request and response bodies are dropped.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "headerNames": {
+      "description": "Lowercase header names removed from request and response headers.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "queryParamNames": {
+      "description": "Query parameters redacted in request URLs and removed from the page URL.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "redaction": {
+      "description": "Replacement text for redacted values.",
+      "type": "string"
+     },
+     "valuePatterns": {
+      "description": "JavaScript RegExp sources applied with flag g to bodies, console arguments and WebSocket data.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "contact": {
+   "email": "contact@kingsrook.com"
+  },
+  "description": "QA bug capture (Jam): capability for the signed-in user and in-app bug reports.",
+  "title": "QQQ Middleware API extension: qa-capture",
+  "version": "1.0.0"
+ },
+ "openapi": "3.0.3",
+ "paths": {
+  "/qqq/v1/qbit/qa-capture/capability": {
+   "get": {
+    "description": "Whether QA capture is enabled for the signed-in user, with the provider settings and sanitizer rules. Returns enabled=false instead of 403.",
+    "operationId": "qaCaptureCapability",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureCapabilityV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "401": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureErrorV1"
+        }
+       }
+      },
+      "description": "Sign in required"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "QA capture capability",
+    "tags": [
+     "QA Capture"
+    ]
+   }
+  },
+  "/qqq/v1/qbit/qa-capture/report": {
+   "post": {
+    "description": "Create a QA report for the current page and return the Recording Link parameters to open the recorder with.",
+    "operationId": "qaCaptureReportCreate",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/QaCaptureReportRequestV1"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureReportV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureErrorV1"
+        }
+       }
+      },
+      "description": "Invalid request"
+     },
+     "401": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureErrorV1"
+        }
+       }
+      },
+      "description": "Sign in required"
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QaCaptureErrorV1"
+        }
+       }
+      },
+      "description": "QA capture is not enabled for this user"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Create a QA report",
+    "tags": [
+     "QA Capture"
+    ]
+   }
+  }
+ }
+}
