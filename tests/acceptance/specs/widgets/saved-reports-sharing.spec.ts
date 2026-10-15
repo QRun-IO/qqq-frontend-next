@@ -241,6 +241,7 @@ test('[WID-073] report preview handles missing count capability and refuses an o
     const response = await route.fetch()
     const payload = await response.json()
     payload.supplementalInstanceMetaData = { ...payload.supplementalInstanceMetaData,
+      uiSettings: { ...payload.supplementalInstanceMetaData?.uiSettings, queryScreenCopyFullQueryColumnValuesLimit: 2 },
       materialDashboard: { ...payload.supplementalInstanceMetaData?.materialDashboard, queryScreenCopyFullQueryColumnValuesLimit: 2 } }
     await route.fulfill({ response, json: payload })
   })

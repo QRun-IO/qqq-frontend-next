@@ -289,6 +289,7 @@ export function ProcessRun({
       <ProcessErrorState
         error={state.error?.message ?? null}
         isUserFacing={state.error?.isUserFacing ?? false}
+        traceId={state.error?.traceId}
         processName={processName}
         processLabel={processMetaData.label}
         onRetry={start}

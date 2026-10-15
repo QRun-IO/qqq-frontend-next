@@ -18,6 +18,8 @@
  * @file ESB API — permission-checked `/qqq/v1/esb` endpoints served by the `qqq-esb` module.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import type {
   EsbMessagePage,
   EsbOverviewResponse,
@@ -143,7 +145,7 @@ export async function runEsbAction(
     response = await processStatus(processName, response.processUUID, jobUUID)
   }
   if (response.type === 'ERROR') {
-    throw new Error(response.userFacingError ?? response.error)
+    throw new Error(getErrorMessage(response))
   }
   if (response.nextStep) {
     throw new Error('The action requires an unexpected additional step.')

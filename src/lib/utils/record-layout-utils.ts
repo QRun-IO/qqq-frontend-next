@@ -22,7 +22,8 @@
  */
 
 import type { QFieldMetaData, QInstance, QTableMetaData, QTableSection, QueryJoin, QWidgetMetaData } from '@/types'
-import { MATERIAL_DASHBOARD_TYPE, materialDashboardTableMetaData } from './goto-utils'
+import { materialDashboardTableMetaData } from './goto-utils'
+import { uiSetting } from './ui-settings'
 import { withReadableExposedJoins } from './query-columns'
 import { containerSpanClasses } from './responsive-grid'
 
@@ -191,10 +192,7 @@ function asPlacement(value: unknown): RecordViewActionsPlacement | undefined {
  * @returns The placement.
  */
 export function recordViewActionsPlacement(instance: QInstance | undefined, table: QTableMetaData): RecordViewActionsPlacement {
-  const settings = instance?.supplementalInstanceMetaData?.[MATERIAL_DASHBOARD_TYPE]
-  const fromInstance = settings && typeof settings === 'object'
-    ? asPlacement((settings as { recordViewActionsPlacement?: unknown }).recordViewActionsPlacement)
-    : undefined
+  const fromInstance = asPlacement(uiSetting(instance, 'recordViewActionsPlacement'))
   return fromInstance ?? asPlacement(materialDashboardTableMetaData(table)?.recordViewActionsPlacement) ?? 'IN_IDENTITY_SECTION'
 }
 

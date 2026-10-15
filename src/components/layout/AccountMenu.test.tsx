@@ -30,6 +30,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { preferencesFixture } from '@/mocks/fixtures/preferences'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { md5Hex } from '@/lib/utils/gravatar'
@@ -130,5 +131,26 @@ describe('HelpMenu', () => {
     } finally {
       setSingleKeyShortcutsEnabled(true)
     }
+  })
+})
+
+describe("What's new in the Help menu", () => {
+  it('hides the entry without the extension and makes no summary request', async () => {
+    server.use(uiApiVersionHandler())
+    const request = vi.fn()
+    server.use(http.get('/qqq/v1/qbit/release-notes/summary', () => { request(); return HttpResponse.json({ unreadCount: 2 }) }))
+    render(<HelpMenu onSearchHelp={vi.fn()} onShortcuts={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Help' }))
+    expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /What's new/ })).not.toBeInTheDocument()
+    expect(request).not.toHaveBeenCalled()
+  })
+  it.each([0, 3, 12])('shows the installed entry with unread count %i', async (unreadCount) => {
+    server.use(uiApiVersionHandler('release-notes'), http.get('/qqq/v1/qbit/release-notes/summary', () => HttpResponse.json({ unreadCount })))
+    render(<HelpMenu onSearchHelp={vi.fn()} onShortcuts={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Help' }))
+    expect(await screen.findByRole('menuitem', { name: /What's new/ })).toHaveAttribute('href', '/app/whats-new')
+    if (unreadCount) expect(await screen.findByLabelText(`${unreadCount} unread releases`)).toHaveTextContent(unreadCount > 9 ? '9+' : String(unreadCount))
+    else expect(document.querySelector('[data-qqq-id="whats-new-unread"]')).toBeNull()
   })
 })

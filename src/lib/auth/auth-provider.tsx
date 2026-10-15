@@ -59,7 +59,7 @@ import { checkUiApiCompatibility } from '@/lib/api/ui-api-version'
 import apiClient from '@/lib/api/client'
 import { analytics } from '@/lib/analytics/analytics'
 import { queryClient } from '@/lib/query-client'
-import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { getErrorMessage, getErrorStatusCode } from '@/lib/utils/error-utils'
 import {
   claimClientData,
   clearUserClientData,
@@ -176,8 +176,7 @@ const PROVIDER_TYPES = new Set(['OAUTH2', 'AUTH_0'])
  */
 function signInErrorMessage(error: unknown): string {
   const status = getErrorStatusCode(error)
-  const body = (error as { response?: { data?: { error?: unknown } } })?.response?.data
-  const detail = typeof body?.error === 'string' && body.error ? body.error : error instanceof Error ? error.message : ''
+  const detail = getErrorMessage(error, '')
   if (status === 401 || status === 403) return `Sign-in was denied${detail ? `: ${detail}` : '.'}`
   return `Sign-in failed${detail ? `: ${detail}` : '.'}`
 }
@@ -415,6 +414,10 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         setIsAuthenticated(false)
         setUser(null)
       }
+      // End the session's request generation first: requests still in flight are aborted and
+      // any late response is discarded, so none can refresh the sessionId cookie the logout
+      // expires or change auth state after it.
+      apiClient.endSession()
       try {
         // the backend also expires both session cookies (QRun-IO/qqq#674)
         await apiLogout()

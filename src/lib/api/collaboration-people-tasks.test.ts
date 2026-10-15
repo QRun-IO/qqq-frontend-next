@@ -21,7 +21,7 @@ import { beaconPresence, listMyTasks, normalizeComment, searchPeople } from './c
 import { readRealtimeStream, updateRealtimeSubscriptions } from './realtime'
 
 vi.mock('./client', () => ({
-  default: { get: vi.fn(), post: vi.fn(), notifyUnauthorized: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), notifyUnauthorized: vi.fn(), sessionSignal: () => new AbortController().signal },
   CLIENT_CHANNEL_HEADER: { 'X-QQQ-Client': 'next-ui' },
   userTimeZoneHeader: () => ({}),
 }))

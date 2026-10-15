@@ -218,7 +218,7 @@ export default function RecordViewPage() {
         allTables={metaData?.tables}
         widgetMetaDataMap={metaData?.widgets}
         associationTables={associationTables}
-        auditSource={auditSource(metaData)}
+        auditSource={auditSource(metaData, tableMetaData.clientCapabilities)}
       /></Suspense>
     </>
   )

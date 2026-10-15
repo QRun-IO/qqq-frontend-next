@@ -22,6 +22,8 @@
 
 'use client'
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import React, { useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
@@ -66,7 +68,7 @@ async function loadColumnStats(tableName: string, fieldName: string, filter: Par
     stepTimeoutMillis: 60 * 1000,
     ...(tableVariant ? { tableVariant: JSON.stringify({ type: tableVariant.type, id: tableVariant.id }) } : {}),
   })
-  if ('error' in response && response.error) throw new Error(response.userFacingError ?? response.error)
+  if ('error' in response && response.error) throw new Error(getErrorMessage(response))
   if (!('values' in response)) throw new Error('Column statistics did not complete.')
   const values = response.values ?? {}
   return {

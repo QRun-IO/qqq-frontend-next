@@ -74,3 +74,14 @@ it('keeps view help beside the label inside caller layout classes', () => {
   expect(label.parentElement).toHaveClass('inline-flex', 'items-center')
   expect(label.nextElementSibling).toContainElement(screen.getByRole('button', { name: 'Help for Topic Name' }))
 })
+
+it('renders authoritative required and max-length hints from field.validation', () => {
+  render(<Harness metadata={{ isRequired: false, maxLength: 1, validation: { required: true, maxLength: 5, tooLongBehavior: 'ERROR' } }} />)
+  expect(screen.getByRole('textbox')).toHaveAttribute('aria-required', 'true')
+  expect(screen.getByRole('textbox')).toHaveAttribute('maxlength', '5')
+})
+it('does not cap a pass-through field using legacy length metadata', () => {
+  render(<Harness metadata={{ isRequired: true, maxLength: 1, validation: { required: false, maxLength: 5, tooLongBehavior: 'PASS_THROUGH' } }} />)
+  expect(screen.getByRole('textbox')).not.toHaveAttribute('maxlength')
+  expect(screen.getByRole('textbox')).not.toHaveAttribute('aria-required', 'true')
+})

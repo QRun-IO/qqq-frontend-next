@@ -65,7 +65,7 @@ export function ShareButton({ tableMetaData, record }: ShareButtonProps) {
   const { userId } = useQContext()
   const [open, setOpen] = useState(false)
   const sharing = tableMetaData.shareableTableMetaData as ShareableTableMetaData | undefined
-  if (!sharing) return null
+  if (!sharing || (tableMetaData.clientCapabilities !== undefined && !tableMetaData.clientCapabilities.sharing?.available)) return null
   const ownerField = sharing.thisTableOwnerIdFieldName
   const isOwner = !ownerField || (userId !== undefined && String(record.values[ownerField] ?? '') === userId)
   const reason = isOwner ? undefined : `Only the owner of a ${tableMetaData.label} may share it.`
@@ -119,13 +119,13 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
   const load = useCallback(async () => {
     setStatus('Loading...')
     try {
-      setShares(await getSharedRecords(tableMetaData.name, recordId))
+      setShares(await getSharedRecords(tableMetaData.name, recordId, tableMetaData.clientCapabilities))
       setStatus(null)
     } catch (failure) {
       setStatus(null)
       setError(`Error loading: ${(failure as Error).message}`)
     }
-  }, [tableMetaData.name, recordId])
+  }, [tableMetaData.name, tableMetaData.clientCapabilities, recordId])
 
   useEffect(() => { void load() }, [load])
 
@@ -155,7 +155,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
   async function handleShare() {
     const selected = splitAudienceOption(audience)
     if (!selected) return
-    await change('Saving...', () => insertSharedRecord(tableMetaData.name, recordId, selected.audienceType, selected.audienceId, scope), 'Error sharing record')
+    await change('Saving...', () => insertSharedRecord(tableMetaData.name, recordId, selected.audienceType, selected.audienceId, scope, tableMetaData.clientCapabilities), 'Error sharing record')
     setValue('audience', '')
   }
 
@@ -218,7 +218,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
             <button
               type="button"
               onClick={handleShare}
-              disabled={busy || !splitAudienceOption(audience)}
+              disabled={busy || !splitAudienceOption(audience) || (tableMetaData.clientCapabilities !== undefined && !tableMetaData.clientCapabilities.sharing?.insertProcessName)}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               data-qqq-id="button-share-save"
             >
@@ -241,8 +241,8 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                     <select
                       id={`share-scope-${share.shareId}`}
                       value={share.scopeId}
-                      disabled={busy}
-                      onChange={(event) => change('Saving...', () => editSharedRecord(tableMetaData.name, recordId, share.shareId, event.target.value as ShareScope), 'Error editing shared record')}
+                      disabled={busy || (tableMetaData.clientCapabilities !== undefined && !tableMetaData.clientCapabilities.sharing?.editProcessName)}
+                      onChange={(event) => change('Saving...', () => editSharedRecord(tableMetaData.name, recordId, share.shareId, event.target.value as ShareScope, tableMetaData.clientCapabilities), 'Error editing shared record')}
                       className="rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:h-11"
                       data-qqq-id={`share-scope-${share.shareId}`}
                     >
@@ -250,8 +250,8 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                     </select>
                     <button
                       type="button"
-                      disabled={busy}
-                      onClick={() => change('Deleting...', () => deleteSharedRecord(tableMetaData.name, recordId, share.shareId), 'Error deleting share')}
+                      disabled={busy || (tableMetaData.clientCapabilities !== undefined && !tableMetaData.clientCapabilities.sharing?.deleteProcessName)}
+                      onClick={() => change('Deleting...', () => deleteSharedRecord(tableMetaData.name, recordId, share.shareId, tableMetaData.clientCapabilities), 'Error deleting share')}
                       aria-label={`Remove share with ${share.audienceLabel}`}
                       className={cn('rounded p-1 text-destructive hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50')}
                       data-qqq-id={`button-share-remove-${share.shareId}`}

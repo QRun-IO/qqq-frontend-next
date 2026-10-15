@@ -16,18 +16,22 @@
 
 /**
  * @file HelpMenu — the one Help entry in the header (WCAG 3.2.6 Consistent Help): search help,
- * keyboard shortcuts, feature slots (What's new) and Report a bug. On compact screens the same
+ * keyboard shortcuts, What's new (release notes, when installed), feature slots and Report a bug. On compact screens the same
  * items open from the account menu.
  */
 
 'use client'
 
 import React from 'react'
-import { HelpCircle, Keyboard, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { HelpCircle, Keyboard, Search, Sparkles } from 'lucide-react'
 
 import { useHelpPanel } from '@/components/help/HelpPanelProvider'
 import { ReportBugMenuItems } from '@/components/qa-capture/ReportBugMenuItems'
+import { UI_API_EXTENSION, useUiApiExtensionInstalled } from '@/lib/api/ui-api-extensions'
 import { useSingleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
+import { queryKeys } from '@/lib/query-client'
 import { HEADER_MENU_ITEM_CLASS, HeaderMenu } from './HeaderMenu'
 
 /** Props for {@link HelpMenuItems} and {@link HelpMenu}. */
@@ -53,6 +57,17 @@ export interface HelpMenuItemsProps {
 export function HelpMenuItems({ onSearchHelp, onShortcuts, extraItems, close }: HelpMenuItemsProps & { close: (then?: () => void) => void }) {
   const { searchEnabled } = useHelpPanel()
   const singleKeys = useSingleKeyShortcutsEnabled()
+  // What's new (release notes), when that extension is installed, with its unread count
+  const releaseNotesInstalled = useUiApiExtensionInstalled(UI_API_EXTENSION.releaseNotes)
+  const releaseSummary = useQuery({
+    queryKey: queryKeys.releaseNotesSummary(),
+    queryFn: () => import('@/lib/api/release-notes').then((api) => api.getReleaseNotesSummary()),
+    enabled: releaseNotesInstalled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  })
+  const unreadReleases = releaseSummary.data?.unreadCount ?? 0
   return (
     <>
       {searchEnabled && (
@@ -68,6 +83,17 @@ export function HelpMenuItems({ onSearchHelp, onShortcuts, extraItems, close }: 
         <span className="flex-1">Keyboard shortcuts</span>
         {singleKeys && <kbd className="rounded border border-border px-1.5 font-mono text-xs text-muted-foreground" aria-hidden="true">?</kbd>}
       </button>
+      {releaseNotesInstalled && (
+        <Link href="/app/whats-new" role="menuitem" onClick={() => close()} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-whats-new">
+          <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span className="flex-1">What&apos;s new</span>
+          {unreadReleases > 0 && (
+            <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground" data-qqq-id="whats-new-unread" aria-label={`${unreadReleases} unread releases`}>
+              {unreadReleases > 9 ? '9+' : unreadReleases}
+            </span>
+          )}
+        </Link>
+      )}
       {extraItems?.(close)}
       <ReportBugMenuItems onSelect={() => close()} />
     </>

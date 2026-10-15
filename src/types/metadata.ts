@@ -326,7 +326,53 @@ export interface QRelatedRecordPicker {
   canRemoveChildren?: boolean
 }
 
+/** Per-user process capability supplied by UI API 1.6. */
+export interface ProcessCapabilityV1 {
+  available?: boolean | null
+  processName?: string
+}
+/** Per-user table features; absence alone permits legacy discovery. */
+export interface TableCapabilitiesV1 {
+  savedViews?: {
+    available?: boolean | null
+    queryProcessName?: string
+    storeProcessName?: string
+    deleteProcessName?: string
+  }
+  audits?: {
+    available?: boolean | null
+    level?: string
+    processName?: string
+    tableName?: string
+    detailTableName?: string
+  }
+  sharing?: {
+    available?: boolean | null
+    listProcessName?: string
+    insertProcessName?: string
+    editProcessName?: string
+    deleteProcessName?: string
+  }
+  bulkInsert?: ProcessCapabilityV1
+  bulkEdit?: ProcessCapabilityV1
+  bulkEditWithFile?: ProcessCapabilityV1
+  bulkDelete?: ProcessCapabilityV1
+}
+/** Client validation hints; the server remains authoritative. */
+export interface FieldValidationV1 {
+  required?: boolean | null
+  maxLength?: number
+  tooLongBehavior?: 'ERROR' | 'TRUNCATE' | 'TRUNCATE_ELLIPSIS' | 'PASS_THROUGH'
+  minValue?: string
+  maxValue?: string
+  minInclusive?: boolean | null
+  maxInclusive?: boolean | null
+  pattern?: string
+  patternMessage?: string
+}
+
 export interface QTableMetaData {
+  clientCapabilities?: TableCapabilitiesV1
   /** Whether any visible field has restricted access. */
   hasRestrictedFields?: boolean
   /** Effective collaboration features and session capabilities from core. */
@@ -437,6 +483,7 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  validation?: FieldValidationV1
   /** Effective server access; absent means FULL. HIDDEN fields are never sent. */
   accessTier?: 'FULL' | 'REVEALABLE' | 'MASKED'
   /** Allowed criteria operators for a restricted field. */
@@ -940,6 +987,7 @@ export interface QHelpContent {
   /** How `content` is written: `TEXT` (default), `HTML` or `MARKDOWN`. */
   format?: 'TEXT' | 'HTML' | 'MARKDOWN'
   /** Backend-rendered HTML for `content` (MARKDOWN converted; TEXT and HTML as-is). */
+  contentAsText?: string
   contentAsHtml?: string
   /** Optional list of external documentation links. */
   links?: Array<{ label: string; url: string }>
@@ -953,6 +1001,7 @@ export interface QHelpContent {
  * Supports both Material Icons (by name) and custom SVG paths.
  */
 export interface QIcon {
+  semanticName?: string
   /** Material Icon name or custom icon identifier; omitted when only `path` is set. */
   name?: string
   /** Optional SVG path or image URL for custom icons. */

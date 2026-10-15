@@ -23,7 +23,7 @@
     "type": "object"
    },
    "AlertsErrorV1": {
-    "description": "Framework error response.",
+    "description": "Deprecated since 1.2.0: errors use BasicErrorResponseV1.",
     "properties": {
      "error": {
       "nullable": true,
@@ -160,6 +160,11 @@
      "pollSeconds": {
       "type": "integer"
      },
+     "preferencesSection": {
+      "description": "Name of the user Preferences section for notification settings (/qqq/v1/preferences/{name}), or null when not registered.",
+      "nullable": true,
+      "type": "string"
+     },
      "unreadCount": {
       "type": "integer"
      }
@@ -289,10 +294,76 @@
      }
     },
     "type": "object"
+   },
+   "BasicErrorResponseV1": {
+    "description": "The error body of every UI API operation (core and extensions).",
+    "properties": {
+     "code": {
+      "description": "A stable, machine-readable code. Well-known values: BAD_REQUEST (400), UNAUTHENTICATED (401),\nPERMISSION_DENIED (403), NOT_FOUND (404), CONFLICT (409), RATE_LIMITED (429), INTERNAL_ERROR (500),\nERROR (other). Extensions may add codes; treat an unknown code by the HTTP status. Since 1.6.0.",
+      "type": "string"
+     },
+     "error": {
+      "description": "The error message (the same as message; kept for clients of UI API 1.0 to 1.5).",
+      "type": "string"
+     },
+     "fieldErrors": {
+      "description": "Errors about particular request fields, when known. Since 1.6.0.",
+      "items": {
+       "properties": {
+        "code": {
+         "description": "An optional machine-readable code, e.g. REQUIRED, TOO_LONG, PATTERN.",
+         "type": "string"
+        },
+        "field": {
+         "description": "The field (or parameter) name.",
+         "type": "string"
+        },
+        "message": {
+         "description": "The error about that field.",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "message": {
+      "description": "A message to show the user. Since 1.6.0.",
+      "type": "string"
+     },
+     "traceId": {
+      "description": "Identifies this request in the server logs (also the X-QQQ-Trace-Id response header); quote it when reporting a problem. Since 1.6.0.",
+      "type": "string"
+     }
+    },
+    "type": "object"
    }
   },
   "securitySchemes": {
+   "bearerAuth": {
+    "bearerFormat": "JWT or session UUID",
+    "description": "`Authorization: Bearer <token>`, where the token is either\n- an OAuth2 access token (a signed JWT) issued by the app's identity provider to the app's client,\n  or to its native client (`values.nativeClientId` in GET /qqq/v1/metaData/authentication), for\n  example from the device-authorization grant or auth-code + PKCE. It is verified against the\n  provider's keys (issuer, audience, expiry, signature) and gives the same user and permissions\n  as signing in on the web. When it expires (401), refresh it at the provider and retry; or\n- a session UUID returned by POST /qqq/v1/manageSession, which the server keeps refreshed.",
+    "scheme": "bearer",
+    "type": "http"
+   },
+   "oauth2": {
+    "description": "The app's OAuth2 / OpenID Connect provider. The real endpoints come from the provider's discovery\ndocument: `{values.baseUrl}.well-known/openid-configuration`, with values from\nGET /qqq/v1/metaData/authentication. Native clients use `values.nativeClientId` (a public client)\nwith auth-code + PKCE (loopback or custom-scheme redirect URI registered at the provider) or the\ndevice-authorization grant (`device_authorization_endpoint`, RFC 8628), then send the access token\nas `Authorization: Bearer`.",
+    "flows": {
+     "authorizationCode": {
+      "authorizationUrl": "/authorize",
+      "scopes": {
+       "email": "Email address",
+       "offline_access": "A refresh token, to renew the access token without signing in again",
+       "openid": "OpenID Connect sign-in",
+       "profile": "Name, username and groups (permissions come from the groups)"
+      },
+      "tokenUrl": "/token"
+     }
+    },
+    "type": "oauth2"
+   },
    "sessionUuidCookie": {
+    "description": "The session cookie set by POST /qqq/v1/manageSession (web clients).",
     "in": "cookie",
     "name": "sessionUUID",
     "type": "apiKey"
@@ -305,7 +376,7 @@
   },
   "description": "Alerts inbox and record panel",
   "title": "QQQ Middleware API extension: alerts",
-  "version": "1.0.0"
+  "version": "1.2.0"
  },
  "openapi": "3.0.3",
  "paths": {
@@ -375,7 +446,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -385,7 +456,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -395,7 +466,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -405,11 +476,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -417,9 +508,24 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Page the notification inbox"
+    "summary": "Page the notification inbox",
+    "tags": [
+     "alerts"
+    ]
    }
   },
   "/qqq/v1/alerts/inbox/dismiss": {
@@ -451,7 +557,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -461,7 +567,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -471,7 +577,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -481,11 +587,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -493,9 +619,24 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Dismiss own notifications"
+    "summary": "Dismiss own notifications",
+    "tags": [
+     "alerts"
+    ]
    }
   },
   "/qqq/v1/alerts/inbox/read": {
@@ -527,7 +668,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -537,7 +678,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -547,7 +688,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -557,11 +698,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -569,9 +730,24 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Mark own notifications read"
+    "summary": "Mark own notifications read",
+    "tags": [
+     "alerts"
+    ]
    }
   },
   "/qqq/v1/alerts/inbox/summary": {
@@ -593,7 +769,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -603,7 +779,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -613,7 +789,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -623,11 +799,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -635,9 +831,24 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Read the bell summary"
+    "summary": "Read the bell summary",
+    "tags": [
+     "alerts"
+    ]
    }
   },
   "/qqq/v1/alerts/inbox/unread": {
@@ -669,7 +880,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -679,7 +890,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -689,7 +900,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -699,11 +910,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -711,9 +942,24 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Mark own notifications unread"
+    "summary": "Mark own notifications unread",
+    "tags": [
+     "alerts"
+    ]
    }
   },
   "/qqq/v1/alerts/record-panel": {
@@ -755,7 +1001,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -765,7 +1011,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -775,7 +1021,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
@@ -785,11 +1031,31 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/AlertsErrorV1"
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
         }
        }
       },
       "description": "Not found"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Conflict with the current state, e.g. an edit conflict or an invalid transition (code CONFLICT)."
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Too many requests (code RATE_LIMITED); retry later."
      }
     },
     "security": [
@@ -797,10 +1063,37 @@
       "sessionUuidCookie": [
        "N/A"
       ]
+     },
+     {
+      "bearerAuth": [
+       "N/A"
+      ]
+     },
+     {
+      "oauth2": [
+       "openid",
+       "profile",
+       "email"
+      ]
      }
     ],
-    "summary": "Read visible alerts for a record"
+    "summary": "Read visible alerts for a record",
+    "tags": [
+     "alerts"
+    ]
    }
   }
- }
+ },
+ "servers": [
+  {
+   "description": "The QQQ server that serves this document (paths include /qqq/v1).",
+   "url": "/"
+  }
+ ],
+ "tags": [
+  {
+   "description": "Operations of the alerts extension.",
+   "name": "alerts"
+  }
+ ]
 }
