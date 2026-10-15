@@ -314,8 +314,9 @@ function refusedResponse(error: unknown): ProcessErrorResponse {
     const status = error.response.status
     const body = error.response.data
     const normalized = normalizeProcessResponse(body)
-    if (status === 403 && !(normalized.type === 'ERROR' && normalized.message)) {
-      return { type: 'ERROR', processUUID: normalized.processUUID, status, error: 'Permission denied.', userFacingError: 'You do not have permission to run this process.' }
+    if (status === 403) {
+      const traceId = normalized.type === 'ERROR' ? normalized.traceId : undefined
+      return { type: 'ERROR', processUUID: normalized.processUUID, status, error: 'Permission denied.', userFacingError: 'You do not have permission to run this process.', ...(traceId ? { traceId } : {}) }
     }
     if (normalized.type === 'ERROR' && normalized.error !== 'Unexpected server response.') {
       return { ...normalized, status }
