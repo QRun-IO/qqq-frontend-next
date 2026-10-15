@@ -39,10 +39,12 @@ vi.mock('@/lib/api/processes', async (importOriginal) => ({
   processJob: vi.fn(),
 }))
 vi.mock('@/lib/api/metadata', () => ({ loadMetaData: vi.fn().mockResolvedValue({ apps: {}, appTree: [] }) }))
-vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: undefined }) }))
+vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: undefined }), useMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/hooks/use-process', () => ({
   useProcess: () => ({ state: processState.current, start: vi.fn(), submit: vi.fn(), back: vi.fn(), cancel: vi.fn() }),
 }))
+
+vi.mock('@/components/jobs/JobDetailView', () => ({ JobDetailView: ({ jobId }: { jobId: number }) => <div data-testid="durable-live">{jobId}</div> }))
 
 import { ProcessRun } from './ProcessRun'
 
@@ -113,7 +115,7 @@ describe('ProcessRun durable jobs', () => {
     await waitFor(() => expect(processJob).toHaveBeenCalledWith('genericProcess', {
       values: { preset: true, collected: 'earlier', note: 'edited' }, recordIds: ['7', 'item-two'], startAfterStep: 'confirm', label: 'Generic process',
     }))
-    expect(push).toHaveBeenCalledWith('/app/jobs_job/42')
+    expect(push).toHaveBeenCalledWith('/app/jobs/42')
   })
 
   it('posts the original filter as JSON instead of record ids, including in an embedded run', async () => {
@@ -123,7 +125,7 @@ describe('ProcessRun durable jobs', () => {
     await waitFor(() => expect(processJob).toHaveBeenCalledWith('genericProcess', {
       values: { collected: 'earlier', note: 'old' }, filter, startAfterStep: 'confirm', label: 'Generic process',
     }))
-    expect(push).toHaveBeenCalledWith('/app/jobs_job/42')
+    expect(push).toHaveBeenCalledWith('/app/jobs/42')
   })
 
   it.each([400, 403, 404, 429])('shows the server error on HTTP %s and keeps inputs for retry', async (status) => {
@@ -139,23 +141,10 @@ describe('ProcessRun durable jobs', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('shows the background banner and job link alongside the normal summary lines', () => {
-    processState.current = {
-      ...processState.current, currentStep: resultStep,
-      values: { durableJobId: 42, processResults: [{ status: 'INFO', message: 'The remaining records will be processed in the background.' }] },
-    }
+  it.each(['step', 'complete'])('shows a live durable job for a %s response', (phase) => {
+    processState.current = { ...processState.current, phase, values: { durableJobId: 42 } }
     renderBackgroundRun()
-    expect(screen.getByRole('region', { name: 'Page banner' })).toHaveTextContent('Running as a background job')
-    expect(screen.getByRole('link', { name: 'Open job' })).toHaveAttribute('href', '/app/jobs_job/42')
-    expect(screen.getByText('The remaining records will be processed in the background.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Run in background' })).not.toBeInTheDocument()
-  })
-
-  it('also shows the job link for a completed response without a next step', () => {
-    processState.current = { ...processState.current, phase: 'complete', values: { durableJobId: 42, processResults: [{ status: 'INFO', message: 'Queued for processing.' }] } }
-    renderBackgroundRun()
-    expect(screen.getByRole('link', { name: 'Open job' })).toHaveAttribute('href', '/app/jobs_job/42')
-    expect(screen.getByText('Queued for processing.')).toBeInTheDocument()
+    expect(screen.getByTestId('durable-live')).toHaveTextContent('42')
   })
 
   it('disables both submit actions while the job request is pending', async () => {
@@ -168,7 +157,7 @@ describe('ProcessRun durable jobs', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Run in background' }))
     expect(processJob).toHaveBeenCalledTimes(1)
     resolveJob({ jobId: 42, status: 'QUEUED' })
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/jobs_job/42'))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/jobs/42'))
   })
 
   it('does not show a background banner for an ordinary process response', () => {

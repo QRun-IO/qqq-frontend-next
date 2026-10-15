@@ -218,7 +218,9 @@ export function mapServerErrors(messages: readonly string[], fields: readonly QF
     let field: QFieldMetaData | undefined
     let text = message
     let match: RegExpExecArray | null
-    if ((match = REQUIRED_PATTERN.exec(message))) {
+    if ((match = /^(.*?) \[.*\] is not a valid choice for the selected /u.exec(message))) {
+      field = exact(match[1])
+    } else if ((match = REQUIRED_PATTERN.exec(message))) {
       field = exact(match[1])
       text = requiredMessage(field?.label ?? match[1])
     } else if ((match = TOO_LONG_PATTERN.exec(message))) {

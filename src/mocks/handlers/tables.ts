@@ -320,6 +320,11 @@ const tableLabels: Record<string, string> = {
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 export const tableHandlers = [
+  http.get(`${BASE}/table/:tableName/apis`, () => HttpResponse.json({ apis: [] })),
+  http.get(`${BASE}/table/:tableName/apis/:apiName/:version/openapi`, () =>
+    HttpResponse.json({ error: 'Table is not exposed in this API version' }, { status: 404 })),
+  http.post(`${BASE}/table/:tableName/formAdjuster/:identifier/:event`, () => HttpResponse.json({})),
+
 
   // POST /search — global search across all tables
   http.post(`${BASE}/search`, async ({ request }) => {

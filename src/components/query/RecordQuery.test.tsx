@@ -81,6 +81,25 @@ describe('RecordQuery joined read permissions', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  it('resets an unsaved view to the short column set', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = { nextUi: { defaultColumns: ['id', 'firstName'] } }
+    captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect((await screen.findAllByText('Alice'))[0]).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Configure columns/i }))
+    const chooser = within(screen.getByRole('dialog', { name: 'Configure columns' }))
+    expect(chooser.getByRole('button', { name: 'Show column Last Name' })).toHaveAttribute('aria-pressed', 'false')
+    await user.click(chooser.getByRole('button', { name: 'Show column Last Name' }))
+    await user.click(screen.getByRole('button', { name: 'Close column configuration' }))
+    await user.click(screen.getByRole('button', { name: 'Reset All Changes' }))
+    await user.click(screen.getByRole('button', { name: /Configure columns/i }))
+    const resetChooser = within(screen.getByRole('dialog', { name: 'Configure columns' }))
+    expect(resetChooser.getByRole('button', { name: 'Show column Last Name' })).toHaveAttribute('aria-pressed', 'false')
+    expect(resetChooser.getByRole('button', { name: 'Hide column First Name' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('keeps phone filters in the sheet and preserves the mode when opening it', async () => {
     vi.stubGlobal('innerWidth', 393)
     vi.stubGlobal('matchMedia', (query: string) => ({

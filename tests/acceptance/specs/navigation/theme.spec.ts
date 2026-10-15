@@ -103,18 +103,22 @@ async function openPreferences(page: Page) {
   await appNavigation(page)
   await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
   await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Preferences', exact: true })
+  const dialog = page.locator('[data-qqq-id="preferences-page"]')
   await expect(dialog).toBeVisible()
   return dialog
 }
 
 test('[NAV-056] appearance preferences apply immediately and survive a reload @mobile', async ({ page, diagnostics }) => {
   void diagnostics
+  // With no saved choice the app follows the OS (here dark), and System is the selected appearance.
   await page.emulateMedia({ colorScheme: 'dark' })
   await open(page, '/app/person')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   let dialog = await openPreferences(page)
+  await expect(dialog.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
   const light = dialog.getByRole('radio', { name: 'Light', exact: true })
-  await expect(light).toBeChecked()
+  await light.check()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await light.focus()
   await page.keyboard.press('ArrowRight')
   await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
@@ -126,19 +130,23 @@ test('[NAV-056] appearance preferences apply immediately and survive a reload @m
     await dialog.evaluate(async element => {
       await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})))
     })
-    const results = await new AxeBuilder({ page }).include('[data-qqq-id="dialog-user-preferences"]')
+    const results = await new AxeBuilder({ page }).include('[data-qqq-id="preferences-page"]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     expect(results.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
   }
   await dialog.getByRole('radio', { name: 'Dark', exact: true }).check()
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   dialog = await openPreferences(page)
   await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
+  // Reset returns to System, which follows the (dark) OS; it was light before OS-following existed
   await dialog.getByRole('button', { name: 'Reset to Defaults' }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(dialog.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  // ...and follows the OS live
+  await page.emulateMedia({ colorScheme: 'light' })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
 
@@ -158,7 +166,9 @@ test('[NAV-056] appearance preferences explain an application theme override @mo
   await expect(dialog.getByText(/application theme requires light mode/i)).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBe('true')
   await dialog.getByRole('button', { name: 'Reset to Defaults' }).click()
-  expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBe('false')
+  // Reset removes the saved choice (System) instead of pinning light; the application theme still wins
+  expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBeNull()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
 
 for (const mode of ['light', 'dark'] as const) {
@@ -181,11 +191,13 @@ for (const mode of ['light', 'dark'] as const) {
     }
     await settlePalette()
     await testInfo.attach(`api-playground-${mode}`, { body: await page.screenshot(), contentType: 'image/png' })
-    const dialog = await openPreferences(page)
-    const oppositeMode = mode === 'dark' ? 'Light' : 'Dark'
-    await dialog.getByRole('radio', { name: oppositeMode, exact: true }).check()
-    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(docs).toHaveJSProperty('theme', oppositeMode.toLowerCase())
+    // flip the theme live from the user menu, staying on the playground
+    const oppositeMode = mode === 'dark' ? 'light' : 'dark'
+    await appNavigation(page)
+    await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+    await page.getByRole('menuitemcheckbox', { name: 'Dark mode', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await expect(docs).toHaveJSProperty('theme', oppositeMode)
     await settlePalette()
     const changed = await new AxeBuilder({ page }).include('rapi-doc').withRules(['color-contrast']).analyze()
     expect(changed.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])

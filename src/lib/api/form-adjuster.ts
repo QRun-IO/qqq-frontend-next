@@ -15,7 +15,7 @@
  */
 
 /**
- * @file Form adjusters — the Material dashboard backend's form adjuster route, which lets an
+ * @file Form adjusters — the UI API's table form adjuster route, which lets an
  * application change a record form on load and when a field changes (field definitions,
  * values, sections, or locking the form).
  */
@@ -58,36 +58,9 @@ const FormAdjusterOutputSchema = z.object({
 }).passthrough()
 
 /**
- * Origin of the server that hosts the QQQ API: the adjuster route is registered at its root
- * (`/material-dashboard-backend/...`), outside the versioned API path.
+ * Runs a table or field form adjuster through the UI API with JSON values.
  *
- * @returns The origin, e.g. `https://app.example.com`.
- */
-function serverOrigin(): string {
-  const base = apiClient.getInstance().defaults.baseURL ?? '/qqq/v1'
-  const here = typeof window === 'undefined' ? 'http://localhost' : window.location.href
-  return new URL(base, here).origin
-}
-
-/**
- * A multipart text value as the adjuster receives it: empty for no value, JSON for lists and
- * objects, and the text of anything else.
- *
- * @param value - A form value.
- * @returns Its text.
- */
-function formText(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (value instanceof File) return value.name
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
-
-/**
- * Runs a form adjuster through `POST /material-dashboard-backend/form-adjuster/{identifier}/{event}`
- * (multipart `event`, `fieldName`, `newValue` and `allValues` as JSON), as Material's EntityForm
- * (table `onLoad`, identifier `table:{tableName}`) and DynamicForm (field adjusters) do.
- *
+ * @param tableName - Exact backend table identifier.
  * @param identifier - The adjuster's identifier (`table:{name}` or a field's `formAdjusterIdentifier`).
  * @param event - `onLoad` or `onChange`.
  * @param input - The changed field and its new value (field adjusters) and every form value.
@@ -98,23 +71,15 @@ function formText(value: unknown): string {
  * @throws When the request fails or the response is not an adjuster output.
  */
 export async function runFormAdjuster(
+  tableName: string,
   identifier: string,
   event: FormAdjusterEvent,
   input: { fieldName?: string; newValue?: unknown; allValues: Record<string, unknown> }
 ): Promise<FormAdjusterOutput> {
-  const body = new FormData()
-  body.append('event', event)
-  if (input.fieldName !== undefined) {
-    body.append('fieldName', input.fieldName)
-    body.append('newValue', formText(input.newValue))
-  }
   const allValues = Object.fromEntries(Object.entries(input.allValues).filter(([, value]) => !(value instanceof File)))
-  body.append('allValues', JSON.stringify(allValues))
-
   const response = await apiClient.post<unknown>(
-    `/material-dashboard-backend/form-adjuster/${encodeURIComponent(identifier)}/${event}`,
-    body,
-    { baseURL: serverOrigin(), headers: { 'Content-Type': 'multipart/form-data' } }
+    `/table/${encodeURIComponent(tableName)}/formAdjuster/${encodeURIComponent(identifier)}/${event}`,
+    { ...input, allValues }
   )
   const parsed = FormAdjusterOutputSchema.safeParse(response ?? {})
   if (!parsed.success) throw new Error('Invalid form adjuster response')

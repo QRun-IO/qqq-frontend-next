@@ -71,11 +71,9 @@ async function setupDeveloperMocks(page: Page, panels: unknown[] | null) {
     panels === null
       ? route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Not found' }) })
       : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ panels }) }))
-  await page.route(/\/apis\.json/, (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ apis: [{ name: 'siteApi', path: '/api/', label: 'Site API' }] }) }))
-  await page.route(/\/api\/versions\.json/, (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ supportedVersions: ['v1'], currentVersion: 'v1' }) }))
-  await page.route(/\/api\/v1\/person\/openapi\.json/, (route) =>
+  await page.route(/\/qqq\/v1\/table\/person\/apis(\?|$)/, (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ apis: [{ name: 'siteApi', path: '/api/', label: 'Site API', currentVersion: 'v1', versions: [{ version: 'v1' }] }] }) }))
+  await page.route(/\/qqq\/v1\/table\/person\/apis\/siteApi\/v1\/openapi(\?|$)/, (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(SPEC) }))
 }
 

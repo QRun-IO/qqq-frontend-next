@@ -20,7 +20,8 @@
 
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getErrorStatusCode } from '@/lib/utils/error-utils'
+
+import { getErrorStatusCode, getErrorMessage } from '@/lib/utils/error-utils'
 
 /**
  * Returns a toast message for a query/mutation error based on HTTP status.
@@ -40,11 +41,7 @@ function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
   }
 
   if (status === 403) {
-    if (context === 'mutation') {
-      toast.error('You do not have permission to perform this action')
-    } else {
-      toast.error('Permission denied')
-    }
+    toast.error(getErrorMessage(error, 'Permission denied'))
     return
   }
 
@@ -179,6 +176,25 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  jobs: () => ['qqq', 'jobs'] as const,
+  jobList: (filter: import('@/types/jobs').JobListFilter) => [...queryKeys.jobs(), 'list', filter] as const,
+  jobDetail: (id: number) => [...queryKeys.jobs(), 'detail', id] as const,
+  jobProgress: (id: number) => [...queryKeys.jobs(), 'progress', id] as const,
+  revealOptions: (table: string, field: string) => [...queryKeys.all(), 'secured-data', 'options', table, field] as const,
+  securedDataStatus: (path: string) => [...queryKeys.all(), 'secured-data', 'status', path] as const,
+  /** All current-user preference queries.
+   * @returns The preferences namespace.
+   */
+  preferences: () => [...queryKeys.all(), 'preferences'] as const,
+  /** Visible preference sections.
+   * @returns The section index key.
+   */
+  preferencesIndex: () => [...queryKeys.preferences(), 'index'] as const,
+  /** One preference section.
+   * @param name - Section name.
+   * @returns The section key.
+   */
+  preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
   ediAvailable: () => ['edi', 'available'] as const,
   ediMap: (id: number) => ['edi', 'map', id] as const,
   ediTarget: (id: number) => ['edi', 'target', id] as const,
@@ -196,6 +212,8 @@ export const queryKeys = {
   collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
   collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
   collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
+  uiApiVersion: () => ['qqq', 'uiApiVersion'] as const,
+  helpSearch: (q: string) => ['qqq', 'helpSearch', q] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
@@ -607,8 +625,9 @@ export const queryKeys = {
    * @param limitPerTable - Maximum records per table.
    * @param offset - Records skipped per table.
    * @param sort - Requested order.
+   * @param suggest - Whether to use the optional typeahead provider.
    * @returns The record search query key tuple.
    */
-  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance') =>
-    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance', suggest = false) =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort, ...(suggest ? ['suggest'] : [])] as const,
 }

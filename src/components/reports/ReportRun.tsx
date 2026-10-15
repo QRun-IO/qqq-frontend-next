@@ -28,19 +28,23 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Download, FileBarChart } from 'lucide-react'
 
 import type { QProcessMetaData, QReportMetaData } from '@/types'
+import type { ReportFile, ReportFormat } from '@/lib/api/reports'
+
+import { PROCESS_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import {
   DEFAULT_REPORT_FORMAT, REPORT_FORMAT_FIELD, isDownloadStep, loadReportFormats, processDeclaresReportFormat, reportFile, reportFileUrl,
 } from '@/lib/api/reports'
-import type { ReportFile, ReportFormat } from '@/lib/api/reports'
 import { loadMetaData } from '@/lib/api/metadata'
 import { useProcessMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
 import { queryKeys } from '@/lib/query-client'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { ProcessStepScreen, inputListFields } from '@/components/process/ProcessStepScreen'
 
 /**
@@ -216,7 +220,7 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
     <div className="space-y-6" data-qqq-id={`report-run-${reportName}`}>
       <div className="flex items-center gap-3">
         <FileBarChart className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-        <h2 className="text-2xl font-semibold text-foreground">{reportMetaData.label}</h2>
+        <h2 className="text-2xl font-semibold text-foreground">{reportMetaData.label}</h2><HelpIcon label={reportMetaData.label} helpContents={reportMetaData.helpContents?.help} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`report:${reportName};slot:help`} data-qqq-id={`report-help-${reportName}`} />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">

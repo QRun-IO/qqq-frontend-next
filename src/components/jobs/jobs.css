@@ -1,0 +1,20 @@
+/* Jobs motion uses only transforms and opacity; every animation is static in reduced motion. */
+.qqq-job-fill { transform-origin: left; transition: transform 250ms ease-out; }
+.qqq-job-shimmer { animation: qqq-job-shimmer 2.4s ease-out infinite; }
+.qqq-job-pulse { animation: qqq-job-pulse 2.4s ease-out infinite; }
+.qqq-job-ring { animation: qqq-job-ring 3s ease-out infinite; }
+@keyframes qqq-job-shimmer {
+  0% { transform: translateX(-100%) scaleX(.35); opacity: .4; }
+  100% { transform: translateX(100%) scaleX(.35); opacity: .8; }
+}
+@keyframes qqq-job-pulse { 50% { opacity: .5; } }
+@keyframes qqq-job-ring {
+  0%, 100% { transform: scale(.85); opacity: .2; }
+  50% { transform: scale(1.1); opacity: .6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Override the global 0.01ms fallback so jobs are completely static. */
+  .qqq-job-fill { transition: none !important; }
+  .qqq-job-shimmer, .qqq-job-pulse, .qqq-job-ring { animation: none !important; }
+  .qqq-job-shimmer { transform: scaleX(.35); opacity: .6; }
+}

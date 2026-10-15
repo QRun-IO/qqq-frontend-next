@@ -23,6 +23,7 @@
 
 'use client'
 
+import { writableValues } from '@/lib/utils/secured-data'
 import React, { useEffect, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -130,7 +131,7 @@ export function ChildRecordListEditor({ widgetMetaData, data, formContext }: Chi
   const commit = (next: ChildRow[]) => {
     changed.current = true
     setRows(next)
-    setAssociation(associationName, next.map((row) => row.values))
+    setAssociation(associationName, next.map((row) => writableValues(row.values, (childTable ?? payloadTable)?.fields ?? {})))
   }
 
   if (!payloadTable || typeof payloadTable.name !== 'string') {

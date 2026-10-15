@@ -48,6 +48,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QFrontendStepMeta
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.QSupplementalTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Tier;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
@@ -113,6 +114,13 @@ final class PerformanceFixtures
       table.withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name")));
       table.withSection(new QFieldSection("columns", "Columns", new QIcon("view_column"), Tier.T2, details));
       table.setBackendDetails(new RDBMSTableBackendDetails().withTableName("prf_wide"));
+      ////////////////////////////////////////////////////////////////////
+      // the budgets measure the full 40-column grid, so name every     //
+      // column as the default set (Next shows a short set otherwise)   //
+      ////////////////////////////////////////////////////////////////////
+      List<String> allColumns = new ArrayList<>(List.of("id", "name"));
+      allColumns.addAll(details);
+      table.withSupplementalMetaData(new NextUiTableHints(allColumns));
       qInstance.addTable(table);
 
       List<String> widgets = new ArrayList<>();
@@ -435,6 +443,58 @@ final class PerformanceFixtures
          }
          output.addValue("rowCount", rows);
          output.addValue("countTotal", total);
+      }
+   }
+
+
+   /*******************************************************************************
+    ** Next UI table hints (supplemental type "nextUi"): the query screen's
+    ** default column set, read by src/lib/utils/query-columns.ts.
+    *******************************************************************************/
+   public static class NextUiTableHints extends QSupplementalTableMetaData
+   {
+      private final List<String> defaultColumns;
+
+
+
+      /*******************************************************************************
+       ** Hints naming the default query columns, in order.
+       *******************************************************************************/
+      public NextUiTableHints(List<String> defaultColumns)
+      {
+         this.defaultColumns = List.copyOf(defaultColumns);
+      }
+
+
+
+      /*******************************************************************************
+       ** The supplemental type key the frontend reads.
+       *******************************************************************************/
+      @Override
+      public String getType()
+      {
+         return ("nextUi");
+      }
+
+
+
+      /*******************************************************************************
+       ** Sent with the table's full frontend metadata.
+       *******************************************************************************/
+      @Override
+      public boolean includeInFullFrontendMetaData()
+      {
+         return (true);
+      }
+
+
+
+      /*******************************************************************************
+       ** The default query columns.
+       *******************************************************************************/
+      public List<String> getDefaultColumns()
+      {
+         return (defaultColumns);
       }
    }
 }

@@ -90,6 +90,8 @@ test.describe('table READ enforcement', () => {
   test.use({ persona: 'noPersonRead' })
   test('[ESB-003] no person READ hides the section and the server refuses its data @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow(/^request: GET \/qqq\/v1\/esb\/table\/person 403$/)
+    // the table developer view also asks which APIs expose the table; without READ that is refused too
+    diagnostics.allow(/^request: GET \/qqq\/v1\/table\/person\/apis 403$/)
     diagnostics.allow(/^console: Failed to load resource: the server responded with a status of 403 \(Forbidden\)$/)
     const denied = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/esb/table/person')
     await open(page, '/app/person/dev')

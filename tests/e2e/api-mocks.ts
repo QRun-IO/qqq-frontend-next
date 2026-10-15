@@ -5,6 +5,24 @@
 // Register GENERIC routes first, SPECIFIC routes last.
 
 import type { Page } from '@playwright/test'
+import type { QTableMetaData } from '../../src/types'
+
+/** Secured-data fixture; no real or production values are used. */
+export async function setupSecuredDataMocks(page: Page, options: { installed?: boolean; breakGlass?: boolean; revealSeconds?: number; refused?: boolean } = {}) {
+  await setupApiMocks(page)
+  const field = (name: string, accessTier?: 'FULL' | 'REVEALABLE' | 'MASKED') => ({ name, label: name === 'ssn' ? 'SSN' : name[0].toUpperCase() + name.slice(1), type: 'STRING' as const, isEditable: !accessTier || accessTier === 'FULL', isRequired: false, isHeavy: false, isHidden: false, adornments: [], accessTier, ...(accessTier && accessTier !== 'FULL' ? { allowedFilterOperators: accessTier === 'REVEALABLE' ? ['EQUALS', 'IN'] : [], isSortable: false } : {}) })
+  const table: QTableMetaData = { ...METADATA.tables.person, capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_COUNT', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'], hasRestrictedFields: true, fields: { id: { ...field('id'), type: 'INTEGER', isEditable: false }, name: field('name', 'FULL'), email: field('email', 'REVEALABLE'), ssn: field('ssn', 'MASKED') }, sections: [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'email', 'ssn'] }] }
+  const record = { tableName: 'person', values: { id: 1, name: 'Jane Example', email: 'j***@x.com', ssn: '***1234' }, displayValues: { email: 'j***@x.com', ssn: '***1234' }, recordLabel: 'Jane Example' }
+  await page.route('**/qqq/v1/version', (route) => route.fulfill({ json: { apiVersion: '1.4.0', features: [], extensions: options.installed === false ? [] : [{ name: 'secured-data', version: '1.0.0', pathPrefix: '/qbit/secured-data' }] } }))
+  await page.route(/\/qqq\/v1\/metaData(?:\?.*)?$/, (route) => route.fulfill({ json: { ...METADATA, tables: { person: table } } }))
+  await page.route('**/qqq/v1/metaData/table/person**', (route) => route.fulfill({ json: table }))
+  await page.route('**/qqq/v1/table/person/query**', (route) => route.fulfill({ json: { records: [record] } }))
+  await page.route('**/qqq/v1/table/person/count**', (route) => route.fulfill({ json: { count: 1 } }))
+  await page.route(/\/qqq\/v1\/table\/person\/1(?:\?.*)?$/, (route) => route.fulfill({ json: { record } }))
+  await page.route('**/qqq/v1/qbit/secured-data/reveal/options**', (route) => route.fulfill({ json: { reasonOptions: ['Customer support', 'Emergency care'], allowFreeTextReason: true, requireFreeText: true, revealMinutes: 5, remainingDailyAllowance: 4 } }))
+  await page.route('**/qqq/v1/qbit/secured-data/reveal', (route) => route.fulfill(options.refused ? { status: 403, json: { error: 'Daily reveal allowance reached.' } } : { json: { value: 'jane@example.test', displayValue: 'jane@example.test', expiresAt: new Date(Date.now() + (options.revealSeconds ?? 300) * 1000).toISOString(), revealId: 10 } }))
+  await page.route('**/qqq/v1/qbit/secured-data/status', (route) => route.fulfill({ json: { breakGlass: options.breakGlass ? { id: 7, reason: 'Emergency care coordination', expiresAt: new Date(Date.now() + 600_000).toISOString(), tableName: null, ceiling: 'PHI' } : null } }))
+}
 
 // ─── Minimal fixtures ─────────────────────────────────────────────────────────
 
@@ -160,6 +178,11 @@ const PERSON_RECORD_1 = PERSON_RECORDS[0]
  */
 export async function setupApiMocks(page: Page): Promise<void> {
   // ── GENERIC routes (registered first = lowest priority) ──────────────────
+
+  // UI API version: a 1.4.0 server with no extensions (specs that need an extension route their own)
+  await page.route('**/qqq/v1/version', (route) => {
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [] }) })
+  })
 
   // Global search
   await page.route('**/qqq/v1/search**', (route) => {

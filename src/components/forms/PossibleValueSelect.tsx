@@ -20,9 +20,9 @@
 
 'use client'
 
-import React, { lazy, Suspense, useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import type { Control, FieldError } from 'react-hook-form'
-import { Controller, useWatch } from 'react-hook-form'
+import React, { lazy, Suspense, useState, useRef, useEffect, useCallback } from 'react'
+import type { Control, FieldError, UseFormReturn } from 'react-hook-form'
+import { Controller, useFormState, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QPossibleValue, QPossibleValuePicker } from '@/types'
@@ -34,6 +34,7 @@ import {
   fetchPossibleValuesPage,
 } from '@/lib/api/possible-values'
 import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
+import { dependencyBehavior, dependencyValues, getDependencies, isMissingDependencyValue, missingDependencies } from '@/lib/utils/contingent-fields'
 import { cn } from '@/lib/utils/cn'
 import { pickerPreviewUrl, pickerRecordPath, pickerSubtitle, pickerThumbnailUrl } from '@/lib/utils/record-picker'
 import { buttonClass } from '@/components/ui/controls'
@@ -51,10 +52,18 @@ const PICKER_INLINE_LIMIT = 20
  * Props for the {@link PossibleValueSelect} component.
  */
 interface PossibleValueSelectProps {
+  /** Methods for reading current inputs and clearing an invalid dependent selection. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** All sibling metadata, including fields in other sections of the form. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit switches: values of disabled fields cannot satisfy dependencies. */
+  enabledFields?: Record<string, boolean>
   /** The HTML `id` for the combobox trigger element and its associated label. */
   id: string
   /** Human-readable field label displayed above the combobox. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** The React Hook Form field name used by the `Controller`. */
   name: string
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -146,7 +155,11 @@ function otherFieldValues(values: Record<string, unknown> | undefined, name: str
  */
 export function PossibleValueSelect({
   id,
+  formMethods,
+  fieldsByName,
+  enabledFields,
   label,
+  labelExtra,
   name,
   control,
   fieldName,
@@ -156,7 +169,7 @@ export function PossibleValueSelect({
   chipField,
   context,
   error,
-  disabled = false,
+  disabled: externallyDisabled = false,
   required = false,
   placeholder,
   hideLabel = false,
@@ -179,9 +192,24 @@ export function PossibleValueSelect({
   const requestSequence = useRef(0)
   const [browsing, setBrowsing] = useState(false)
   const [previewing, setPreviewing] = useState(false)
-  const formValues = useWatch({ control }) as Record<string, unknown> | undefined
-  // What every request carries for the field's filter: the form's current values.
-  const scope = useMemo(() => ({ formValues: formValues ?? {} }), [formValues])
+  const metadata = chipField ?? {}
+  const dependencies = getDependencies(metadata)
+  const contingent = dependencies.length > 0
+  // RHF compares the computed subset, so unrelated edits do not rerender contingent selects.
+  const watchedValues = useWatch({ control, compute: (values: Record<string, unknown>) => contingent
+    ? { ...dependencyValues(metadata, values), [name]: values[name] } : values })
+  const { defaultValues } = useFormState({ control })
+  const formValues = formMethods?.getValues() ?? watchedValues
+  const availableValues = useCallback((values: Record<string, unknown>) => enabledFields
+    ? Object.fromEntries(Object.entries(values).filter(([key]) => enabledFields[key])) : values, [enabledFields])
+  const missing = missingDependencies(metadata, availableValues(formValues), fieldsByName)
+  const dependencyDisabled = contingent && missing.length > 0 && (enabledFields !== undefined || dependencyBehavior(metadata) === 'DISABLE_UNTIL_SET')
+  const disabled = externallyDisabled || dependencyDisabled
+  const hint = dependencyDisabled ? `Choose ${missing.map((field) => field.label).join(' and ')} first` : undefined
+  const [clearedNotice, setClearedNotice] = useState<string | null>(null)
+  const scope = { formValues: availableValues(formValues) }
+  // Read at request time, including edits to unrelated inputs that did not rerender this field.
+  const currentScope = useCallback(() => ({ formValues: availableValues(formMethods?.getValues() ?? watchedValues) }), [availableValues, formMethods, watchedValues])
 
   /**
    * Fetches possible values for the given search term from the appropriate
@@ -202,7 +230,7 @@ export function PossibleValueSelect({
       setIsLoading(true)
       setLoadFailed(false)
       try {
-        const request = { searchTerm: term || undefined, ...scope }
+        const request = { searchTerm: term || undefined, ...currentScope() }
         let results: QPossibleValue[]
         if (picker) {
           results = (await fetchPossibleValuesPage(context, fieldName, possibleValueSourceName, { ...request, picker: { limit: PICKER_INLINE_LIMIT } })).options
@@ -223,7 +251,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName, possibleValueSourceName, scope, inlineOptions, picker]
+    [context, fieldName, possibleValueSourceName, currentScope, inlineOptions, picker]
   )
 
   /**
@@ -245,16 +273,20 @@ export function PossibleValueSelect({
   )
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !disabled) {
       fetchOptions(searchTerm)
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A dependent filter follows the other fields: reload an open list when one changes.
-  const otherValuesKey = JSON.stringify(otherFieldValues(formValues, name))
+  const otherValuesKey = JSON.stringify(contingent ? dependencyValues(metadata, availableValues(watchedValues)) : otherFieldValues(watchedValues, name))
   useEffect(() => {
-    if (isOpen) fetchOptions(searchTerm)
-  }, [otherValuesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    requestSequence.current += 1
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setOptions([])
+    if (disabled) setIsOpen(false)
+    else if (isOpen) fetchOptions(searchTerm)
+  }, [otherValuesKey, disabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A value set without its label (e.g. a create-form default) is looked up by id.
   const watchedValue = useWatch({ control, name })
@@ -269,7 +301,7 @@ export function PossibleValueSelect({
     }
     if (initialLabel && !picker) return
     let cancelled = false
-    const request = { ids: held, ...scope }
+    const request = { ids: held, ...currentScope() }
     const lookup = picker
       ? fetchPossibleValuesPage(context, fieldName, possibleValueSourceName, { ...request, picker: {} }).then((page) => page.options)
       : context.type === 'table'
@@ -283,6 +315,40 @@ export function PossibleValueSelect({
     }).catch(() => { /* the raw value stays visible */ })
     return () => { cancelled = true }
   }, [watchedValue, initialLabel, selectedOption, contextKey, fieldName, possibleValueSourceName]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const defaultDependencyKey = JSON.stringify(dependencyValues(metadata, defaultValues ?? {}))
+  const previousDependencies = useRef({ key: otherValuesKey, defaults: defaultDependencyKey })
+  // A reset replaces the baseline; loading a saved record must never invalidate its values.
+  useEffect(() => {
+    const previous = previousDependencies.current
+    previousDependencies.current = { key: otherValuesKey, defaults: defaultDependencyKey }
+    if (!contingent || previous.key === otherValuesKey || previous.defaults !== defaultDependencyKey || !formMethods) return
+    const held = formMethods.getValues(name)
+    if (isMissingDependencyValue(held)) return
+    let cancelled = false
+    const clear = () => {
+      if (cancelled || JSON.stringify(formMethods.getValues(name)) !== JSON.stringify(held)) return
+      formMethods.setValue(name, null, { shouldDirty: true, shouldValidate: true })
+      setSelectedOption(null)
+      setClearedNotice(`${label} was cleared because it doesn't match the selected ${dependencies.map((dependency) => fieldsByName?.[dependency]?.label ?? dependency).join(' and ')}`)
+    }
+    if (dependencyDisabled) clear()
+    else {
+      const request = { ids: String(held), ...currentScope(), useCase: 'form' }
+      const lookup = context.type === 'table'
+        ? fetchTablePossibleValues(context.tableName, fieldName, request)
+        : context.type === 'process'
+          ? fetchProcessPossibleValues(context.processName, fieldName, request)
+          : fetchPossibleValues(possibleValueSourceName ?? fieldName, request)
+      lookup.then((results) => {
+        if (!results.some((option) => String(option.id) === String(held))) clear()
+      }).catch(() => { /* A failed lookup is not proof that the selection is invalid. */ })
+    }
+    return () => { cancelled = true }
+  }, [otherValuesKey, defaultDependencyKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The automatic null keeps its explanation; the next selection/change dismisses it.
+  useEffect(() => { if (watchedValue !== null) setClearedNotice(null) }, [watchedValue])
 
   // Close on outside click
   useEffect(() => {
@@ -346,15 +412,18 @@ export function PossibleValueSelect({
 
   return (
     <div className="flex flex-col gap-1">
-      <label
-        id={`${id}-label`}
-        htmlFor={id}
-        className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
-        data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-      >
-        {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
-      </label>
+      <div className="flex items-center">
+        <label
+          id={`${id}-label`}
+          htmlFor={id}
+          className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
+          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+        >
+          {label}
+          {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        </label>
+        {labelExtra}
+      </div>
       <Controller
         name={name}
         control={control}
@@ -431,7 +500,7 @@ export function PossibleValueSelect({
                 aria-haspopup="listbox"
                 aria-required={required}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
+                aria-describedby={[error ? `${id}-error` : '', hint ? `${id}-contingent-hint` : ''].filter(Boolean).join(' ') || undefined}
                 aria-controls={`${id}-listbox`}
                 data-qqq-id={dataQqqId}
                 onClick={() => {
@@ -631,6 +700,8 @@ export function PossibleValueSelect({
           )
         }}
       />
+      {hint && <p id={`${id}-contingent-hint`} className="text-xs text-muted-foreground" data-qqq-id={`contingent-hint-${fieldName}`}>{hint}</p>}
+      {clearedNotice && <p role="status" className="text-xs text-muted-foreground" data-qqq-id={`contingent-cleared-${fieldName}`}>{clearedNotice}</p>}
       {error && (
         <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}

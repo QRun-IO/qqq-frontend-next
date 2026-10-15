@@ -25,6 +25,8 @@
 
 'use client'
 
+import { allowedOperators, canSortField, isRestricted } from '@/lib/utils/secured-data'
+import { MaskedValue } from '@/components/secured-data/MaskedValue'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ExternalLink, Grid2x2, List, Loader2, Maximize2, Search, Upload } from 'lucide-react'
 
@@ -125,6 +127,7 @@ function PickerFilter({ field, value, tableName, onChange }: {
     return (
       <label htmlFor={id} className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
         {field.label}
+        {field.accessTier === 'REVEALABLE' && <span>Exact match only. Searches are audited.</span>}
         <input id={id} type="text" value={value?.value ?? ''} onChange={(event) => set({ value: event.target.value })} className={INPUT_CLASS} placeholder="Contains" data-qqq-id={`record-picker-filter-${field.name}`} />
       </label>
     )
@@ -194,7 +197,7 @@ export function RecordPickerDialog({
   }, [search])
 
   const filterFields = useMemo(
-    () => (picker.filterFields ?? []).map((name) => table?.fields?.[name]).filter((field): field is QFieldMetaData => Boolean(field)),
+    () => (picker.filterFields ?? []).map((name) => table?.fields?.[name]).filter((field): field is QFieldMetaData => Boolean(field) && allowedOperators(field!)?.length !== 0),
     [picker.filterFields, table]
   )
   const activeFilterCount = Object.values(preferences.filters).filter(Boolean).length
@@ -404,7 +407,7 @@ export function RecordPickerDialog({
                       aria-label="Sort"
                       data-qqq-id="record-picker-sort"
                     >
-                      {picker.sorts!.map((sort, index) => <option key={sort.label} value={index}>{sort.label}</option>)}
+                      {picker.sorts!.map((sort, index) => !table || canSortField(table.fields[sort.fieldName]) ? <option key={sort.label} value={index}>{sort.label}</option> : null)}
                     </select>
                   </label>
                 )}
@@ -486,7 +489,7 @@ export function RecordPickerDialog({
                             {preferences.view === 'grid' ? thumbnail(option, 'block aspect-square w-full') : thumbnail(option, 'h-10 w-10 shrink-0')}
                             <span className={cn('block min-w-0', preferences.view === 'grid' && 'mt-1')}>
                               <span className="block truncate font-medium" title={option.label}>{option.label}</span>
-                              {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
+                              {subtitle && <span className="flex flex-wrap gap-1 text-xs text-muted-foreground">{(picker.subtitleFields ?? []).map((name) => isRestricted(table?.fields[name]) ? <MaskedValue key={name} value={pickerValueText(option, name)} tier={table?.fields[name].accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : <span key={name}>{pickerValueText(option, name)}</span>)}</span>}
                             </span>
                             {selected && (
                               <Check className="absolute right-2 top-2 h-4 w-4 rounded-full bg-primary text-primary-foreground" aria-hidden="true" />
@@ -527,7 +530,7 @@ export function RecordPickerDialog({
                           return (
                             <div key={name} className="flex gap-2">
                               <dt className="shrink-0 text-muted-foreground">{table?.fields?.[name]?.label ?? name}</dt>
-                              <dd className="min-w-0 break-words">{text}</dd>
+                              <dd className="min-w-0 break-words">{isRestricted(table?.fields[name]) ? <MaskedValue value={text} tier={table?.fields[name].accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} /> : text}</dd>
                             </div>
                           )
                         })}

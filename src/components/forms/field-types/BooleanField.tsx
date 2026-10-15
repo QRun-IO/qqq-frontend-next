@@ -40,6 +40,8 @@ interface BooleanFieldProps {
   id: string
   /** Human-readable field label rendered next to the toggle. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** The React Hook Form field name used by the `Controller`. */
   name: string
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -55,6 +57,8 @@ interface BooleanFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the toggle button for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help or read-only text describing the control. */
+  describedBy?: string
 }
 
 /**
@@ -99,12 +103,14 @@ function ariaCheckedValue(state: boolean | null): 'true' | 'false' | 'mixed' {
 export function BooleanField({
   id,
   label,
+  labelExtra,
   name,
   control,
   error,
   disabled = false,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: BooleanFieldProps) {
   // Cycle logic depends on whether the field is required
   /**
@@ -145,7 +151,7 @@ export function BooleanField({
                 aria-checked={ariaVal}
                 aria-required={required}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
+                aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
                 disabled={disabled}
                 data-qqq-id={dataQqqId}
                 onClick={() => {
@@ -187,17 +193,20 @@ export function BooleanField({
             )
           }}
         />
-        <label
-          htmlFor={id}
-          className={cn(
-            'text-sm font-medium text-foreground',
-            disabled && 'opacity-50'
-          )}
-          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-        >
-          {label}
-          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
-        </label>
+        <div className="flex items-center">
+          <label
+            htmlFor={id}
+            className={cn(
+              'text-sm font-medium text-foreground',
+              disabled && 'opacity-50'
+            )}
+            data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+          >
+            {label}
+            {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
+          </label>
+          {labelExtra}
+        </div>
       </div>
       <FieldFooter id={id} error={error?.message} />
     </div>

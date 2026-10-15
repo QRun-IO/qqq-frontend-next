@@ -43,10 +43,15 @@ test('live conflict preserves my values and retries 409 with the refreshed versi
   await expect(page.locator('[data-qqq-id="firstName"]')).toBeVisible()
   await subscribed
   await page.locator('[data-qqq-id="firstName"]').fill('My name')
-  await concurrentEdit(page)
-  await expect(page.locator('[data-qqq-id="conflict-banner"]')).toContainText(
-    'Sam Parker saved changes'
-  )
+  // The mock stream can attach just after the subscription response on slower (mobile)
+  // projects, so an event sent in that gap is missed: resend until the banner shows.
+  await expect(async () => {
+    await concurrentEdit(page)
+    await expect(page.locator('[data-qqq-id="conflict-banner"]')).toContainText(
+      'Sam Parker saved changes',
+      { timeout: 3_000 }
+    )
+  }).toPass({ timeout: 20_000 })
   await expect(page.locator('[data-qqq-id="firstName"]')).toHaveValue('My name')
   await page.locator('[data-qqq-id="conflict-review"]').click()
   await expect(page.locator('[data-qqq-id="conflict-values"]')).toContainText('Their name')

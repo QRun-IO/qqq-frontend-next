@@ -99,6 +99,7 @@ async function mockAssistant(page: Page, options: { reply?: string; hold?: boole
   const mock: AssistantMock = { turns: [], cancels: 0 }
   let stored: unknown[] = []
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+  await page.route('**/qqq/v1/version', (route) => json(route, { apiVersion: '1.4.0', features: [], extensions: [{ name: 'assistant', version: '1.0.0' }] }))
   // the instance announces the qbit, so the UI probes /assistant/config
   await page.route(/\/qqq\/v1\/metaData(\?|$)/, (route) => json(route, { ...METADATA, supplementalInstanceMetaData: { assistant: {} } }))
   await page.route('**/qqq/v1/assistant/**', async (route) => {
@@ -226,7 +227,7 @@ test.describe('Assistant panel: desktop (docked)', () => {
 
     await ask(page, 'Who is active?')
     await expect(panel.locator('[data-qqq-id="assistant-markdown"]').first()).toContainText('Two people are active.')
-    expect(mock.turns).toEqual([{ text: 'Who is active?', pageContext: { route: '/app/person', tableName: 'person' } }])
+    expect(mock.turns).toEqual([{ text: 'Who is active?', pageContext: { route: '/app/person', tableName: 'person' }, concurrency: 'supersede' }])
     await expect(panel.locator('[data-qqq-id="assistant-tool-step"] button').first()).toContainText('Queried People · 2 rows')
     const chip = panel.locator('[data-qqq-id="assistant-record-chip"]').first()
     await expect(chip).toHaveAttribute('href', '/app/person/1')
@@ -322,7 +323,7 @@ test.describe('Assistant panel: desktop (docked)', () => {
     expect(mock.turns).toEqual([])
     await composer.press('Enter')
     await expect.poll(() => mock.turns.length).toBe(1)
-    expect(mock.turns[0]).toEqual({ text: 'Tell me about this record.', pageContext: { route: '/app/person/1', tableName: 'person', recordId: '1' } })
+    expect(mock.turns[0]).toEqual({ text: 'Tell me about this record.', pageContext: { route: '/app/person/1', tableName: 'person', recordId: '1' }, concurrency: 'supersede' })
   })
 })
 

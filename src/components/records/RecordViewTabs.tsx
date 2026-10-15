@@ -199,10 +199,10 @@ export function RecordViewTabs({
       <>
         {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
-        {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
+        {/* Many or long section labels wrap onto more rows: every section stays a tab, and nothing scrolls sideways (#116) */}
         <div data-qqq-id="record-tabs-container">
           <div
-            className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
+            className="flex flex-wrap gap-1 rounded-xl border border-border bg-muted/50 p-1"
             role="tablist"
             aria-label={`${tableMetaData.label} sections`}
             data-qqq-id="record-view-tabs"
@@ -219,7 +219,7 @@ export function RecordViewTabs({
                 aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'sidebar-section is-visible flex-[1_0_auto] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                  'sidebar-section is-visible min-w-0 max-w-full flex-[1_1_auto] break-words rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                   activeTab === tab.id
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'

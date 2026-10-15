@@ -36,6 +36,8 @@ interface PasswordFieldProps {
   id: string
   /** Human-readable field label rendered above the input. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
   /** Validation error; when present triggers error styling and an error message. */
@@ -69,6 +71,7 @@ interface PasswordFieldProps {
 export function PasswordField({
   id,
   label,
+  labelExtra,
   registration,
   error,
   disabled = false,
@@ -89,14 +92,17 @@ export function PasswordField({
 
   return (
     <div className="group flex flex-col gap-1">
-      <label
-        htmlFor={id}
-        className="text-sm font-medium text-foreground"
-        data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-      >
-        {label}
-        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
-      </label>
+      <div className="flex items-center">
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-foreground"
+          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+        >
+          {label}
+          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
+        </label>
+        {labelExtra}
+      </div>
       <div className="relative">
         <input
           id={id}

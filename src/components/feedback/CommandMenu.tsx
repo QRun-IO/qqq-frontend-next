@@ -22,19 +22,23 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { Command } from 'cmdk'
 import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
+
+import { Command } from 'cmdk'
 import { Search, Sparkles, X } from 'lucide-react'
 
 import type { QInstance } from '@/types'
 import type { NavTarget } from '@/lib/hooks/use-routes'
-import { cn } from '@/lib/utils/cn'
+
 import { buildTableActions, commandMatches, compareCommandLabels, tableScreenFor, type TableAction } from '@/lib/utils/command-palette'
 import { getRecentRecords, type RecentRecord } from '@/lib/utils/recent-records'
 import { searchableTables } from '@/lib/utils/record-search'
 import { openInNewTab, searchPagePath } from '@/lib/search/search-url'
 import type { PaletteFavoritesState } from '@/components/collaboration/PaletteFavorites'
+
+import { HelpSearchResults } from '@/components/help/HelpSearchResults'
+import { useHelpPanel } from '@/components/help/HelpPanelProvider'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { GroupHeading, ITEM_CLASS } from './command-menu-parts'
 
@@ -85,6 +89,8 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
   const router = useRouter()
   const pathname = usePathname()
   const [search, setSearch] = useState('')
+  const [helpOnly, setHelpOnly] = useState(false)
+  const { searchEnabled } = useHelpPanel()
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
   const [hash, setHash] = useState('')
   // what the lazy favorites groups show; until they load, the palette keeps browser history
@@ -145,6 +151,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
     if (!open) {
       setSearch('')
       setCollaboration(null)
+      setHelpOnly(false)
     }
   }, [open])
 
@@ -275,7 +282,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder={tables.length > 0 ? 'Search for tables, actions, records, or recently viewed items...' : 'Search for tables, actions, or recently viewed items...'}
+              placeholder={helpOnly ? 'Search help…' : tables.length > 0 ? 'Search for tables, actions, records, or recently viewed items...' : 'Search for tables, actions, or recently viewed items...'}
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
               data-qqq-id="command-menu-search"
@@ -298,7 +305,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
             aria-live="polite"
             data-qqq-id="command-menu-results"
           >
-            {!collaboration?.hasEntries && visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && recordState.count === 0 && !recordState.searching && !(onAskAssistant && search.trim()) && (
+            {!collaboration?.hasEntries && !searchEnabled && visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && recordState.count === 0 && !recordState.searching && !(onAskAssistant && search.trim()) && (
               <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-qqq-id="command-menu-empty">
                 No results found.
               </p>
@@ -307,7 +314,11 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
             <PaletteFavorites search={search} pathname={pathname ?? ''} hash={hash} metaData={metaData}
               recentRecords={recentRecords} onSelect={handleSelect} onState={setCollaboration} />
 
-            {screen && visibleActions.length > 0 && (
+            {searchEnabled && <>
+              {!search && <Command.Item value="help:search" data-qqq-id="command-search-help" className={ITEM_CLASS} onSelect={() => { setHelpOnly(true); dialogRef.current?.querySelector('input')?.focus() }}>Search help…</Command.Item>}
+              <HelpSearchResults search={search} palette onSelect={onClose} />
+            </>}
+            {!helpOnly && screen && visibleActions.length > 0 && (
               <Command.Group heading={<GroupHeading>{screen.table.label} Actions</GroupHeading>} data-qqq-id="command-group-actions">
                 {visibleActions.map((action) => (
                   <Command.Item
@@ -324,7 +335,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
               </Command.Group>
             )}
 
-            {visibleTargets.length > 0 && (
+            {!helpOnly && visibleTargets.length > 0 && (
               <Command.Group heading={<GroupHeading>Navigation</GroupHeading>} data-qqq-id="command-group-navigation">
                 {visibleTargets.map((target) => {
                   const context = target.ancestors.map((ancestor) => ancestor.label).join(' / ')
@@ -348,7 +359,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
               </Command.Group>
             )}
 
-            {open && tables.length > 0 && (
+            {!helpOnly && open && tables.length > 0 && (
               <CommandRecordResults
                 search={search}
                 open={open}
@@ -364,7 +375,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
               />
             )}
 
-            {visibleRecent.length > 0 && (
+            {!helpOnly && visibleRecent.length > 0 && (
               <Command.Group heading={<GroupHeading>Recently Viewed Records</GroupHeading>} data-qqq-id="command-group-recent">
                 {visibleRecent.map((record) => (
                   <Command.Item

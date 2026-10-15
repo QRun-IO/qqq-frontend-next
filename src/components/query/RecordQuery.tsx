@@ -22,10 +22,12 @@
 
 'use client'
 
+import { canSortField } from '@/lib/utils/secured-data'
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
+
 import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -34,18 +36,20 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
 import type { DataAnalysisDrillV1 } from '@/types/data-analysis'
 import { getCapabilities } from '@/lib/api/data-analysis'
+import type { PageSize } from '@/lib/hooks/use-record-query'
+
+import { QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { encodeExplore, EXPLORE_VIEWS, type RelationshipView, type ExploreLayout } from '@/lib/utils/data-analysis-explore'
 import { encodePivot, type PivotLayout } from '@/lib/utils/data-analysis-pivot'
 import { deserializeFilter } from '@/lib/utils/filter-utils'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
-import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { countFilterConditions } from '@/lib/utils/date-range-utils'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
-import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
+import { defaultColumnVisibility, getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { AD_HOC_VIEW_IDENTITY, clearStoredQueryState, readCurrentSavedViewId, readStoredQueryView, savedViewIdentity, writeCurrentSavedViewId, writeStoredQueryView } from '@/lib/utils/query-view-storage'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -64,8 +68,8 @@ import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNC
 import { recordAnalytics } from '@/lib/analytics'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
-
 import { FilterBuilder, buildFilterFields } from './FilterBuilder'
 import { QuickFilterBar } from './QuickFilterBar'
 import { HintTooltip } from './HintTooltip'
@@ -198,12 +202,12 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const defaultViewState = useMemo<ViewState>(() => ({
     userFilter: emptyFilter(preferences.tableDefaultPageSize),
     sortOrder: rq.filter.defaultSort,
-    columnVisibility: {},
+    columnVisibility: defaultColumnVisibility(tableMetaData),
     columnOrder: [],
     columnWidths: {},
     pageSize: preferences.tableDefaultPageSize,
     filterMode: 'basic',
-  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort])
+  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort, tableMetaData])
   const currentViewJson = useMemo(() => buildViewJson(tableMetaData, rq.viewState), [tableMetaData, rq.viewState])
   const reportHref = useMemo(() => {
     if (!canInsertRecords(metaData?.tables?.savedReport)) return undefined
@@ -571,7 +575,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           onChange={(event) => rq.filter.setSort([{ fieldName: event.target.value, isAscending: rq.filter.sortOrder[0]?.isAscending ?? false }])}
           className="min-h-8 [@media(any-pointer:coarse)]:min-h-11 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="query-sort-field">
-          {availableFilterFields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+          {availableFilterFields.filter(canSortField).map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
         </select>
         <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
           onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
@@ -664,10 +668,13 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </Link>
       )}
 
-      <h1 className="sr-only" data-qqq-id="query-heading">
+      <div className="flex flex-wrap items-center gap-2">
+      <h1 className="text-xl font-semibold" data-qqq-id="query-heading">
         {tableMetaData.label}{currentView ? ` / ${currentView.label}` : ''}
         {joinedLabels.length > 0 && `, joined with ${joinedLabels.join(', ')}`}
       </h1>
+      <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={QUERY_SCREEN_HELP_ROLES} helpKey={`table:${tableName};slot:help`} data-qqq-id={`table-help-${tableName}`} />
+      </div>
 
       {viewWarnings.length > 0 && (
         <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-view-warning">

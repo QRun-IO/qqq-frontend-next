@@ -28,18 +28,20 @@
 'use client'
 
 import React, { useId, useRef, useState } from 'react'
-import { AlertCircle, ChevronDown, ChevronUp, Download, HelpCircle, RefreshCw } from 'lucide-react'
+
+import { AlertCircle, ChevronDown, ChevronUp, Download, RefreshCw } from 'lucide-react'
 
 import type { QHelpContent, QWidgetMetaData } from '@/types'
+import type { WidgetDropdownControl } from './WidgetDropdownMenu'
+
 import { cn } from '@/lib/utils/cn'
-import { useCompositeHost } from './blocks/composite-host'
-import { useHelpHelpActive } from '@/lib/context/q-context'
 import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
-import { HelpContent } from '@/components/records/HelpContent'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
+import { useCompositeHost } from './blocks/composite-host'
 import { HoverTooltip } from './HoverTooltip'
 import { SafeHtml } from './SafeHtml'
 import { WidgetDropdownMenu } from './WidgetDropdownMenu'
-import type { WidgetDropdownControl } from './WidgetDropdownMenu'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { WidgetIconTile } from './WidgetIcon'
 import { WidgetMetaDataContext } from './widget-context'
@@ -130,8 +132,7 @@ export function WidgetBlock({
   const isCard = widgetMetaData.isCard !== false
   const processHost = useCompositeHost()
   const compact = Boolean(processHost) && !isCard
-  const helpHelpActive = useHelpHelpActive()
-  const help = widgetSlotHelp(widgetMetaData, 'label', WIDGET_HELP_ROLES, helpHelpActive) as QHelpContent | undefined
+  const help = widgetSlotHelp(widgetMetaData, 'label', WIDGET_HELP_ROLES) as QHelpContent | undefined
   const footer = data?.footerHTML ?? widgetMetaData.footerHTML
   const topLeft = widgetMetaData.icons?.topLeftInsideCard
   const topRight = widgetMetaData.icons?.topRightInsideCard
@@ -239,11 +240,7 @@ export function WidgetBlock({
               <p className="text-xs text-muted-foreground" data-qqq-id={`widget-sublabel-${name}`}>{data.sublabel}</p>
             )}
           </div>
-          {help && (
-            <HoverTooltip qqqId={`widget-help-${name}`} content={<HelpContent helpContent={help} />}>
-              <HelpCircle className="h-4 w-4 text-muted-foreground" aria-label={`Help for ${label}`} data-qqq-id={`button-widget-help-${name}`} />
-            </HoverTooltip>
-          )}
+          <HelpIcon label={label || name} helpContent={help} roles={WIDGET_HELP_ROLES} helpKey={`widget:${name};slot:label`} data-qqq-id={`button-widget-help-${name}`} tooltipId={`widget-help-${name}`} />
         </div>
 
         <div className="flex max-w-full flex-wrap items-center gap-2">

@@ -131,6 +131,8 @@ export interface ProcessRunningResponse {
   message?: string
   current?: number
   total?: number
+  progress?: import('@/types/jobs').JobProgressV1
+  logTail?: import('@/types/jobs').JobLogLineV1[]
 }
 
 /** The process failed or was refused. */
@@ -282,6 +284,8 @@ export function normalizeProcessResponse(raw: unknown): ProcessResponse {
       message: typeof source.message === 'string' ? source.message : undefined,
       current: optionalNumber(source.current),
       total: optionalNumber(source.total),
+      progress: source.progress && typeof source.progress === 'object' ? source.progress as import('@/types/jobs').JobProgressV1 : undefined,
+      logTail: Array.isArray(source.logTail) ? source.logTail as import('@/types/jobs').JobLogLineV1[] : undefined,
     }
   }
   return { type: 'ERROR', processUUID, error: 'Unexpected server response.' }
