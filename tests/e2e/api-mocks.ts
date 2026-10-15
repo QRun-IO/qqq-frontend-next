@@ -13,7 +13,7 @@ export async function setupSecuredDataMocks(page: Page, options: { installed?: b
   const field = (name: string, accessTier?: 'FULL' | 'REVEALABLE' | 'MASKED') => ({ name, label: name === 'ssn' ? 'SSN' : name[0].toUpperCase() + name.slice(1), type: 'STRING' as const, isEditable: !accessTier || accessTier === 'FULL', isRequired: false, isHeavy: false, isHidden: false, adornments: [], accessTier, ...(accessTier && accessTier !== 'FULL' ? { allowedFilterOperators: accessTier === 'REVEALABLE' ? ['EQUALS', 'IN'] : [], isSortable: false } : {}) })
   const table: QTableMetaData = { ...METADATA.tables.person, capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_COUNT', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'], hasRestrictedFields: true, fields: { id: { ...field('id'), type: 'INTEGER', isEditable: false }, name: field('name', 'FULL'), email: field('email', 'REVEALABLE'), ssn: field('ssn', 'MASKED') }, sections: [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'email', 'ssn'] }] }
   const record = { tableName: 'person', values: { id: 1, name: 'Jane Example', email: 'j***@x.com', ssn: '***1234' }, displayValues: { email: 'j***@x.com', ssn: '***1234' }, recordLabel: 'Jane Example' }
-  await page.route('**/qqq/v1/version', (route) => route.fulfill({ json: { apiVersion: '1.2.0', features: [], extensions: options.installed === false ? [] : [{ name: 'secured-data', version: '1.0.0', pathPrefix: '/qbit/secured-data' }] } }))
+  await page.route('**/qqq/v1/version', (route) => route.fulfill({ json: { apiVersion: '1.4.0', features: [], extensions: options.installed === false ? [] : [{ name: 'secured-data', version: '1.0.0', pathPrefix: '/qbit/secured-data' }] } }))
   await page.route(/\/qqq\/v1\/metaData(?:\?.*)?$/, (route) => route.fulfill({ json: { ...METADATA, tables: { person: table } } }))
   await page.route('**/qqq/v1/metaData/table/person**', (route) => route.fulfill({ json: table }))
   await page.route('**/qqq/v1/table/person/query**', (route) => route.fulfill({ json: { records: [record] } }))
@@ -178,6 +178,11 @@ const PERSON_RECORD_1 = PERSON_RECORDS[0]
  */
 export async function setupApiMocks(page: Page): Promise<void> {
   // ── GENERIC routes (registered first = lowest priority) ──────────────────
+
+  // UI API version: a 1.4.0 server with no extensions (specs that need an extension route their own)
+  await page.route('**/qqq/v1/version', (route) => {
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [] }) })
+  })
 
   // Global search
   await page.route('**/qqq/v1/search**', (route) => {

@@ -22,27 +22,31 @@ import { runFormAdjuster } from './form-adjuster'
 describe('runFormAdjuster (QRun-IO/qqq#720)', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('posts the event, field, new value and all values to the root adjuster route', async () => {
+  it('posts the event, field, new value and all values as JSON to the table adjuster route', async () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ updatedFieldValues: { total: 5 } })
-    const output = await runFormAdjuster('lab:size', 'onChange', { fieldName: 'size', newValue: 3, allValues: { size: 3, note: null, file: new File(['x'], 'x.txt') } })
+    const output = await runFormAdjuster('lab', 'lab:size', 'onChange', { fieldName: 'size', newValue: 3, allValues: { size: 3, note: null, file: new File(['x'], 'x.txt') } })
     expect(output).toEqual({ updatedFieldValues: { total: 5 } })
-    const [url, body, config] = post.mock.calls[0]
-    expect(url).toBe('/material-dashboard-backend/form-adjuster/lab%3Asize/onChange')
-    // outside the versioned API path: at the origin of the server hosting it
-    expect(config?.baseURL).toBe(window.location.origin)
-    const form = body as FormData
-    expect(Object.fromEntries(form.entries())).toEqual({ event: 'onChange', fieldName: 'size', newValue: '3', allValues: '{"size":3,"note":null}' })
+    const [url, body] = post.mock.calls[0]
+    expect(url).toBe('/table/lab/formAdjuster/lab%3Asize/onChange')
+    expect(body).toEqual({ fieldName: 'size', newValue: 3, allValues: { size: 3, note: null } })
   })
 
-  it('sends a cleared value as empty and leaves the field out for a table on-load adjuster', async () => {
+  it('sends a cleared value as null and leaves the field out for a table on-load adjuster', async () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({})
-    await runFormAdjuster('lab:size', 'onChange', { fieldName: 'size', newValue: null, allValues: {} })
-    expect((post.mock.calls[0][1] as FormData).get('newValue')).toBe('')
-    await runFormAdjuster('table:lab', 'onLoad', { allValues: { a: 1 } })
-    const onLoad = post.mock.calls[1][1] as FormData
-    expect(post.mock.calls[1][0]).toBe('/material-dashboard-backend/form-adjuster/table%3Alab/onLoad')
-    expect(onLoad.has('fieldName')).toBe(false)
-    expect(onLoad.get('event')).toBe('onLoad')
+    await runFormAdjuster('lab', 'lab:size', 'onChange', { fieldName: 'size', newValue: null, allValues: {} })
+    expect(post.mock.calls[0][1]).toEqual({ fieldName: 'size', newValue: null, allValues: {} })
+    await runFormAdjuster('lab', 'table:lab', 'onLoad', { allValues: { a: 1 } })
+    const onLoad = post.mock.calls[1][1]
+    expect(post.mock.calls[1][0]).toBe('/table/lab/formAdjuster/table%3Alab/onLoad')
+    expect(onLoad).toEqual({ allValues: { a: 1 } })
+  })
+
+  it.each([false, ['a', 'b'], { count: 2 }].map((newValue) => ({ newValue })))('preserves JSON newValue $newValue', async ({ newValue }) => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({})
+    await runFormAdjuster('lab data', 'lab:size', 'onChange', { fieldName: 'size', newValue, allValues: { size: newValue } })
+    expect(post).toHaveBeenCalledWith('/table/lab%20data/formAdjuster/lab%3Asize/onChange', {
+      fieldName: 'size', newValue, allValues: { size: newValue },
+    })
   })
 
   it('returns every effect of the output and drops absent ones', async () => {
@@ -55,7 +59,7 @@ describe('runFormAdjuster (QRun-IO/qqq#720)', () => {
       isFormDisabled: true,
       formDisabledMessage: 'Closed for edits',
     })
-    const output = await runFormAdjuster('table:lab', 'onLoad', { allValues: {} })
+    const output = await runFormAdjuster('lab', 'table:lab', 'onLoad', { allValues: {} })
     expect(output).toEqual({
       updatedFieldMetaData: { note: { name: 'note', label: 'Notes', isHidden: true } },
       updatedFieldDisplayValues: { ownerId: 'Ada', other: '' },
@@ -68,6 +72,6 @@ describe('runFormAdjuster (QRun-IO/qqq#720)', () => {
 
   it('rejects a response that is not an adjuster output', async () => {
     vi.spyOn(apiClient, 'post').mockResolvedValue({ fieldsToClear: 'code' })
-    await expect(runFormAdjuster('table:lab', 'onLoad', { allValues: {} })).rejects.toThrow('Invalid form adjuster response')
+    await expect(runFormAdjuster('lab', 'table:lab', 'onLoad', { allValues: {} })).rejects.toThrow('Invalid form adjuster response')
   })
 })

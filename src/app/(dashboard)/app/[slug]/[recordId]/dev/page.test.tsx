@@ -55,7 +55,7 @@ vi.mock('@/lib/api/developer', () => ({
   getTableApis: vi.fn(async () => []),
   getApiVersions: vi.fn(),
   getApiTableSpec: vi.fn(),
-  apiTableSpecUrl: () => '/api/v1/person/openapi.json',
+  apiTableSpecUrl: () => '/qqq/v1/table/person/apis/siteApi/v1/openapi',
   apiMiddlewareBaseURL: () => '',
 }))
 
@@ -140,7 +140,7 @@ describe('RecordDeveloperViewPage', () => {
     expect(within(card).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Code', 'Logs', 'Test', 'Docs'])
     expect(screen.getByTestId('page-header')).toHaveTextContent('Ada Lovelace Developer Mode')
     expect(getRecordDeveloperData).toHaveBeenCalledWith('person', '1')
-  })
+  }, 15_000) // three waits of up to 5 s each: the 5 s default could expire before they do
 
   it('shows the raw values of the developer-mode record, not a separate record read (Material getRecordDeveloperMode)', async () => {
     serveInstance([])

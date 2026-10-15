@@ -18,8 +18,7 @@
  * @file Developer API — application API discovery for the table developer view, and the
  * record developer routes and script processes behind associated scripts.
  *
- * The API catalog (`/apis.json`, `{api.path}versions.json`) is served by the API middleware
- * beside `/qqq/v1`. The record developer routes are the v1
+ * The API catalog and table specifications are served through the UI API. The record developer routes are the v1
  * `/table/{table}/{pk}/developer...` routes (QRun-IO/qqq#714). Script revisions are stored and
  * tested through the `storeScriptRevision` and `testScript` processes, as the Material dashboard does.
  */
@@ -27,7 +26,7 @@
 import { isAxiosError } from 'axios'
 
 import type { QFieldMetaData, QQueryFilter, QRecord } from '@/types'
-import apiClient from './client'
+import apiClient, { apiUrl } from './client'
 import { processInit, processStatus, type ProcessResponse } from './processes'
 import { queryRecords } from './tables'
 
@@ -45,7 +44,7 @@ const SCRIPT_PROCESS_TIMEOUT_MILLIS = 60_000
 /** Delay between status polls when a script process went async. */
 const STATUS_POLL_MILLIS = 1_000
 
-/** One application API that exposes a table, from `GET /apis.json?tableName=`. */
+/** One application API that exposes a table, from `GET /table/{tableName}/apis`. */
 export interface ApiInstance {
   /** API name (the selection key). */
   name: string
@@ -53,9 +52,13 @@ export interface ApiInstance {
   path: string
   /** Label shown to the user. */
   label: string
+  /** Versions exposed by this API for the table. */
+  versions?: { version: string; semanticVersion?: string; tableSpecPath?: string }[]
+  /** Current version declared by the API. */
+  currentVersion?: string
 }
 
-/** Versions an API supports, from `GET {api.path}versions.json`. */
+/** Versions an API supports, from the table API catalog. */
 export interface ApiVersions {
   /** Every version the API serves. */
   supportedVersions: string[]
@@ -184,9 +187,8 @@ export interface TestScriptResult {
 }
 
 /**
- * Base URL of the API middleware (`/apis.json`, `/{api}/versions.json`, specs), which QQQ serves
- * beside `/qqq/v1` under the same host and deployment prefix. It is not the UI's data API: every
- * record, script and log request goes to the v1 routes.
+ * Base URL of the API middleware, used only for links to public documentation.
+ * All application requests go through the UI API.
  * @returns The configured base URL without the V1 route suffix.
  */
 export function apiMiddlewareBaseURL(): string | undefined {
@@ -268,9 +270,9 @@ function developerPath(tableName: string, primaryKey: string | number): string {
 }
 
 /**
- * Lists the application APIs that expose a table (`GET /apis.json?tableName=`).
+ * Lists the application APIs that expose a table (`GET /table/{tableName}/apis`).
  *
- * Instances without the API middleware have no `/apis.json`; a 404, a non-JSON
+ * Instances without an API catalog may return no data; a 404, a non-JSON
  * response, or a body without `apis` all mean the table is in no API.
  *
  * @param tableName - Exact backend table identifier.
@@ -279,7 +281,7 @@ function developerPath(tableName: string, primaryKey: string | number): string {
 export async function getTableApis(tableName: string): Promise<ApiInstance[]> {
   let body: unknown
   try {
-    body = await apiClient.get<unknown>('/apis.json', { baseURL: apiMiddlewareBaseURL(), params: { tableName } })
+    body = await apiClient.get<unknown>(`/table/${encodeURIComponent(tableName)}/apis`)
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 404) return []
     throw error
@@ -287,22 +289,29 @@ export async function getTableApis(tableName: string): Promise<ApiInstance[]> {
   if (!isObject(body) || !Array.isArray(body.apis)) return []
   return body.apis.flatMap((api: unknown): ApiInstance[] => {
     if (!isObject(api) || typeof api.name !== 'string' || typeof api.path !== 'string') return []
-    return [{ name: api.name, path: api.path, label: typeof api.label === 'string' && api.label ? api.label : api.name }]
+    return [{
+      name: api.name,
+      path: api.path,
+      label: typeof api.label === 'string' && api.label ? api.label : api.name,
+      currentVersion: optionalString(api.currentVersion),
+      versions: Array.isArray(api.versions) ? api.versions.flatMap((entry: unknown) =>
+        isObject(entry) && typeof entry.version === 'string'
+          ? [{ version: entry.version, semanticVersion: optionalString(entry.semanticVersion), tableSpecPath: optionalString(entry.tableSpecPath) }]
+          : []) : [],
+    }]
   })
 }
 
 /**
- * Reads the versions an API supports (`GET {apiPath}versions.json`).
+ * Reads versions from the already-fetched table API catalog; makes no request.
  *
- * @param apiPath - The API's root-relative base path (ends with `/`).
+ * @param api - An API from the table catalog.
  * @returns The supported and current versions.
  */
-export async function getApiVersions(apiPath: string): Promise<ApiVersions> {
-  const body = await apiClient.get<unknown>(`${apiPath}versions.json`, { baseURL: apiMiddlewareBaseURL() })
-  if (!isObject(body) || !Array.isArray(body.supportedVersions)) throw new Error('Invalid API versions response')
+export function getApiVersions(api: ApiInstance): ApiVersions {
   return {
-    supportedVersions: body.supportedVersions.filter((version): version is string => typeof version === 'string'),
-    currentVersion: optionalString(body.currentVersion),
+    supportedVersions: (api.versions ?? []).map(({ version }) => version),
+    currentVersion: api.currentVersion,
   }
 }
 
@@ -315,7 +324,9 @@ export async function getApiVersions(apiPath: string): Promise<ApiVersions> {
  * @returns The spec URL (absolute when a backend host is configured).
  */
 export function apiTableSpecUrl(api: ApiInstance, version: string, tableName: string): string {
-  return `${apiMiddlewareBaseURL() ?? ''}${api.path}${version}/${tableName}/openapi.json`
+  // `?format=json` changes nothing on the server; RapiDoc only offers "View OpenAPI spec (New Tab)"
+  // for a spec URL that ends in "json".
+  return apiUrl(`/table/${encodeURIComponent(tableName)}/apis/${encodeURIComponent(api.name)}/${encodeURIComponent(version)}/openapi?format=json`)
 }
 
 /**
@@ -327,7 +338,7 @@ export function apiTableSpecUrl(api: ApiInstance, version: string, tableName: st
  * @returns The parsed spec document.
  */
 export async function getApiTableSpec(api: ApiInstance, version: string, tableName: string): Promise<unknown> {
-  return apiClient.get<unknown>(apiTableSpecUrl(api, version, tableName), { baseURL: '' })
+  return apiClient.get<unknown>(`/table/${encodeURIComponent(tableName)}/apis/${encodeURIComponent(api.name)}/${encodeURIComponent(version)}/openapi`)
 }
 
 /**

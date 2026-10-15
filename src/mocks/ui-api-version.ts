@@ -24,7 +24,7 @@ import { http, HttpResponse } from 'msw'
  */
 export function uiApiVersionHandler(...names: string[]) {
   return http.get('/qqq/v1/version', () => HttpResponse.json({
-    apiVersion: '1.1.0',
+    apiVersion: '1.4.0',
     features: ['preferences'],
     extensions: names.map((name) => ({ name, version: '1.0.0' })),
   }))

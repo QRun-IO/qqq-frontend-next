@@ -42,7 +42,7 @@ describe('extension discovery', () => {
   })
 
   it('reports core features from the same discovery, false when absent or unreachable', async () => {
-    server.use(http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.3.0', features: ['preferences'], extensions: [] })))
+    server.use(http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.4.0', features: ['preferences'], extensions: [] })))
     await expect(isUiApiFeatureSupported('preferences')).resolves.toBe(true)
     await expect(isUiApiFeatureSupported('realtime')).resolves.toBe(false)
     resetUiApiExtensions()

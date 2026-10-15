@@ -94,8 +94,8 @@ export function TableApiDocs({ tableName, primaryColor }: TableApiDocsProps) {
     ?? apis[0]
 
   const versionsQuery = useQuery({
-    queryKey: queryKeys.apiVersions(selectedApi?.path ?? ''),
-    queryFn: () => getApiVersions(selectedApi!.path),
+    queryKey: [...queryKeys.tableApis(tableName), selectedApi],
+    queryFn: () => getApiVersions(selectedApi!),
     enabled: Boolean(selectedApi),
     meta: HANDLES_OWN_ERRORS,
     retry: false,

@@ -89,7 +89,7 @@ describe('table on-load form adjuster', () => {
     renderForm(table, { record: stored })
     expect(screen.getByRole('status')).toHaveTextContent('Loading form...')
     expect(await screen.findByRole('heading', { name: 'Adjusted main' })).toBeVisible()
-    expect(adjuster).toHaveBeenCalledWith('table:lab', 'onLoad', { allValues: expect.objectContaining({ id: 3, title: 'Old', kind: 'A' }) })
+    expect(adjuster).toHaveBeenCalledWith('lab', 'table:lab', 'onLoad', { allValues: expect.objectContaining({ id: 3, title: 'Old', kind: 'A' }) })
     expect(screen.getByLabelText(/^Title/)).toHaveValue('From adjuster')
     expect(screen.getByRole('combobox', { name: 'Kind' })).toHaveTextContent('Beta')
     expect(screen.getByLabelText(/^Code/)).toHaveValue('')
@@ -139,7 +139,7 @@ describe('field form adjusters', () => {
   it('runs a text field\'s on-change adjuster on blur and a possible value\'s on change, with every value', async () => {
     const user = userEvent.setup()
     let release: () => void = () => {}
-    adjuster.mockImplementation(async (_id, _event, input) => {
+    adjuster.mockImplementation(async (_table, _id, _event, input) => {
       if (input.fieldName === 'kind') await new Promise<void>((resolve) => { release = resolve })
       return input.fieldName === 'title' ? { updatedFieldValues: { code: `T-${String(input.newValue)}` } } : { fieldsToClear: ['note'] }
     })
@@ -154,7 +154,7 @@ describe('field form adjusters', () => {
     expect(adjuster).not.toHaveBeenCalled()
     await user.tab()
     await waitFor(() => expect(screen.getByLabelText(/^Code/)).toHaveValue('T-New'))
-    expect(adjuster).toHaveBeenCalledWith('lab:field', 'onChange', { fieldName: 'title', newValue: 'New', allValues: expect.objectContaining({ title: 'New', kind: 'A' }) })
+    expect(adjuster).toHaveBeenCalledWith('lab', 'lab:field', 'onChange', { fieldName: 'title', newValue: 'New', allValues: expect.objectContaining({ title: 'New', kind: 'A' }) })
 
     await user.click(screen.getByRole('combobox', { name: 'Kind' }))
     await user.click(await screen.findByRole('option', { name: 'Beta' }))
@@ -163,14 +163,14 @@ describe('field form adjusters', () => {
     release()
     await waitFor(() => expect(screen.getByLabelText(/^Note/)).toBeEnabled())
     expect(screen.getByLabelText(/^Note/)).toHaveValue('')
-    expect(adjuster).toHaveBeenLastCalledWith('lab:field', 'onChange', expect.objectContaining({ fieldName: 'kind', newValue: 'B' }))
+    expect(adjuster).toHaveBeenLastCalledWith('lab', 'lab:field', 'onChange', expect.objectContaining({ fieldName: 'kind', newValue: 'B' }))
   })
 
   it('runs field on-load adjusters when the form mounts and applies new field definitions', async () => {
     adjuster.mockResolvedValue({ updatedFieldMetaData: { note: { ...field('note'), isHidden: true } }, updatedFieldValues: { title: 'Loaded' } })
     renderForm(lab({}, { code: field('code', adjusted({ onLoadFormAdjuster: {} })) }), { record: stored })
     await waitFor(() => expect(screen.getByLabelText(/^Title/)).toHaveValue('Loaded'))
-    expect(adjuster).toHaveBeenCalledWith('lab:field', 'onLoad', expect.objectContaining({ fieldName: 'code', newValue: 'C-1' }))
+    expect(adjuster).toHaveBeenCalledWith('lab', 'lab:field', 'onLoad', expect.objectContaining({ fieldName: 'code', newValue: 'C-1' }))
     expect(screen.queryByLabelText(/^Note/)).toBeNull()
   })
 })

@@ -55,7 +55,8 @@ describe('parseSemver / compareSemver', () => {
 
 describe('evaluateCompatibility', () => {
   it('accepts any 1.x at or above the minimum', () => {
-    expect(evaluateCompatibility(info('1.0.0')).compatible).toBe(true)
+    expect(evaluateCompatibility(info('1.4.0')).compatible).toBe(true)
+    expect(evaluateCompatibility(info('1.3.9')).compatible).toBe(false)
     expect(evaluateCompatibility(info('1.7.2')).compatible).toBe(true)
   })
 
@@ -95,7 +96,7 @@ describe('getUiApiVersion', () => {
     expect(await getUiApiVersion()).toEqual({ apiVersion: PRE_SEMVER_UI_API_VERSION, features: [], extensions: [], preSemver: true })
     server.use(http.get('*/qqq/v1/version', () => HttpResponse.text('<!doctype html><html></html>')))
     expect((await getUiApiVersion()).preSemver).toBe(true)
-    expect((await checkUiApiCompatibility()).compatible).toBe(true)
+    expect((await checkUiApiCompatibility()).compatible).toBe(false)
   })
 })
 

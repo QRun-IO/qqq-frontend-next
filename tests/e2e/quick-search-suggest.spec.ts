@@ -57,7 +57,7 @@ async function setupSuggest(page: Page, installed = true, fail = false) {
   await page.route(/\/qqq\/v1\/metaData(\?.*)?$/, (route) => route.fulfill({ json: SEARCHABLE_METADATA }))
   await page.route('**/qqq/v1/version', (route) => route.fulfill({
     json: {
-      apiVersion: '1.1.0', features: [],
+      apiVersion: '1.4.0', features: [],
       extensions: installed ? [{ name: 'quick-search', version: '1.0.0', pathPrefix: '/qbit/quick-search' }] : [],
     },
   }))
