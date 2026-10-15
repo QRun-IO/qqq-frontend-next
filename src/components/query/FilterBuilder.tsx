@@ -24,6 +24,7 @@
 
 'use client'
 
+import { allowedOperators, isRestricted } from '@/lib/utils/secured-data'
 import React, { useState, useCallback, useRef, useMemo, useId } from 'react'
 import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X, CalendarClock, CircleCheck, CircleDashed, Variable } from 'lucide-react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
@@ -75,6 +76,9 @@ import { RelativeDateMenu } from './RelativeDateMenu'
 
 /** A field offered in the filter's field selector (base table or exposed join). */
 export interface FilterField {
+  accessTier?: QFieldMetaData['accessTier']
+  allowedFilterOperators?: string[]
+  isSortable?: boolean
   /** Metadata for dependency resolution in the owning table's namespace. */
   dependencyField?: QFieldMetaData
   /** Name used in criteria: `field` or `joinTable.field`. */
@@ -109,10 +113,10 @@ export interface FilterField {
  * @returns The fields, each flagged when virtual.
  */
 function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isVirtual: boolean }[] {
-  const usable = (f: QFieldMetaData) => !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
+  const usable = (f: QFieldMetaData) => allowedOperators(f)?.length !== 0 && !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
   const stored = Object.values(table.fields ?? {}).filter(usable).map((field) => ({ field, isVirtual: false }))
   const virtual = Object.values(table.virtualFields ?? {})
-    .filter((f) => f.isQueryCriteria && !f.isHidden && !table.fields?.[f.name])
+    .filter((f) => f.isQueryCriteria && usable(f) && !table.fields?.[f.name])
     .map((field) => ({ field: field as QFieldMetaData, isVirtual: true }))
   return [...stored, ...virtual].sort((a, b) => a.field.label.localeCompare(b.field.label))
 }
@@ -127,7 +131,7 @@ function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isV
 export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] {
   const fields: FilterField[] = filterableFieldsOf(tableMetaData).map(({ field: f, isVirtual }) => ({
     ...(getDependencies(f).length ? { dependencyField: f } : {}),
-    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}),
+    name: f.name, label: f.label, type: f.type, accessTier: f.accessTier, allowedFilterOperators: f.allowedFilterOperators, isSortable: f.isSortable, possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}),
     tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
     ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
   }))
@@ -138,7 +142,7 @@ export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] 
     for (const { field: f, isVirtual } of filterableFieldsOf(joinTable)) {
       fields.push({
         ...(getDependencies(f).length ? { dependencyField: f } : {}),
-        name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type,
+        name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type, accessTier: f.accessTier, allowedFilterOperators: f.allowedFilterOperators, isSortable: f.isSortable,
         possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}), tableName: joinTable.name, tableFieldName: f.name,
         group: `${joinTable.label} Fields`, ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
       })
@@ -467,7 +471,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ currentFilter, inde
   const dateRow = useDateRow({ field: selectedField, criteria, onChange, enabled: !allowVariables })
   const options = selectedField ? getOperatorOptions(selectedField, { weekday }) : []
   const selected = selectedOperatorOption(options, criterion)
-  const allOptions = options.some((o) => o.id === selected.id) ? options : [...options, selected]
+  const allOptions = isRestricted(selectedField) ? options : options.some((o) => o.id === selected.id) ? options : [...options, selected]
   const status = dateRow.dateMode
     ? { valid: dateRow.complete, message: dateRow.complete ? 'This condition is fully defined and is part of your filter.' : 'You must pick a date to complete the definition of this condition.' }
     : validateCriterion(criterion)
@@ -484,7 +488,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ currentFilter, inde
     if (!field || field.isSelectable === false) return
     const sameKind = selectedField && selectedField.type === field.type && selectedField.possibleValueSourceName === field.possibleValueSourceName
       && selectedField.tableName === field.tableName
-    if (!sameKind) {
+    if (!sameKind || isRestricted(field) || isRestricted(selectedField)) {
       onChange([newCriterionForField(fieldName, field)])
       return
     }
@@ -498,7 +502,8 @@ export const CriteriaRow = React.memo(function CriteriaRow({ currentFilter, inde
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" data-qqq-id={`filter-row-${depth}-${index}`}>
+    <div className="flex min-w-0 flex-wrap items-center gap-2" data-qqq-id={`filter-row-${depth}-${index}`}>
+      {selectedField?.accessTier === 'REVEALABLE' && <p className="w-full text-sm text-muted-foreground">Exact match only. Searches are audited.</p>}
       <select
         value={selectedField ? criterion.fieldName : ''}
         onChange={(e) => handleFieldChange(e.target.value)}
@@ -638,6 +643,9 @@ export const FilterValueInput = React.memo(function FilterValueInput({ currentFi
   const formValues = field.dependencyField ? filterDependencyValues(field.dependencyField, dependencyFilter) : undefined
   const hasPossibleValues = Boolean(field.possibleValueSourceName)
   const at = (i: number): CriteriaValue => values[i] ?? ''
+  if (isRestricted(field)) return valueMode === 'multi'
+    ? <div className="min-w-0 max-w-full"><TagInput values={values.map(String)} onChange={(next) => onChange(next.slice(0, 25))} placeholder="Add up to 25 exact values..." aria-label={`Filter values for ${field.label}`} data-qqq-id={`filter-value-${depth}-${index}`} /><p className="text-xs text-muted-foreground">{values.length}/25 values</p></div>
+    : <input className="min-h-9 min-w-0 max-w-full rounded border border-input bg-background px-2 text-sm" aria-label={`Filter value for ${field.label}`} value={String(at(0))} onChange={(event) => onChange([event.target.value])} data-qqq-id={`filter-value-${depth}-${index}`} />
 
   if (valueMode === 'weekdays') {
     return (
@@ -1148,7 +1156,7 @@ function PossibleValueMultiSelect({ formValues, tableName, fieldName, fieldLabel
         aria-controls={listboxId}
       >
         {values.map((val) => (
-          <span key={val} className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
+          <span key={val} className="flex max-w-full items-center gap-1 break-all rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
             {labelOf(val)}
             <button type="button" onClick={(e) => { e.stopPropagation(); onChange(values.filter((v) => v !== val)) }}
               className="text-primary hover:text-primary/70 focus:outline-none" aria-label={`Remove ${labelOf(val)}`}>
@@ -1249,7 +1257,7 @@ function WeekdayMultiSelect({ fieldLabel, values, onChange, 'data-qqq-id': dataI
         data-qqq-id={dataId ? `${dataId}-combobox` : undefined}
       >
         {values.map((id) => (
-          <span key={id} className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
+          <span key={id} className="flex max-w-full items-center gap-1 break-all rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
             {labelOf(id)}
             <button type="button" onClick={(e) => { e.stopPropagation(); onChange(values.filter((v) => v !== id)) }}
               className="text-primary hover:text-primary/70 focus:outline-none" aria-label={`Remove ${labelOf(id)}`}>
@@ -1379,9 +1387,9 @@ function TagInput({ values, onChange, placeholder, 'aria-label': ariaLabel, 'dat
   }
 
   return (
-    <div className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-input bg-background p-1 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring" data-qqq-id={dataId}>
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded border border-input bg-background p-1 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring" data-qqq-id={dataId}>
       {values.map((tag, i) => (
-        <span key={`${tag}-${i}`} className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
+        <span key={`${tag}-${i}`} className="flex max-w-full items-center gap-1 break-all rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
           {tag}
           <button type="button" onClick={() => onChange(values.filter((_, idx) => idx !== i))} className="text-primary hover:text-primary/70 focus:outline-none" aria-label={`Remove ${tag}`}>
             <X className="h-3 w-3" aria-hidden="true" />

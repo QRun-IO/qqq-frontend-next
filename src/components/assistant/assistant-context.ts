@@ -38,6 +38,14 @@ export const assistantKeys = {
    * @returns The key.
    */
   all: () => ['qqq', 'assistant'] as const,
+  /** Active-turn discovery.
+   * @returns The query key.
+   */
+  activeTurns: () => [...assistantKeys.all(), 'active-turns'] as const,
+  /** Local stream activity.
+   * @returns The query key.
+   */
+  busy: () => [...assistantKeys.all(), 'busy'] as const,
   /**
    * The feature probe.
    *

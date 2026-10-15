@@ -21,6 +21,7 @@
  */
 'use client'
 
+import { canSortField } from '@/lib/utils/secured-data'
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, X } from 'lucide-react'
@@ -148,7 +149,13 @@ interface DragState {
  */
 function PivotEditorBody({ widgetName, tableMetaData, availableFieldNames, definition, disabled = false, onCancel, onSave }: Omit<PivotTableEditorDialogProps, 'open'>) {
   const idPrefix = useId()
-  const [draft, setDraft] = useState<PivotDefinition>(() => clonePivotDefinition(definition))
+  const [draft, setDraft] = useState<PivotDefinition>(() => {
+    const next = clonePivotDefinition(definition)
+    for (const section of ['rows', 'columns', 'values'] as const) {
+      if (next[section]) next[section] = next[section].filter((item) => !item.fieldName || canSortField(findPivotField(tableMetaData, item.fieldName)))
+    }
+    return next
+  })
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [errorAlert, setErrorAlert] = useState<string | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -277,7 +284,7 @@ function PivotEditorBody({ widgetName, tableMetaData, availableFieldNames, defin
           className={cn(SELECT_CLASS, 'flex-1 basis-40', invalid && 'border-destructive')}
         >
           <option value="">{itemOptions.length === 0 ? 'There are no fields available.' : 'Select a field'}</option>
-          {unlisted && <option value={unlisted}>{resolveFieldLabel(tableMetaData, unlisted).label}</option>}
+          {unlisted && canSortField(findPivotField(tableMetaData, unlisted)) && <option value={unlisted}>{resolveFieldLabel(tableMetaData, unlisted).label}</option>}
           {grouped
             ? groupOptions(itemOptions).map(([group, groupItems]) => (
               <optgroup key={group} label={group}>

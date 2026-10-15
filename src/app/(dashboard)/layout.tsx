@@ -22,6 +22,7 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
+import { SecuredDataProvider, SecuredDataBannerSlot } from '@/components/secured-data/SecuredDataProvider'
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -285,8 +286,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // tab") makes the document taller than the window, a second scrollbar beside main's.
   return (
     <HelpPanelProvider instance={metaData}>
-    <AssistantProvider value={assistant}>
+    <SecuredDataProvider enabled={isAuthenticated}><AssistantProvider value={assistant}>
     <div className="relative flex h-screen flex-col overflow-hidden bg-background" data-qqq-id="app-shell">
+      <SecuredDataBannerSlot />
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
       <BrandedHeaderBar theme={theme} />
@@ -388,7 +390,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Keyboard Shortcuts Help Dialog */}
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
     </div>
-    </AssistantProvider>
+    </AssistantProvider></SecuredDataProvider>
     </HelpPanelProvider>
   )
 }

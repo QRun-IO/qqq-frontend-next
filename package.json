@@ -1,6 +1,6 @@
 {
   "name": "qqq-frontend-next",
-  "version": "1.0.0-RC.23",
+  "version": "1.0.0-RC.26",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {

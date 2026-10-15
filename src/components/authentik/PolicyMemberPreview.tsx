@@ -21,7 +21,7 @@ import { useMemo, useState } from 'react'
 
 import { buttonClass } from '@/components/ui/controls'
 import type { PolicyCatalogGroup, PolicyPreviewMember } from './AuthentikPolicyEditorWidget'
-import { ACTION_LABELS, isPolicyAction } from './policy-document'
+import { ACTION_LABELS, FULL_ACCESS_PERMISSION, isPolicyAction } from './policy-document'
 
 const PAGE_SIZE = 50
 
@@ -38,9 +38,14 @@ export default function PolicyMemberPreview({ member, selected, saved, catalog }
   catalog: PolicyCatalogGroup[]
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
+  const fullAccess = selected.has(FULL_ACCESS_PERMISSION)
+  const savedFullAccess = saved.has(FULL_ACCESS_PERMISSION)
+  const baseCount = new Set(member.basePermissions).size
   const preview = useMemo(() => {
+    // Full access is symbolic, so neither enumerate it nor mark old named grants removed.
+    if (fullAccess) return { total: 0, entries: [] }
     const current = new Set([...member.basePermissions, ...selected])
-    const previous = new Set([...member.basePermissions, ...saved])
+    const previous = new Set([...member.basePermissions, ...[...saved].filter((permission) => permission !== FULL_ACCESS_PERMISSION)])
     const resources = new Map(catalog.flatMap((group) => group.resources.map((resource) => [resource.name, resource] as const)))
     const entries = [...new Set([...current, ...previous])].sort().map((permission) => {
       const dot = permission.lastIndexOf('.')
@@ -56,11 +61,11 @@ export default function PolicyMemberPreview({ member, selected, saved, catalog }
         resourceLabel,
         // Unknown non-policy names stay readable without implying catalog membership.
         label: resource || isPolicyAction(action) ? `${resourceLabel}: ${actionLabel}` : permission,
-        change: !current.has(permission) ? 'removed by this edit' : !previous.has(permission) ? 'added by this edit' : null,
+        change: !current.has(permission) ? 'removed by this edit' : !savedFullAccess && !previous.has(permission) ? 'added by this edit' : null,
       }
     })
     return { total: current.size, entries }
-  }, [catalog, member.basePermissions, saved, selected])
+  }, [catalog, fullAccess, member.basePermissions, saved, savedFullAccess, selected])
 
   const groups = new Map<string, { label: string; entries: typeof preview.entries }>()
   for (const entry of preview.entries.slice(0, limit)) {
@@ -70,8 +75,17 @@ export default function PolicyMemberPreview({ member, selected, saved, catalog }
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-qqq-id="policy-preview-permissions">
-      <p role="status" className="text-sm font-medium text-foreground">{`${preview.total} effective permission${preview.total === 1 ? '' : 's'}`}</p>
-      {preview.total === 0 && <p className="text-sm text-muted-foreground">No effective permissions.</p>}
+      {(fullAccess || savedFullAccess) && (
+        <div className="text-sm text-foreground">
+          <p role="status" className="flex flex-wrap items-center gap-x-2">
+            <span className="font-medium">Full access: everything in this app</span>
+            {fullAccess !== savedFullAccess && <span className="text-xs">{fullAccess ? 'added by this edit' : 'removed by this edit'}</span>}
+          </p>
+          <p className="mt-1 text-muted-foreground">{`${baseCount} base permission${baseCount === 1 ? '' : 's'}`}</p>
+        </div>
+      )}
+      {!fullAccess && <p role="status" className="text-sm font-medium text-foreground">{`${preview.total} effective permission${preview.total === 1 ? '' : 's'}`}</p>}
+      {!fullAccess && preview.total === 0 && <p className="text-sm text-muted-foreground">No effective permissions.</p>}
       {[...groups].map(([name, group]) => (
         <div key={name} className="min-w-0">
           <h4 className="break-words text-sm font-medium text-foreground">{group.label}</h4>

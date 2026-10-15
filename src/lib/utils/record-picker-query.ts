@@ -20,6 +20,7 @@
  * storage. Loaded with the dialog only.
  */
 
+import { allowedOperators, canSortField, isRestricted } from './secured-data'
 import type { QFieldMetaData, QFilterCriteria, QPossibleValuePicker, QPossibleValue } from '@/types'
 import type { PickerPageRequest } from '@/lib/api/possible-values'
 
@@ -54,7 +55,8 @@ export type PickerFilterKind = 'choice' | 'boolean' | 'text' | 'number' | 'date'
  * @param field - The field (of the picker's table).
  * @returns `choice` for a possible-value field, else by type.
  */
-export function pickerFilterKind(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>): PickerFilterKind {
+export function pickerFilterKind(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName' | 'accessTier'>): PickerFilterKind {
+  if (isRestricted(field)) return 'text'
   if (field.possibleValueSourceName) return 'choice'
   if (field.type === 'BOOLEAN') return 'boolean'
   if (field.type === 'INTEGER' || field.type === 'LONG' || field.type === 'DECIMAL') return 'number'
@@ -72,7 +74,11 @@ export function pickerCriteria(filters: Record<string, PickerFilterValue>, field
   const criteria: QFilterCriteria[] = []
   for (const [fieldName, filter] of Object.entries(filters)) {
     const field = fields?.[fieldName]
-    if (!field || !filter) continue
+    if (!field || !filter || allowedOperators(field)?.length === 0) continue
+    if (isRestricted(field)) {
+      if (allowedOperators(field)?.includes('EQUALS') && filter.value?.trim()) criteria.push({ fieldName, operator: 'EQUALS', values: [filter.value.trim()] })
+      continue
+    }
     const kind = pickerFilterKind(field)
     if (kind === 'choice' || kind === 'boolean') {
       if (filter.value === undefined || filter.value === '') continue
@@ -112,7 +118,7 @@ export function pickerPageRequest(
   loaded: QPossibleValue[]
 ): PickerPageRequest {
   const sort = picker.sorts?.[preferences.sortIndex] ?? picker.sorts?.[0]
-  const orderBys = sort ? [{ fieldName: sort.fieldName, isAscending: sort.isAscending }] : undefined
+  const orderBys = sort && (!fields || canSortField(fields[sort.fieldName])) ? [{ fieldName: sort.fieldName, isAscending: sort.isAscending }] : undefined
   const request: PickerPageRequest = {
     filter: { criteria: pickerCriteria(preferences.filters, fields), booleanOperator: 'AND', ...(orderBys ? { orderBys } : {}) },
   }

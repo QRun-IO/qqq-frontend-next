@@ -76,3 +76,13 @@ describe('Material query view persistence', () => {
     expect(() => clearStoredQueryState('person')).not.toThrow()
   })
 })
+
+it('distinguishes an explicit legacy all-columns view from widths without visibility', () => {
+  localStorage.setItem('qqq-person-columns', '{}')
+  expect(readLegacyColumnState('person')?.columnVisibility).toEqual({})
+  localStorage.removeItem('qqq-person-columns')
+  localStorage.setItem('qqq-person-column-widths', '{"name":180}')
+  expect(readLegacyColumnState('person')?.columnVisibility).toBeUndefined()
+  localStorage.setItem('qqq-person-columns', '{"name":"false"}')
+  expect(readLegacyColumnState('person')?.columnVisibility).toBeUndefined()
+})

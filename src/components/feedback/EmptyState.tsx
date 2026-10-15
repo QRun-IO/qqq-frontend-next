@@ -38,6 +38,8 @@ export interface EmptyStateProps {
   action?: { label: string; onClick: () => void }
   /** Additional Tailwind class names applied to the outermost container div. */
   className?: string
+  /** Allow a longer description (e.g. a table's help text) to use a readable line length. */
+  wideDescription?: boolean
 }
 
 /**
@@ -58,6 +60,7 @@ export function EmptyState({
   icon,
   action,
   className,
+  wideDescription,
 }: EmptyStateProps) {
   return (
     <div
@@ -88,7 +91,7 @@ export function EmptyState({
       {/* Description */}
       {description && (
         <p
-          className="mt-1 max-w-xs text-sm text-muted-foreground"
+          className={cn('mt-1 text-sm text-muted-foreground', wideDescription ? 'max-w-prose' : 'max-w-xs')}
           data-qqq-id="empty-state-description"
         >
           {description}

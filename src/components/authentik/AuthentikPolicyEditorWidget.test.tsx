@@ -80,6 +80,98 @@ function setup(data: PolicyEditorPayload) {
 }
 
 describe('AuthentikPolicyEditorWidget', () => {
+  it('replaces all grants with full access and clears selections when unticked', async () => {
+    const user = userEvent.setup()
+    const { last } = setup(featurePayload({ document: documentFor(['read', 'retiredFeature']) }))
+    await user.click(screen.getByLabelText('Analyze data: People'))
+    const checkbox = screen.getByRole('checkbox', { name: 'Full access (all current and future resources)' })
+    await user.click(checkbox)
+    expect(last()).toBe(documentFor(['*'], ['*']))
+    expect(screen.getByText('1 statement; checked')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Not in this app/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Resource permissions' })).toBeDisabled()
+    expect(screen.getByRole('group', { name: 'Resource permissions' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByLabelText('Find a resource')).toBeDisabled()
+    expect(screen.getByLabelText('Find a resource')).not.toBeVisible()
+    expect(screen.getByLabelText('Everything in Content')).toBeDisabled()
+    expect(screen.getByLabelText('Read for everything in Content')).toBeDisabled()
+    expect(screen.getByLabelText('All actions: People')).toBeDisabled()
+    expect(screen.getByLabelText('Analyze data: People')).toBeDisabled()
+    expect(screen.getByLabelText('Analyze data: People')).not.toBeVisible()
+    await user.click(checkbox)
+    expect(JSON.parse(last()).Statement).toEqual([])
+    expect(screen.getByRole('group', { name: 'Resource permissions' })).toHaveAttribute('aria-disabled', 'false')
+    expect(screen.getByLabelText('Find a resource')).toBeEnabled()
+    expect(screen.getByLabelText('Analyze data: People')).toBeVisible()
+    expect(screen.getByLabelText('Analyze data: People')).toBeEnabled()
+    expect(screen.getByLabelText('Analyze data: People')).not.toBeChecked()
+    expect(screen.getByLabelText('Read: People')).not.toBeChecked()
+    await user.click(screen.getByLabelText('Comment: People'))
+    expect(last()).toBe(documentFor(['comment']))
+  })
+
+  it.each([undefined, true])('opens full access with the payload flag %s', async (fullAccess) => {
+    const data = { ...featurePayload({ document: documentFor(['*'], ['*']) }), fullAccess }
+    const { last, container } = setup(data)
+    expect(screen.getByRole('checkbox', { name: 'Full access (all current and future resources)' })).toBeChecked()
+    expect(last()).toBe(documentFor(['*'], ['*']))
+    expect(screen.getByRole('group', { name: 'Resource permissions' })).toBeDisabled()
+    expect(screen.getByLabelText('Read: People')).toBeDisabled()
+    expect(screen.getByLabelText('Read: People')).not.toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Not in this app/ })).not.toBeInTheDocument()
+    expect(await axe(container)).toHaveNoViolations()
+  })
+
+  it('reports invalid wildcard resources even when a payload claims full access', () => {
+    const data = { ...payload({ document: documentFor(['read'], ['*']) }), fullAccess: true }
+    const { last } = setup(data)
+    expect(screen.getByRole('alert')).toHaveTextContent('Resource "*" requires Action ["*"]')
+    expect(screen.getByRole('checkbox', { name: 'Full access (all current and future resources)' })).not.toBeChecked()
+    expect(JSON.parse(last()).Statement).toEqual([])
+  })
+
+  it('previews full access and marks it added against the saved named grants', async () => {
+    const user = userEvent.setup()
+    const { container } = setup(featurePayload({ document: documentFor(['read']), members: [
+      { username: 'sam', label: 'Sam Example', viaGroups: [], basePermissions: ['person.read', 'person.read', 'authentik.users.manage'] },
+      { username: 'lee', label: 'Lee Example', viaGroups: [], basePermissions: ['person.comment'] },
+    ] }))
+    await user.selectOptions(screen.getByLabelText('Member'), 'sam')
+    const preview = screen.getByRole('region', { name: 'Preview for a member' })
+    await within(preview).findByText('2 effective permissions')
+    await user.click(screen.getByRole('checkbox', { name: 'Full access (all current and future resources)' }))
+    expect(within(preview).getByText('Full access: everything in this app').parentElement).toHaveTextContent('added by this edit')
+    expect(within(preview).getByText('2 base permissions')).toBeInTheDocument()
+    expect(within(preview).queryByRole('list')).not.toBeInTheDocument()
+    expect(within(preview).queryByText('removed by this edit')).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Member'), 'lee')
+    expect(within(preview).getByText('1 base permission')).toBeInTheDocument()
+    expect(await axe(container)).toHaveNoViolations()
+  })
+
+  it('marks saved full access removed and does not call remaining grants additions', async () => {
+    const user = userEvent.setup()
+    setup(featurePayload({ document: documentFor(['*'], ['*']), members: [
+      { username: 'sam', label: 'Sam Example', viaGroups: [], basePermissions: ['person.read'] },
+    ] }))
+    await user.selectOptions(screen.getByLabelText('Member'), 'sam')
+    const preview = screen.getByRole('region', { name: 'Preview for a member' })
+    expect(await within(preview).findByText('Full access: everything in this app')).toBeInTheDocument()
+    expect(within(preview).queryByText(/by this edit/)).not.toBeInTheDocument()
+    const checkbox = screen.getByRole('checkbox', { name: 'Full access (all current and future resources)' })
+    await user.click(checkbox)
+    expect(within(preview).getByText('Full access: everything in this app').parentElement).toHaveTextContent('removed by this edit')
+    expect(within(preview).getByText('1 effective permission')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Analyze data: People'))
+    expect(within(preview).getByText('2 effective permissions')).toBeInTheDocument()
+    expect(within(preview).getByText('People: Analyze data')).toBeInTheDocument()
+    expect(within(preview).queryByText('added by this edit')).not.toBeInTheDocument()
+    await user.click(checkbox)
+    expect(within(preview).queryByText(/by this edit/)).not.toBeInTheDocument()
+    expect(within(preview).queryByRole('list')).not.toBeInTheDocument()
+  })
+
   it('opens saved features, round-trips, and toggles explicit feature statements', async () => {
     const user = userEvent.setup()
     const { last } = setup(featurePayload({ document: documentFor(['analyze', 'comment']) }))

@@ -23,6 +23,20 @@ import { generatePolicy, parsePolicy, roundTrips, splitPermission } from './poli
 const FORMAT = { spec: 'qqq-iam', version: '1.0.0' }
 
 describe('generatePolicy', () => {
+  it('writes only the full-access statement, even beside named grants', () => {
+    const full = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action: ['*'], Resource: ['*'] },
+    ] }, FORMAT)
+    expect(full.ok).toBe(true)
+    if (!full.ok) return
+    expect(full.permissions.size).toBe(1)
+    expect(roundTrips(full.permissions, FORMAT)).toBe(true)
+    const generated = generatePolicy([...full.permissions, 'person.read', 'person.analyze'], FORMAT)
+    expect(generated.compact).toBe('{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["*"],"Resource":["*"]}]}')
+    expect(generated.statementCount).toBe(1)
+    expect(parsePolicy(generated.pretty, FORMAT)).toEqual(full)
+  })
+
   it('writes the canonical form the qbit writes (byte for byte)', () => {
     const doc = generatePolicy(['cms_page.edit', 'contentApp.hasAccess', 'cms_page.read', 'cms_media.read', 'bad', 'x.bad-action'], FORMAT)
     expect(doc.compact).toBe('{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":['
@@ -102,6 +116,37 @@ describe('generatePolicy', () => {
 })
 
 describe('parsePolicy', () => {
+  it('canonicalizes redundant grants only after validating all statements', () => {
+    const parsed = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action: ['read', 'analyze'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['*'], Resource: ['*', 'article'] },
+    ] }, FORMAT)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.permissions).toEqual(new Set(['*.*']))
+    expect(parsed.resources).toEqual(['*'])
+    expect(roundTrips(parsed.permissions, FORMAT)).toBe(true)
+  })
+
+  it.each([['read'], ['analyze'], ['*', 'read'], ['*', '*'], []].map((Action) => ({ Action })))('rejects Resource "*" with actions $Action', ({ Action }) => {
+    const parsed = parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement: [
+      { Effect: 'Allow', Action, Resource: ['*'] },
+    ] }, FORMAT)
+    expect(parsed).toEqual({ ok: false, error: 'Statement 1: Resource "*" requires Action ["*"]' })
+  })
+
+  it.each([
+    { Effect: 'Deny', Action: ['read'], Resource: ['person'] },
+    { Effect: 'Allow', Action: ['read'], Resource: ['*'] },
+    { Effect: 'Allow', Action: ['bad-action'], Resource: ['person'] },
+    { Effect: 'Allow', Action: ['*'], Resource: ['*', 'bad.resource'] },
+  ])('fails closed on invalid statements beside full access: %j', (invalid) => {
+    const full = { Effect: 'Allow', Action: ['*'], Resource: ['*'] }
+    for (const Statement of [[full, invalid], [invalid, full]]) {
+      expect(parsePolicy({ PolicySpec: FORMAT.spec, PolicyVersion: FORMAT.version, Statement }, FORMAT).ok).toBe(false)
+    }
+  })
+
   it('grants resource.action, with * as all five', () => {
     const parsed = parsePolicy({ PolicySpec: 'qqq-iam', PolicyVersion: '1.0.0', Statement: [{ Effect: 'Allow', Action: ['*'], Resource: ['p'] }, { Effect: 'Allow', Action: ['read'], Resource: ['q', 'p'] }] }, FORMAT)
     expect(parsed.ok).toBe(true)

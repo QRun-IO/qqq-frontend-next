@@ -32,11 +32,12 @@
  */
 'use client'
 
+import { isRestricted } from '@/lib/utils/secured-data'
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Download } from 'lucide-react'
 
-import type { FieldAdornment, QRecord, QTableMetaData } from '@/types'
+import type { FieldAdornment, QFieldMetaData, QRecord, QTableMetaData } from '@/types'
 import { useMetaData } from '@/lib/hooks/use-metadata'
 import { useContainerWidth } from '@/lib/hooks/use-container-width'
 import { cn } from '@/lib/utils/cn'
@@ -57,6 +58,9 @@ import { childPickersFor } from '@/lib/utils/related-record-picker'
 
 /** Field metadata subset used for columns (the rest of the serialized field passes through). */
 interface ChildFieldMetaData {
+  accessTier?: QFieldMetaData['accessTier']
+  allowedFilterOperators?: string[]
+  isSortable?: boolean
   name: string
   label?: string
   type?: string
@@ -502,7 +506,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, for
                         const text = displayText(display !== undefined && display !== null ? display : values[column.name])
                         return (
                           <td key={column.name} className="px-2 py-1.5 align-top text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
-                            {columnIndex === 0 && href && !hasFilePreview(fields[column.name]) ? (
+                            {columnIndex === 0 && href && !isRestricted(fields[column.name]) && !hasFilePreview(fields[column.name]) ? (
                               <Link href={href} data-row-link="" className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
                                 {text || pkText}
                               </Link>

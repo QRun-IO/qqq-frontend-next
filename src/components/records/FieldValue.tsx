@@ -22,6 +22,8 @@
 
 'use client'
 
+import { isRestricted } from '@/lib/utils/secured-data'
+import { RestrictedValue } from '@/components/secured-data/RestrictedValue'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
@@ -95,6 +97,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaD
     navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} thumbnailSize={thumbnailSize} />
   const tooltip = tooltipText(field, record)
   const tooltipState = useFocusSafeTooltip()
+  if (isRestricted(field)) return <RestrictedValue field={field} record={record} table={tableMetaData ?? allTables?.[record.tableName]} reveal={thumbnailSize !== undefined} />
   if (!tooltip) return content
   return (
     <TooltipPrimitive.Provider delayDuration={300}>
