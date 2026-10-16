@@ -34,6 +34,7 @@ import { canViewWidget } from '@/lib/auth/permissions'
 import { useWidget } from '@/lib/hooks/use-widget'
 import type { BlockActionCallback, WidgetDataCallback, WidgetRecordContext } from './widget-types'
 import { WidgetBlock } from './WidgetBlock'
+import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import type { WidgetChromeData, WidgetDropdownControl } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
 import { ChildRecordExportButton } from './ChildRecordListWidget'
@@ -143,7 +144,7 @@ function exportCsv(data: DropdownPayload | undefined): string | null {
  *   renders the widget's frame with a permission message and makes no request.
  * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree.
  */
-export function ConnectedWidget({
+function ConnectedWidgetInner({
   widgetMetaData, params, className, recordContext, actionCallback, widgetRegistry, parentMetaData, bare, initialData, onWidgetData,
 }: ConnectedWidgetProps) {
   const permitted = canViewWidget(widgetMetaData)
@@ -306,7 +307,7 @@ interface SeededWidgetProps {
  * @param props - See {@link SeededWidgetProps}.
  * @returns The widget.
  */
-export function SeededWidget({ widgetMetaData, data, params, recordContext, className }: SeededWidgetProps) {
+function SeededWidgetInner({ widgetMetaData, data, params, recordContext, className }: SeededWidgetProps) {
   const [reloaded, setReloaded] = useState(false)
   const [exportMessage, setExportMessage] = useState<string | null>(null)
   const refreshSeconds = widgetMetaData.defaultValues?.refreshSeconds
@@ -350,5 +351,34 @@ export function SeededWidget({ widgetMetaData, data, params, recordContext, clas
     >
       {payload && <WidgetRenderer widgetMetaData={childExportInHeader ? { ...widgetMetaData, showExportButton: false } : widgetMetaData} data={payload} recordContext={recordContext} onReload={handleReload} />}
     </WidgetBlock>
+  )
+}
+
+/**
+ * A connected widget behind its own error boundary: a widget that fails to render shows a
+ * Retry card in its place and the rest of the dashboard keeps working.
+ *
+ * @param props - See {@link ConnectedWidgetProps}.
+ * @returns The widget, or its failure card.
+ */
+export function ConnectedWidget(props: ConnectedWidgetProps) {
+  return (
+    <WidgetErrorBoundary widgetName={props.widgetMetaData.name} resetKey={props.widgetMetaData}>
+      <ConnectedWidgetInner {...props} />
+    </WidgetErrorBoundary>
+  )
+}
+
+/**
+ * A seeded widget behind its own error boundary (see {@link ConnectedWidget}).
+ *
+ * @param props - See {@link SeededWidgetProps}.
+ * @returns The widget, or its failure card.
+ */
+export function SeededWidget(props: SeededWidgetProps) {
+  return (
+    <WidgetErrorBoundary widgetName={props.widgetMetaData.name} resetKey={props.data}>
+      <SeededWidgetInner {...props} />
+    </WidgetErrorBoundary>
   )
 }

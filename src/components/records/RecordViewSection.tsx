@@ -37,6 +37,7 @@ import { HelpIcon } from '@/components/help/HelpIcon'
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
+import { WidgetErrorBoundary } from '@/components/widgets/WidgetErrorBoundary'
 import { SectionIcon } from '@/components/layout/MetadataIcon'
 
 interface RecordViewSectionProps {
@@ -73,7 +74,7 @@ interface RecordViewSectionProps {
  *   metadata; a placeholder div when the widget name is set but metadata is
  *   missing; or `null` when the section is hidden or has no renderable fields.
  */
-export function RecordViewSection({
+function RecordViewSectionInner({
   section,
   renderAssociation,
   tableMetaData,
@@ -304,5 +305,20 @@ export function RecordViewSection({
       )}
       </div>
     </section>
+  )
+}
+
+/**
+ * A record section behind its own error boundary: a section that fails to render shows a
+ * Retry card in its place and the rest of the record keeps working.
+ *
+ * @param props - See {@link RecordViewSectionProps}.
+ * @returns The section, or its failure card.
+ */
+export function RecordViewSection(props: RecordViewSectionProps) {
+  return (
+    <WidgetErrorBoundary widgetName={props.section.name} scope="record-section" resetKey={props.record}>
+      <RecordViewSectionInner {...props} />
+    </WidgetErrorBoundary>
   )
 }
