@@ -39,6 +39,7 @@ import type {
 import { sendAssistantFeedback } from '@/lib/api/assistant'
 import { internalAppHref } from '@/lib/utils/assistant-links'
 import { cn } from '@/lib/utils/cn'
+import { MyAvatar } from '@/components/ui/UserAvatar'
 import { AssistantRunStatus } from './AssistantRunStatus'
 import type { AssistantRun } from './use-assistant-engine'
 import { AssistantMarkdown } from './AssistantMarkdown'
@@ -275,8 +276,9 @@ export function AssistantMessageView({ message, onSend, sending, run, onRetry, o
   if (message.role === 'USER') {
     const text = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
     return (
-      <article className="flex justify-end" aria-label="You" data-qqq-id="assistant-message" data-role="user">
+      <article className="flex items-end justify-end gap-2" aria-label="You" data-qqq-id="assistant-message" data-role="user">
         <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-muted px-3 py-2 text-sm text-foreground">{text}</p>
+        <MyAvatar size={28} data-qqq-id="assistant-user-avatar" />
       </article>
     )
   }

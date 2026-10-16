@@ -354,7 +354,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 userName={user?.name}
                 userEmail={user?.email}
                 logout={logout}
-                gravatarDefault={metaData?.branding?.gravatarDefault}
                 compactItems={(close) => (
                   <>
                     {/* the compact header has no room for Help and Ask: they lead this menu (help stays in one place) */}

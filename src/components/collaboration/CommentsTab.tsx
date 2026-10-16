@@ -31,6 +31,7 @@ import {
 } from '@/lib/hooks/use-collaboration-record'
 import { CommentComposer } from './CommentComposer'
 import { CollaborationMarkdown } from './CollaborationMarkdown'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 /** Thread actions that change state read as links in the primary text color. */
 const actionClass = 'font-medium text-primary underline-offset-2 hover:underline disabled:opacity-60'
@@ -82,6 +83,11 @@ function Comment({
       data-qqq-id={`comment-${comment.id}`}
     >
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <UserAvatar
+          userId={comment.authorUserId ?? undefined}
+          name={comment.authorDisplayName ?? comment.authorUserId ?? undefined}
+          size={24}
+        />
         <span className="font-medium text-foreground">
           {comment.authorDisplayName ?? comment.authorUserId ?? 'Unknown'}
         </span>

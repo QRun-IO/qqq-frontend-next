@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render as renderWithoutProviders, screen } from '@testing-library/react'
+import { render as renderWithoutProviders, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
@@ -33,7 +33,6 @@ import { server } from '@/mocks/node'
 import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { preferencesFixture } from '@/mocks/fixtures/preferences'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
-import { md5Hex } from '@/lib/utils/gravatar'
 import { setSingleKeyShortcutsEnabled } from '@/lib/keyboard/single-key-shortcuts'
 import { AccountMenu } from './AccountMenu'
 import { HelpMenu } from './HelpMenu'
@@ -84,19 +83,17 @@ describe('AccountMenu', () => {
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
-  it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', async () => {
+  it('names a user without a name "Anonymous" and shows initials', async () => {
     render(<AccountMenu userEmail="ann@example.com" />)
     expect(screen.getByRole('button', { name: 'Account: Anonymous' })).toBeInTheDocument()
-    expect(document.querySelector('[data-qqq-id="header-user-avatar"]')?.tagName).toBe('SPAN')
     expect(document.querySelector('[data-qqq-id="header-user-avatar"]')).toHaveTextContent('A')
+    expect(document.querySelector('[data-qqq-id="header-user-avatar"] img')).toBeNull()
   })
 
-  it('shows the Gravatar when the branding declares gravatarDefault, and the initial if it fails', () => {
-    render(<AccountMenu userName="Avery" userEmail="avery@example.com" gravatarDefault="identicon" />)
-    const avatar = document.querySelector('img[data-qqq-id="header-user-avatar"]')!
-    expect(avatar).toHaveAttribute('src', `https://www.gravatar.com/avatar/${md5Hex('avery@example.com')}?d=identicon`)
-    fireEvent.error(avatar)
-    expect(document.querySelector('[data-qqq-id="header-user-avatar"]')).toHaveTextContent('A')
+  it('never asks Gravatar from the browser (a chosen Gravatar comes through the profile)', () => {
+    render(<AccountMenu userName="Avery Quinn" userEmail="avery@example.com" />)
+    expect(document.querySelector('img[src*="gravatar"]')).toBeNull()
+    expect(document.querySelector('[data-qqq-id="header-user-avatar"]')).toHaveTextContent('AQ')
   })
 
   it('lists only the preference sections that opt into the menu', async () => {

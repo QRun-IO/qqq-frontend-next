@@ -19,7 +19,8 @@
 import { Pencil } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import type { PresenceViewer } from '@/types/collaboration'
-/** Wraps viewer initials at narrow widths.
+import { UserAvatar } from '@/components/ui/UserAvatar'
+/** Other viewers' avatars (photo or initials), wrapping at narrow widths.
  * @param props - Merged people.
  * @returns Avatars.
  */
@@ -36,15 +37,11 @@ export function PresenceAvatars({ viewers }: { viewers: PresenceViewer[] }) {
             <Tooltip.Trigger asChild>
               <button
                 type="button"
-                className="relative flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-foreground ring-1 ring-border"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`${viewer.displayName}${viewer.mode === 'EDITING' ? ' (editing)' : ' (viewing)'}`}
                 data-qqq-id={`presence-${viewer.userId}`}
               >
-                {viewer.displayName
-                  .split(/\s+/)
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join('')}
+                <UserAvatar userId={viewer.userId} name={viewer.displayName} size={36} className="bg-primary/15" />
                 {viewer.mode === 'EDITING' && (
                   <Pencil
                     aria-hidden

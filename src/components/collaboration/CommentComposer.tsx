@@ -20,6 +20,7 @@ import { useId, useRef, useState } from 'react'
 import type { CollaborationRecord, MentionCandidate } from '@/types/collaboration'
 import { useMentionCandidates } from '@/lib/hooks/use-collaboration-record'
 import { CollaborationMarkdown } from './CollaborationMarkdown'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 /** Checks access for pasted or previously saved mentions as well as autocomplete inserts.
  * @param props - Mention identity, display name and any already-known access decision.
@@ -211,9 +212,10 @@ export function CommentComposer({
                   id={`${id}-mention-${index}`}
                   aria-selected={active === index}
                   data-qqq-id={`mention-${candidate.person.userId}`}
-                  className="flex w-full flex-wrap gap-2 rounded px-2 py-2 text-left text-sm aria-selected:bg-accent"
+                  className="flex w-full flex-wrap items-center gap-2 rounded px-2 py-2 text-left text-sm aria-selected:bg-accent"
                   onClick={() => insert(candidate)}
                 >
+                  <UserAvatar userId={candidate.person.userId} name={candidate.person.displayName} size={20} />
                   {candidate.person.displayName}
                   {candidate.canRead !== 'true' && (
                     <span className="text-xs text-muted-foreground">

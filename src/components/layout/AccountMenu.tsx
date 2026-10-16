@@ -22,7 +22,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Bug, ChevronDown, LogOut, Moon, Settings } from 'lucide-react'
@@ -33,7 +33,8 @@ import { useQaCaptureCapability } from '@/lib/hooks/use-qa-capture'
 import { queryKeys } from '@/lib/query-client'
 import { useTheme } from '@/lib/theme/theme-provider'
 import { cn } from '@/lib/utils/cn'
-import { gravatarUrl } from '@/lib/utils/gravatar'
+import { useMyProfile } from '@/lib/hooks/use-my-profile'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { MetadataIcon } from './MetadataIcon'
 import { HEADER_MENU_ITEM_CLASS, HeaderMenu, HeaderMenuSeparator } from './HeaderMenu'
 
@@ -48,8 +49,6 @@ export interface AccountMenuProps {
   userEmail?: string
   /** Signs out; the Sign out item is shown only with it. */
   logout?: () => void
-  /** Branding's Gravatar default; without it no email hash leaves the browser. */
-  gravatarDefault?: string
   /**
    * Items shown first on compact screens, where the header has no room for them (Help, Ask).
    * Each must have a `menuitem` role; call `close` when chosen.
@@ -63,23 +62,15 @@ export interface AccountMenuProps {
  * @param props - Component properties.
  * @returns The avatar button and menu.
  */
-export function AccountMenu({ userName, userEmail, logout, gravatarDefault, compactItems }: AccountMenuProps) {
-  const displayName = userName || 'Anonymous'
-  const avatarUrl = gravatarDefault ? gravatarUrl(userEmail, gravatarDefault) : undefined
-  const [avatarFailed, setAvatarFailed] = useState(false)
+export function AccountMenu({ userName, userEmail, logout, compactItems }: AccountMenuProps) {
+  // the photo (or the Gravatar the user chose, served by the server) and the name from their
+  // profile; else initials. Branding alone never sends anyone's email hash to a third party.
+  const profile = useMyProfile()
+  const displayName = profile.displayName || userName || 'Anonymous'
   const capability = useQaCaptureCapability()
   const qaMode = capability?.enabled && capability.reason === 'QA_MODE'
 
-  const avatar = avatarUrl && !avatarFailed ? (
-    // eslint-disable-next-line @next/next/no-img-element -- Gravatar images are external, sized by the service
-    <img src={avatarUrl} alt="" aria-hidden="true" onError={() => setAvatarFailed(true)}
-      className="h-8 w-8 rounded-full object-cover" data-qqq-id="header-user-avatar" />
-  ) : (
-    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
-      aria-hidden="true" data-qqq-id="header-user-avatar">
-      {displayName.charAt(0).toUpperCase()}
-    </span>
-  )
+  const avatar = <UserAvatar src={profile.avatarUrl} name={displayName} size={32} data-qqq-id="header-user-avatar" />
 
   return (
     <HeaderMenu

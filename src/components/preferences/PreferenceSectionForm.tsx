@@ -30,9 +30,18 @@ import { useMediaQuery } from '@/lib/hooks/use-media-query'
 import { cn } from '@/lib/utils/cn'
 import { BUTTON_CLASS } from '@/components/ui/controls'
 import { PreferenceField } from './PreferenceField'
+import { imageUploadSettings } from './ImageUploadField'
 import { usePreferenceActions } from './PreferenceActions'
 import { preferenceMessages } from './preference-messages'
 import { preferenceDefaults, preferencePatch, preferenceSlots } from './preference-values'
+
+/** Whether a field is an upload-ref image field.
+ * @param field - Field metadata.
+ * @returns True for a FILE_UPLOAD field with valueIsUploadRef.
+ */
+function isImageField(field: PreferenceSection['fields'][number]): boolean {
+  return imageUploadSettings(field.adornments?.find((adornment) => adornment.type === 'FILE_UPLOAD')?.values) !== null
+}
 
 /** Renders one provider section, with one scroll owner supplied by the page or drawer.
  * @param props - Section metadata and current values.
@@ -157,7 +166,13 @@ export function PreferenceSectionForm({
       )}
       <div className="grid min-w-0 gap-5 md:grid-cols-2">
         {snapshot.fields.map(
-          (field, i) => !field.isHidden && <div key={field.name}>{cell(`scalar${i}`)}</div>
+          (field, i) =>
+            !field.isHidden && (
+              // an image field takes the whole row: its preview and buttons never squeeze into half
+              <div key={field.name} className={cn(isImageField(field) && 'md:col-span-2')}>
+                {cell(`scalar${i}`)}
+              </div>
+            )
         )}
       </div>
       {snapshot.lists.map((list, li) => (
