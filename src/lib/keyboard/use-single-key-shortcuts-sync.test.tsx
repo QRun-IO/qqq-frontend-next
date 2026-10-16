@@ -38,7 +38,16 @@ const keyboard = (value: boolean) => ({
  */
 function wrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  /**
+   * Provides the test's query client.
+   * @param props - Children.
+   * @param props.children - The hook host.
+   * @returns The provider.
+   */
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+  return Wrapper
 }
 
 afterEach(() => {
