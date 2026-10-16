@@ -16,15 +16,15 @@
 
 /**
  * @file The signed-in user's profile (photo and display name) from the core `profile` preferences
- * section. It shares the section's query, so saving the section on the Preferences page updates
- * the header at once. `installed` is false on servers without the `avatars` feature or without
+ * section, read from the shared preferences index. Saving any section invalidates that index, so
+ * the header follows a new photo or name at once. `installed` is false on servers without the `avatars` feature or without
  * the section; then no avatar is requested for anyone.
  */
 'use client'
 
 import { useContext } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getPreferenceSection } from '@/lib/api/preferences'
+import { getPreferences } from '@/lib/api/preferences'
 import { useUiApiFeatureSupported } from '@/lib/api/ui-api-extensions'
 import { AuthContext } from '@/lib/auth/auth-provider'
 import { queryKeys } from '@/lib/query-client'
@@ -51,13 +51,16 @@ export function useMyProfile(): MyProfile {
   // tolerant of no provider (stories, isolated tests): then nothing is requested
   const isAuthenticated = useContext(AuthContext)?.isAuthenticated ?? false
   const supported = useUiApiFeatureSupported('avatars')
-  const { data } = useQuery({
-    queryKey: queryKeys.preferenceSection(PROFILE_SECTION),
-    queryFn: () => getPreferenceSection(PROFILE_SECTION),
+  // the shared preferences index (the user menu reads it too): an app without profiles simply has
+  // no `profile` section there, so nothing is requested that could 404
+  const { data: index } = useQuery({
+    queryKey: queryKeys.preferencesIndex(),
+    queryFn: getPreferences,
     enabled: supported && isAuthenticated,
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+  const data = index?.sections.find((section) => section.name === PROFILE_SECTION)
   if (!data) return { installed: false }
   // avatarUrl is the effective avatar (photo, or the user's chosen Gravatar); avatar is the photo alone
   const avatar = data.values?.avatarUrl ?? data.values?.avatar
