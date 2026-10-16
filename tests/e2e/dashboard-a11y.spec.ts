@@ -72,9 +72,6 @@ async function setupHome(page: Page) {
 async function seriousViolations(page: Page): Promise<string[]> {
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-    // Filled accent surfaces (the active sidebar item, primary buttons: white text on the brand
-    // color) are a separate item; this spec covers the page content and its accent-colored text.
-    .exclude('.qqq-sidebar-active')
     .analyze()
   return results.violations
     .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')

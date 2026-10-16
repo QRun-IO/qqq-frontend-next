@@ -113,6 +113,19 @@ export function linkTextColors(accent: string): { light: string; dark: string } 
 }
 
 /**
+ * Text color for a surface filled with the accent (buttons, the active sidebar item, selected
+ * tabs): white when that reaches 4.5:1, else black (one of the two always does).
+ *
+ * @param accent - The branding accent color.
+ * @returns `#ffffff` or `#000000`, or `null` when the color format is not parsed.
+ */
+export function onAccentColor(accent: string): '#ffffff' | '#000000' | null {
+  const rgb = parseRgb(accent)
+  if (!rgb) return null
+  return contrastRatio([255, 255, 255], rgb) >= 4.5 ? '#ffffff' : '#000000'
+}
+
+/**
  * Whether a branding color may be applied to CSS custom properties.
  *
  * @param color - The branding color.
@@ -154,6 +167,8 @@ export function applyBrandingTheme(branding: QLoginBranding | undefined): string
     for (const property of ACCENT_PROPERTIES) root.style.setProperty(property, branding.accentColor)
     applied = branding.accentColor
     // Link text must stay readable whatever the brand color is (--color-link, see qqq-theme.css).
+    const onAccent = onAccentColor(branding.accentColor)
+    if (onAccent) root.style.setProperty('--color-primary-foreground', onAccent)
     const link = linkTextColors(branding.accentColor)
     if (link) {
       root.style.setProperty('--qqq-link-text-light', link.light)

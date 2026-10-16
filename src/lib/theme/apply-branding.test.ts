@@ -18,7 +18,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { applyBrandingTheme, contrastRatio, isSafeAccentColor, isSafeImageSource, linkTextColors } from './apply-branding'
+import { applyBrandingTheme, contrastRatio, isSafeAccentColor, isSafeImageSource, linkTextColors, onAccentColor } from './apply-branding'
 
 afterEach(() => {
   document.documentElement.removeAttribute('style')
@@ -83,6 +83,15 @@ describe('apply-branding', () => {
       expect(linkTextColors('rgb(5, 150, 105)')).toEqual(linkTextColors('#059669'))
       expect(linkTextColors('#0a9')).toEqual(linkTextColors('#00aa99'))
       expect(linkTextColors('hsl(160, 94%, 30%)')).toBeNull()
+    })
+
+    it('picks the text color for accent-filled surfaces: white when it reads, else black', () => {
+      expect(onAccentColor('#1d4ed8')).toBe('#ffffff')
+      expect(onAccentColor('#059669')).toBe('#000000')
+      expect(onAccentColor('#facc15')).toBe('#000000')
+      expect(onAccentColor('hsl(160, 94%, 30%)')).toBeNull()
+      applyBrandingTheme({ accentColor: '#059669' })
+      expect(document.documentElement.style.getPropertyValue('--color-primary-foreground')).toBe('#000000')
     })
 
     it('sets the derived colors that --color-link reads', () => {
