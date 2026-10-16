@@ -42,6 +42,7 @@ import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
 
 import { HelpIcon } from '@/components/help/HelpIcon'
 import { ConnectedWidget } from './ConnectedWidget'
+import { WidgetHeadingLevelContext } from './widget-context'
 import { WIDGET_ANCHOR, widgetColumnClasses } from './widget-utils'
 
 /** Props accepted by the AppHome component. */
@@ -271,7 +272,10 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
         <section aria-label="Dashboard widgets" className="@container grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
           {widgetItems.map((meta) => (
             <div key={meta.name} id={meta.name} className={`${widgetColumnClasses(meta.gridColumns, meta.defaultValues, meta.type)} ${WIDGET_ANCHOR}`} data-qqq-id={`widget-grid-item-${meta.name}`}>
-              <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
+              {/* Widget titles are h2: directly under the page's h1 */}
+              <WidgetHeadingLevelContext.Provider value={2}>
+                <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
+              </WidgetHeadingLevelContext.Provider>
             </div>
           ))}
         </section>

@@ -44,7 +44,7 @@ import { SafeHtml } from './SafeHtml'
 import { WidgetDropdownMenu } from './WidgetDropdownMenu'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { WidgetIconTile } from './WidgetIcon'
-import { WidgetMetaDataContext } from './widget-context'
+import { WidgetHeadingLevelContext, WidgetMetaDataContext, useWidgetHeadingLevel } from './widget-context'
 import { widgetSlotHelp } from './widget-utils'
 
 export type { WidgetDropdownControl } from './WidgetDropdownMenu'
@@ -128,6 +128,8 @@ export function WidgetBlock({
   exportMessage, exportControl, dropdowns, onDropdownChange, children, className, bare = false, hideReload = false,
 }: WidgetBlockProps) {
   const { name } = widgetMetaData
+  // h2 on an app home (directly under the page's h1), h3 for a widget nested in another
+  const Heading = `h${useWidgetHeadingLevel()}` as const
   const bodyId = useId()
   const isCard = widgetMetaData.isCard !== false
   const processHost = useCompositeHost()
@@ -162,6 +164,7 @@ export function WidgetBlock({
 
   const body = (
     <WidgetMetaDataContext.Provider value={widgetMetaData}>
+      <WidgetHeadingLevelContext.Provider value={3}>
         {isLoading ? (
           <WidgetSkeleton />
         ) : isError ? (
@@ -177,6 +180,7 @@ export function WidgetBlock({
         ) : (
           children
         )}
+      </WidgetHeadingLevelContext.Provider>
     </WidgetMetaDataContext.Provider>
   )
 
@@ -187,7 +191,7 @@ export function WidgetBlock({
   const labelElement = label ? (labelAsTitle ? (
     <h2 className="text-2xl font-bold tracking-tight text-card-foreground" data-qqq-id={`widget-label-${name}`} data-page-title="true">{label}</h2>
   ) : (
-    <h3 className={cn('font-semibold text-card-foreground', compact ? 'text-sm' : 'text-base')} data-qqq-id={`widget-label-${name}`}>{label}</h3>
+    <Heading className={cn('font-semibold text-card-foreground', compact ? 'text-sm' : 'text-base')} data-qqq-id={`widget-label-${name}`}>{label}</Heading>
   )) : null
 
   /**
@@ -349,7 +353,7 @@ function WidgetErrorState({ error, onReload, widgetName }: { error: Error | null
         <button
           type="button"
           onClick={onReload}
-          className="text-xs text-primary underline hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring"
+          className="text-xs text-link underline hover:text-link/80 focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id={`button-widget-retry-inline-${widgetName}`}
         >
           Retry

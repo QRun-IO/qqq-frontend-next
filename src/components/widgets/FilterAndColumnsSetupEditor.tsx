@@ -292,7 +292,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
         </button>}
         {editable ? <DensitySelector density={density} onSelect={setDensity} /> :
           <a href={openInNewWindowHref(table.name, toBackendFilter(table, filter))} target="_blank" rel="noopener noreferrer"
-            data-qqq-id={`filter-preview-open-${widgetName}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Open in new window</a>}
+            data-qqq-id={`filter-preview-open-${widgetName}`} className="inline-flex min-h-11 items-center text-sm text-link underline">Open in new window</a>}
       </div>
       {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={selectionTable}
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
@@ -462,7 +462,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
               </div>
             ))}
             {sorts.length > 0 && offeredFields.some((field) => !sorts.some((sort) => sort.fieldName === field.name)) && <button type="button" onClick={addSort}
-              className="rounded px-2 py-2 text-sm text-primary hover:underline" data-qqq-id={`filter-editor-add-sort-${widgetName}`}>+ Add sort</button>}
+              className="rounded px-2 py-2 text-sm text-link hover:underline" data-qqq-id={`filter-editor-add-sort-${widgetName}`}>+ Add sort</button>}
           </div>}
         </> : <ColumnConfig tableMetaData={selectionTable} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
@@ -472,7 +472,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
           columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
-        <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open in new window</a>
+        <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-link underline">Open in new window</a>
         <div className="flex gap-2"><button type="button" onClick={onCancel} className="rounded border border-border px-4 py-2 text-sm">Cancel</button>
           <button type="button" disabled={disabled} onClick={() => onSave(filter, columns)} data-qqq-id={`filter-editor-save-${widgetName}`} className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">OK</button></div>
       </div>

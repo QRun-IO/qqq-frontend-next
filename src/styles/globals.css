@@ -100,6 +100,8 @@
   --color-primary-foreground: #ffffff;
   /* Text can adapt to dark surfaces independently of branded button fills. */
   --text-color-primary: var(--color-primary);
+  /* Accent-colored text (links) that keeps 4.5:1 on cards and muted surfaces in both themes. */
+  --color-link: var(--qqq-link-text);
 
   /* Neutral surfaces */
   --color-secondary: #f0f2f6;

@@ -222,7 +222,7 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
   const header = (table.label || table.linkURL || (ownChrome && widgetMetaData.showExportButton)) ? (
     <div className="mb-2 flex flex-wrap items-center gap-2">
       {table.label && <h4 className="text-sm font-semibold text-foreground">{table.label}</h4>}
-      {table.linkURL && <WidgetLink href={table.linkURL} className="text-sm text-primary">({table.linkText ?? table.linkURL})</WidgetLink>}
+      {table.linkURL && <WidgetLink href={table.linkURL} className="text-sm text-link">({table.linkText ?? table.linkURL})</WidgetLink>}
       {ownChrome && widgetMetaData.showExportButton && (
         <button
           type="button"

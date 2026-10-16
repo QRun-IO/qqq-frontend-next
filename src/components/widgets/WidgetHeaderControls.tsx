@@ -55,7 +55,7 @@ export function WidgetHeaderLinkButton({ label, onClick, disabled = false, disab
       disabled={disabled}
       data-qqq-id={qqqId}
       className={cn(
-        'inline-flex min-h-9 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline',
+        'inline-flex min-h-9 items-center rounded-md px-2 text-sm font-medium text-link hover:underline',
         'focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:min-h-11',
         'disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline'
       )}

@@ -34,6 +34,7 @@ import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
 import { applyBrandingTheme } from '@/lib/theme/apply-branding'
+import { skipToFirstZone } from '@/lib/utils/skip-link'
 import { readMaterialTheme } from '@/lib/theme/material-theme'
 import { useTheme } from '@/lib/theme/theme-provider'
 import { recordAnalytics } from '@/lib/analytics'
@@ -308,6 +309,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:inline-flex focus:items-center pointer-coarse:focus:min-h-11 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           data-qqq-id="skip-to-content"
+          onClick={(event) => { if (skipToFirstZone()) event.preventDefault() }}
         >
           Skip to main content
         </a>
@@ -372,7 +374,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           />
 
           {/* Page content */}
-          <main className="relative flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
+          <main className="relative flex-1 overflow-y-auto p-6 focus:outline-none" id="main-content" tabIndex={-1} data-qqq-id="main-content">
             {metaLoading ? (
               <div
                 className="flex items-center justify-center py-12"

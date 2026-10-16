@@ -183,7 +183,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       if (target.external) {
         return (
           <a href={target.href} target={target.target} rel={target.target === '_blank' ? 'noopener noreferrer' : undefined}
-            className={cn('inline-flex items-center gap-1 text-sm text-primary underline hover:text-primary/80', TOUCH_LINK, className)}
+            className={cn('inline-flex items-center gap-1 text-sm text-link underline hover:text-link/80', TOUCH_LINK, className)}
             data-qqq-id={dataQqqId}>
             {String(value)}
             {target.target === '_blank' && <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -191,7 +191,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
           </a>
         )
       }
-      return <Link href={target.href} className={cn('text-sm text-primary underline hover:text-primary/80', TOUCH_LINK, className)}
+      return <Link href={target.href} className={cn('text-sm text-link underline hover:text-link/80', TOUCH_LINK, className)}
         data-qqq-id={dataQqqId}>{String(value)}</Link>
     }
     return <PlainValue value={String(value)} dataQqqId={dataQqqId} className={className} />
@@ -300,7 +300,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       if (field.type === 'STRING' && isHttpUrl(strValue)) {
         return (
           <a href={strValue} target="_blank" rel="noopener noreferrer"
-            className={cn('inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)}
+            className={cn('inline-flex items-center gap-1 text-sm text-link hover:text-link/80 hover:underline', TOUCH_LINK, className)}
             data-qqq-id={dataQqqId}>
             {strValue}
             <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -309,7 +309,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         )
       }
       if (field.type === 'STRING' && isEmail(strValue)) {
-        return <a href={`mailto:${strValue}`} className={cn('text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)}
+        return <a href={`mailto:${strValue}`} className={cn('text-sm text-link hover:text-link/80 hover:underline', TOUCH_LINK, className)}
           data-qqq-id={dataQqqId}>{strValue}</a>
       }
       return <PlainValue value={strValue} dataQqqId={dataQqqId} className={className} secure={secureValueAttributes(field)} />
@@ -379,7 +379,7 @@ function RecordLink({ tableName, primaryKey, label, allTables, fromParams, dataQ
 }) {
   const link = (
     <Link href={`/app/${encodeURIComponent(tableName)}/${encodeURIComponent(primaryKey)}${fromParams}`}
-      className={cn('text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)} data-qqq-id={dataQqqId}>
+      className={cn('text-sm text-link hover:text-link/80 hover:underline', TOUCH_LINK, className)} data-qqq-id={dataQqqId}>
       {label}
     </Link>
   )
@@ -406,13 +406,13 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
     <span className={cn('inline-flex flex-wrap items-center gap-2 text-sm', className)} data-qqq-id={dataQqqId}>
       <span className="text-foreground">{fileName}</span>
       {inline && (
-        <a href={url} target="_blank" rel="noopener noreferrer" className={cn('inline-flex items-center gap-1 text-primary underline hover:text-primary/80', TOUCH_LINK)}
+        <a href={url} target="_blank" rel="noopener noreferrer" className={cn('inline-flex items-center gap-1 text-link underline hover:text-link/80', TOUCH_LINK)}
           data-qqq-id={`${dataQqqId}-open`}>
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           Open file<span className="sr-only">: {fileName} (opens in a new tab)</span>
         </a>
       )}
-      <a href={inline ? attachmentUrl(url) : url} download={fileName} className={cn('inline-flex items-center gap-1 text-primary underline hover:text-primary/80', TOUCH_LINK)}
+      <a href={inline ? attachmentUrl(url) : url} download={fileName} className={cn('inline-flex items-center gap-1 text-link underline hover:text-link/80', TOUCH_LINK)}
         data-qqq-id={`${dataQqqId}-download`}>
         <Download className="h-3.5 w-3.5" aria-hidden="true" />
         Download file<span className="sr-only">: {fileName}</span>
@@ -462,7 +462,7 @@ function CodeViewer({ code, languageMode, fieldName, className }: { code: string
     }
   }
 
-  const buttonClass = cn('rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring', TOUCH_LINK)
+  const buttonClass = cn('rounded px-2 py-0.5 text-link hover:underline focus:outline-none focus:ring-2 focus:ring-ring', TOUCH_LINK)
   return (
     <div className={cn('w-full space-y-1', className)} data-qqq-id={`field-value-${fieldName}`} data-language-mode={languageMode}>
       <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">

@@ -19,7 +19,7 @@
  */
 'use client'
 
-import { createContext } from 'react'
+import { createContext, useContext } from 'react'
 
 import type { QWidgetMetaData } from '@/types'
 
@@ -29,3 +29,22 @@ import type { QWidgetMetaData } from '@/types'
  * tooltip, as Material's `BlockElementWrapper` does.
  */
 export const WidgetMetaDataContext = createContext<QWidgetMetaData | null>(null)
+
+/** Heading levels a widget title can render at. */
+export type WidgetHeadingLevel = 2 | 3
+
+/**
+ * The heading level of the title of the next widget chrome. An app home provides 2 (widget titles sit
+ * directly under the page's h1); a widget's own body resets it to 3, so a nested widget (a parent
+ * widget's tab, a record-view widget) stays one level below its container. Defaults to 3.
+ */
+export const WidgetHeadingLevelContext = createContext<WidgetHeadingLevel>(3)
+
+/**
+ * Reads the heading level the next widget title renders at.
+ *
+ * @returns 2 on an app home, else 3.
+ */
+export function useWidgetHeadingLevel(): WidgetHeadingLevel {
+  return useContext(WidgetHeadingLevelContext)
+}

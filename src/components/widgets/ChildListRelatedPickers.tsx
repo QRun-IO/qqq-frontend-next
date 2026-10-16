@@ -60,7 +60,7 @@ export function ChildListRelatedPickers({ pickers, tableName, primaryKey, widget
           key={picker.name}
           type="button"
           onClick={() => { setStatus(''); setOpen(picker) }}
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+          className="text-sm font-medium text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id={`child-record-picker-${widgetName}-${picker.name}`}
         >
           {picker.label}

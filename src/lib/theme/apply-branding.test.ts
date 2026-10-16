@@ -18,7 +18,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { applyBrandingTheme, isSafeAccentColor, isSafeImageSource } from './apply-branding'
+import { applyBrandingTheme, contrastRatio, isSafeAccentColor, isSafeImageSource, linkTextColors, onAccentColor } from './apply-branding'
 
 afterEach(() => {
   document.documentElement.removeAttribute('style')
@@ -62,5 +62,45 @@ describe('apply-branding', () => {
     expect(document.documentElement.style.getPropertyValue('--primary')).toBe('')
     expect(document.querySelector<HTMLLinkElement>("link[rel='icon']")?.getAttribute('href')).toBe('/favicon.ico')
     expect(applyBrandingTheme(undefined)).toBeUndefined()
+  })
+
+  describe('link text colors', () => {
+    const hex = (color: string) => [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16))
+    const LIGHT_SURFACES = ['#ffffff', '#f0f2f6']
+    const DARK_SURFACES = ['#181a24', '#1e2130']
+
+    it.each(['#059669', '#6366f1', '#34d399', '#facc15', '#0062ff', '#ffffff', '#000000'])('reaches 4.5:1 in both themes for the accent %s', (accent) => {
+      const link = linkTextColors(accent)!
+      for (const surface of LIGHT_SURFACES) expect(contrastRatio(hex(link.light), hex(surface))).toBeGreaterThanOrEqual(4.5)
+      for (const surface of DARK_SURFACES) expect(contrastRatio(hex(link.dark), hex(surface))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('keeps an accent that is already readable', () => {
+      expect(linkTextColors('#1d4ed8')).toEqual({ light: '#1d4ed8', dark: expect.any(String) })
+    })
+
+    it('reads rgb() and short hex accents, and skips formats it cannot parse', () => {
+      expect(linkTextColors('rgb(5, 150, 105)')).toEqual(linkTextColors('#059669'))
+      expect(linkTextColors('#0a9')).toEqual(linkTextColors('#00aa99'))
+      expect(linkTextColors('hsl(160, 94%, 30%)')).toBeNull()
+    })
+
+    it('picks the text color for accent-filled surfaces: white when it reads, else black', () => {
+      expect(onAccentColor('#1d4ed8')).toBe('#ffffff')
+      expect(onAccentColor('#059669')).toBe('#000000')
+      expect(onAccentColor('#facc15')).toBe('#000000')
+      expect(onAccentColor('hsl(160, 94%, 30%)')).toBeNull()
+      applyBrandingTheme({ accentColor: '#059669' })
+      expect(document.documentElement.style.getPropertyValue('--color-primary-foreground')).toBe('#000000')
+    })
+
+    it('sets the derived colors that --color-link reads', () => {
+      applyBrandingTheme({ accentColor: '#059669' })
+      const style = document.documentElement.style
+      expect(style.getPropertyValue('--color-primary')).toBe('#059669')
+      expect(style.getPropertyValue('--qqq-link-text-light')).toBe(linkTextColors('#059669')!.light)
+      expect(style.getPropertyValue('--qqq-link-text-dark')).toBe(linkTextColors('#059669')!.dark)
+      expect(style.getPropertyValue('--qqq-link-text-light')).not.toBe('#059669')
+    })
   })
 })

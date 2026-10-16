@@ -184,7 +184,7 @@ function DestinationRow({
                 </span>
                 <Link
                   href={`/app/${encodeURIComponent(publisher.name)}${publisher.kind === 'PROCESS' ? '/dev' : ''}`}
-                  className="font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="font-medium text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {publisher.name}
                 </Link>
