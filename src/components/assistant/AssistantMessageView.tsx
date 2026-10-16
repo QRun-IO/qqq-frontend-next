@@ -23,7 +23,7 @@
 'use client'
 
 import React, { useId, useState } from 'react'
-import { AlertTriangle, Check, ChevronRight, CircleX, Info, Loader2, Navigation, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, CircleX, Info, Loader2, Navigation, RefreshCw, Square, ThumbsDown, ThumbsUp } from 'lucide-react'
 
 import type {
   AssistantMessage,
@@ -34,6 +34,7 @@ import type {
   AssistantTextPart,
   AssistantToolOutcome,
   AssistantToolPart,
+  AssistantUnknownPart,
 } from '@/types/assistant'
 import { sendAssistantFeedback } from '@/lib/api/assistant'
 import { internalAppHref } from '@/lib/utils/assistant-links'
@@ -42,11 +43,14 @@ import { AssistantRunStatus } from './AssistantRunStatus'
 import type { AssistantRun } from './use-assistant-engine'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AssistantPresentation, type AssistantPresentationActions } from './AssistantPresentation'
-import { AssistantRenderView, RecordChips } from './AssistantRenders'
+import { AssistantRenderView, RawJsonView, RecordChips } from './AssistantRenders'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
+import { InlineFailure } from '@/components/feedback/InlineFailure'
 import Link from 'next/link'
 
 /** Plain-language outcome of a tool call. */
+const INLINE_ACTION = 'inline-flex items-center gap-1 rounded px-1 text-xs font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:min-h-11'
+
 const OUTCOME_LABEL: Record<AssistantToolOutcome, string> = {
   OK: 'Done',
   DENIED: 'Not permitted',
@@ -96,7 +100,16 @@ function ToolStep({ part, finished = false }: { part: AssistantToolPart; finishe
         <dt>Result</dt>
         <dd>{running ? 'Running' : outcome}</dd>
       </dl>
-      {part.render && <AssistantRenderView render={part.render} />}
+      {part.render && (
+        <ErrorBoundary
+          scope="assistant-render"
+          reportContext={{ renderType: part.render.type === 'unknown' ? part.render.originalType : part.render.type }}
+          resetKeys={[part.render]}
+          fallbackRender={({ report, error, reset }) => <InlineFailure message="This result couldn't be displayed." report={report} error={error} onRetry={reset} qqqId="assistant-render-error" />}
+        >
+          <AssistantRenderView render={part.render} />
+        </ErrorBoundary>
+      )}
     </div>
   )
 }
@@ -158,6 +171,7 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
   record_refs: ({ part }: { part: AssistantRecordRefsPart }) => <RecordChips refs={part.refs} />,
   navigate: ({ part }: { part: AssistantNavigatePart }) => <NavigateView part={part} />,
   notice: ({ part }: { part: AssistantNoticePart }) => <NoticeView part={part} />,
+  unknown: ({ part }: { part: AssistantUnknownPart }) => <RawJsonView label={part.originalType ? `Unsupported content (${part.originalType})` : 'Unsupported content'} value={part.raw} />,
 }
 
 /**
@@ -165,31 +179,23 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
  *
  * @param props - Component properties.
  * @param props.part - Any part, including types this version does not know.
+ * @param props.messageId - The message's id, for the failure report.
  * @returns The rendered part, or null.
  */
-function PartView({ part, onSend, sending, finished }: { part: AssistantPart; finished?: boolean } & AssistantPresentationActions) {
+function PartView({ part, onSend, sending, finished, messageId }: { part: AssistantPart; finished?: boolean; messageId?: number } & AssistantPresentationActions) {
   const render = (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type]
   if (!render) return null
   // One part that fails to render (for example, a malformed tool payload) must
-  // not take down the reply - or the page - around it.
+  // not take down the reply - or the page - around it. A new payload (streaming) renders again.
   return (
-    <ErrorBoundary fallback={<PartFallback />}>
+    <ErrorBoundary
+      scope="assistant-part"
+      reportContext={{ messageId, partType: part.type }}
+      resetKeys={[part]}
+      fallbackRender={({ report, error }) => <InlineFailure message="This part couldn't be displayed." report={report} error={error} qqqId="assistant-part-error" />}
+    >
       {render({ part, onSend, sending, finished })}
     </ErrorBoundary>
-  )
-}
-
-/**
- * Shown in place of a part that could not be rendered.
- *
- * @returns The fallback note.
- */
-function PartFallback() {
-  return (
-    <p className="flex items-start gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-part-error">
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 break-words">This part of the answer could not be shown.</span>
-    </p>
   )
 }
 
@@ -261,9 +267,11 @@ function FeedbackButtons({ messageId }: { messageId: number }) {
  *
  * @param props - Component properties.
  * @param props.message - The message.
+ * @param props.onRetry - Asks the question again (offered when the reply failed).
+ * @param props.onStop - Stops the reply (offered while it is running, and for a reply left running).
  * @returns The message article.
  */
-export function AssistantMessageView({ message, onSend, sending, run }: { message: AssistantMessage; run?: AssistantRun } & AssistantPresentationActions) {
+export function AssistantMessageView({ message, onSend, sending, run, onRetry, onStop }: { message: AssistantMessage; run?: AssistantRun; onRetry?: () => void; onStop?: () => void } & AssistantPresentationActions) {
   if (message.role === 'USER') {
     const text = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
     return (
@@ -275,7 +283,7 @@ export function AssistantMessageView({ message, onSend, sending, run }: { messag
   if (message.role === 'SYSTEM_NOTICE') {
     return (
       <article className="space-y-1" aria-label="Notice" data-qqq-id="assistant-message" data-role="notice">
-        {message.parts.map((part, index) => <PartView key={index} part={part} />)}
+        {message.parts.map((part, index) => <PartView key={index} part={part} messageId={message.id} />)}
       </article>
     )
   }
@@ -284,19 +292,38 @@ export function AssistantMessageView({ message, onSend, sending, run }: { messag
     <article className="min-w-0 space-y-2" aria-label="Assistant" data-qqq-id="assistant-message" data-role="assistant" data-status={message.status}>
       {message.parts.length > 0 && (
         <div className="space-y-2" aria-busy={streaming}>
-          {message.parts.map((part, index) => <PartView key={part.type === 'tool' ? part.toolCallId : index} part={part} onSend={onSend} sending={sending || streaming} finished={!streaming} />)}
+          {message.parts.map((part, index) => <PartView key={part.type === 'tool' && part.toolCallId ? part.toolCallId : index} part={part} messageId={message.id} onSend={onSend} sending={sending || streaming} finished={!streaming} />)}
         </div>
       )}
-      {run && <AssistantRunStatus run={run} />}
-      {streaming && !run && message.parts.length === 0 && (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-thinking">
-          <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
-          Working on it...
-        </p>
+      {(run || streaming) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {run ? <AssistantRunStatus run={run} /> : message.parts.length === 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-thinking">
+              <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
+              Working on it...
+            </p>
+          )}
+          {onStop && (
+            <button type="button" onClick={onStop} className={INLINE_ACTION} data-qqq-id="assistant-message-stop">
+              <Square className="h-3 w-3 fill-current" aria-hidden="true" />
+              {run?.status === 'cancelling' ? 'Stop now' : 'Stop'}
+            </button>
+          )}
+        </div>
       )}
       {message.status === 'CANCELLED' && <p className="text-xs text-muted-foreground">Stopped.</p>}
-      {message.status === 'ERROR' && !message.parts.some((part) => part.type === 'notice' && part.level === 'error') && (
-        <p className="text-xs text-destructive" role="alert">The reply did not finish.</p>
+      {message.status === 'ERROR' && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-qqq-id="assistant-reply-failed">
+          {!message.parts.some((part) => part.type === 'notice' && part.level === 'error') && (
+            <p className="text-xs text-destructive" role="alert">The reply did not finish.</p>
+          )}
+          {onRetry && (
+            <button type="button" onClick={onRetry} disabled={sending} className={INLINE_ACTION} data-qqq-id="assistant-message-retry">
+              <RefreshCw className="h-3 w-3" aria-hidden="true" />
+              Retry
+            </button>
+          )}
+        </div>
       )}
       {message.status === 'COMPLETE' && message.id > 0 && <FeedbackButtons messageId={message.id} />}
     </article>

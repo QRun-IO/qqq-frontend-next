@@ -32,7 +32,7 @@ import { Archive, ArchiveRestore, Check, Eye, MoreHorizontal, PanelLeft, Pencil,
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantAttachment, AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import type { AssistantAttachment, AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate, AssistantMessage } from '@/types/assistant'
 import { uploadFile } from '@/lib/api/uploads'
 import {
   deleteAssistantConversation,
@@ -53,6 +53,8 @@ import { AssistantMessageView } from './AssistantMessageView'
 import { ConversationRail, conversationTitle } from './ConversationRail'
 import { useAssistantEngine, type AssistantEngine } from './use-assistant-engine'
 import { useStreamAnnouncer } from './use-stream-announcer'
+import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
+import { InlineFailure } from '@/components/feedback/InlineFailure'
 
 /** Docked width limits, in pixels. */
 export const PANEL_MIN_WIDTH = 360
@@ -250,6 +252,19 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   }, [activeConversationId])
 
   const contextDismissed = pageInfo !== null && dismissedRoute === pageInfo.context.route
+
+  /**
+   * Retry for a failed reply: asks the question before it again.
+   *
+   * @param list - The conversation's messages.
+   * @param index - The failed reply's index.
+   * @returns The retry action, or undefined when no question precedes it.
+   */
+  const retryFor = (list: AssistantMessage[], index: number): (() => void) | undefined => {
+    const question = list.slice(0, index).reverse().find((item) => item.role === 'USER')
+    const text = question?.parts.map((part) => (part.type === 'text' ? part.text : '')).join('').trim()
+    return text ? () => send(text) : undefined
+  }
 
   /**
    * Sends from the composer, with the page context unless dismissed.
@@ -491,7 +506,23 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               {activeConversationId !== null && detailQuery.isError && (
                 <p className="text-xs text-destructive" role="alert">{getErrorMessage(detailQuery.error, 'Could not load the conversation.')}</p>
               )}
-              {messages.map((message) => <AssistantMessageView key={message.id} message={message} onSend={send} run={activeConversationId === null ? undefined : engine.runs[activeConversationId]?.find((entry) => entry.assistantMessageId === message.id)} />)}
+              {messages.map((message, index) => (
+                <ErrorBoundary
+                  key={message.id}
+                  scope="assistant-message"
+                  reportContext={{ conversationId: activeConversationId, messageId: message.id, turnId: message.turnId }}
+                  resetKeys={[message]}
+                  fallbackRender={({ report, error }) => <InlineFailure message="This message couldn't be displayed." report={report} error={error} qqqId="assistant-message-error" />}
+                >
+                  <AssistantMessageView
+                    message={message}
+                    onSend={send}
+                    run={activeConversationId === null ? undefined : engine.runs[activeConversationId]?.find((entry) => entry.assistantMessageId === message.id)}
+                    onRetry={message.status === 'ERROR' ? retryFor(messages, index) : undefined}
+                    onStop={message.status === 'STREAMING' && activeConversationId !== null ? () => engine.stopMessage(activeConversationId, message) : undefined}
+                  />
+                </ErrorBoundary>
+              ))}
             </div>
             <AssistantComposer
               ref={composerRef}

@@ -27,7 +27,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { QInstance } from '@/types'
 import type { AssistantPageContext } from '@/types/assistant'
-import { getAssistantConfig, listAssistantConversations } from '@/lib/api/assistant-probe'
+import { getAssistantConfig, listAssistantConversations, reportAssistantClientError, supportsAssistantClientErrors } from '@/lib/api/assistant-probe'
+import { setClientErrorSink } from '@/lib/errors/client-errors'
 import { readAssistantDeepLink } from '@/lib/utils/assistant-deep-link'
 import { ASSISTANT_DOCKED_MEDIA_QUERY, AssistantContext, assistantKeys, type AssistantController, type AssistantRequest } from './assistant-context'
 
@@ -96,6 +97,20 @@ export function useAssistantController(metaData: QInstance | undefined, isAuthen
     retry: false,
   })
   const enabled = installed && Boolean(config?.enabled)
+
+  // UI failures (error boundaries, stream errors) go to Admin through the assistant's
+  // client-error operation when the server has it; otherwise they are only logged.
+  useEffect(() => {
+    if (!enabled) return
+    let active = true
+    void supportsAssistantClientErrors().then((supported) => {
+      if (active && supported) setClientErrorSink(reportAssistantClientError)
+    })
+    return () => {
+      active = false
+      setClientErrorSink(null)
+    }
+  }, [enabled])
 
   const { data: conversations } = useQuery({
     queryKey: assistantKeys.conversations(),

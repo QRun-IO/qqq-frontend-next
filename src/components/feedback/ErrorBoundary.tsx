@@ -23,6 +23,17 @@
 import React, { type ReactNode, type ErrorInfo } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { reportClientError, type ClientErrorContext, type ClientErrorReport } from '@/lib/errors/client-errors'
+
+/** What a `fallbackRender` receives. */
+export interface ErrorBoundaryFallbackProps {
+  /** The caught error. */
+  error: Error
+  /** The PII-safe report built for it (null when the boundary has no `scope`). */
+  report: ClientErrorReport | null
+  /** Clears the error so the children render again. */
+  reset: () => void
+}
 
 /**
  * Props for the ErrorBoundary class component.
@@ -40,6 +51,14 @@ export interface ErrorBoundaryProps {
   resetLabel?: string
   /** Additional Tailwind class names applied to the default error card container. */
   className?: string
+  /** Renders the fallback with the error, its report and a reset (wins over `fallback`). */
+  fallbackRender?: (props: ErrorBoundaryFallbackProps) => ReactNode
+  /** Where this boundary sits; when set, a caught error is reported (see `reportClientError`). */
+  scope?: ClientErrorContext['scope']
+  /** Ids added to the report (never content). */
+  reportContext?: Omit<ClientErrorContext, 'scope' | 'componentStack'>
+  /** When any of these change while showing the fallback, the children render again. */
+  resetKeys?: unknown[]
 }
 
 /**
@@ -50,6 +69,8 @@ interface ErrorBoundaryState {
   hasError: boolean
   /** The most recently caught error, or `null` when none has occurred. */
   error: Error | null
+  /** The report built in `componentDidCatch`. */
+  report: ClientErrorReport | null
 }
 
 /**
@@ -69,7 +90,7 @@ interface ErrorBoundaryState {
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, report: null }
   }
 
   /**
@@ -84,7 +105,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * @returns New state with `hasError: true` and the caught `error` object so
    *   `render()` can display the fallback UI.
    */
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error }
   }
 
@@ -99,8 +120,31 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * @param info - React error info containing the component stack trace.
    */
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error, info)
-    this.props.onError?.(error, info)
+    if (this.props.scope) {
+      const report = reportClientError(error, { ...this.props.reportContext, scope: this.props.scope, componentStack: info.componentStack })
+      this.setState({ report })
+    } else {
+      console.error('[ErrorBoundary] Caught error:', error, info)
+    }
+    try {
+      this.props.onError?.(error, info)
+    } catch {
+      // a failing logger must not break the fallback
+    }
+  }
+
+  /**
+   * Renders the children again when a reset key changes (for example, new data arrived).
+   *
+   * @param previous - Props before this update.
+   */
+  componentDidUpdate(previous: ErrorBoundaryProps) {
+    if (!this.state.hasError) return
+    const before = previous.resetKeys ?? []
+    const after = this.props.resetKeys ?? []
+    if (before.length !== after.length || before.some((key, index) => !Object.is(key, after[index]))) {
+      this.setState({ hasError: false, error: null, report: null })
+    }
   }
 
   /**
@@ -108,7 +152,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    */
   handleReset = () => {
     this.props.onReset?.()
-    this.setState({ hasError: false, error: null })
+    this.setState({ hasError: false, error: null, report: null })
   }
 
   /**
@@ -126,6 +170,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    */
   render() {
     if (this.state.hasError) {
+      if (this.props.fallbackRender && this.state.error) {
+        return this.props.fallbackRender({ error: this.state.error, report: this.state.report, reset: this.handleReset })
+      }
       if (this.props.fallback) {
         return this.props.fallback
       }

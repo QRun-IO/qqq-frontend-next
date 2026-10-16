@@ -323,7 +323,36 @@ export function AssistantRenderView({ render }: { render: AssistantRender }) {
           <PendingActionCard render={render} />
         </Suspense>
       )
+    case 'unknown':
+      return <RawJsonView label={render.originalType ? `Unsupported result (${render.originalType})` : 'Unsupported result'} value={render.raw} />
     default:
       return null
   }
+}
+
+/** Longest JSON shown for an unsupported payload. */
+const RAW_JSON_LIMIT = 20_000
+
+/**
+ * Shows a payload this UI cannot render as formatted JSON behind a toggle, instead of failing.
+ *
+ * @param props - The label and the payload.
+ * @param props.label - What the payload is.
+ * @param props.value - The payload.
+ * @returns A collapsed JSON view.
+ */
+export function RawJsonView({ label, value }: { label: string; value: unknown }) {
+  let json: string
+  try {
+    json = JSON.stringify(value, null, 2) ?? String(value)
+  } catch {
+    json = String(value)
+  }
+  if (json.length > RAW_JSON_LIMIT) json = `${json.slice(0, RAW_JSON_LIMIT)}\n…`
+  return (
+    <details className="rounded-lg border border-border bg-card px-3 py-2 text-xs" data-qqq-id="assistant-raw-json">
+      <summary className="cursor-pointer select-none text-muted-foreground">{label}</summary>
+      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground">{json}</pre>
+    </details>
+  )
 }

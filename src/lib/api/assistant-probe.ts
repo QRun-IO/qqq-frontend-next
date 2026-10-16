@@ -21,9 +21,10 @@
  */
 
 import type { AssistantConfig, AssistantConversation, AssistantConversationStatus } from '@/types/assistant'
+import type { ClientErrorReport } from '@/lib/errors/client-errors'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
-import { isUiApiExtensionInstalled, UI_API_EXTENSION } from './ui-api-extensions'
+import { isUiApiExtensionAtLeast, isUiApiExtensionInstalled, UI_API_EXTENSION } from './ui-api-extensions'
 
 /**
  * Loads the assistant configuration, the feature probe for the whole UI. Like the ESB probe,
@@ -59,4 +60,28 @@ export async function listAssistantConversations(status?: AssistantConversationS
     status ? { params: { status } } : undefined
   )
   return Array.isArray(data?.conversations) ? data.conversations : []
+}
+
+/** The assistant extension version that added `POST /assistant/client-errors`. */
+export const ASSISTANT_CLIENT_ERRORS_VERSION = '1.5.0'
+
+/**
+ * Whether the server takes client error reports (assistant extension 1.5.0 or later).
+ *
+ * @returns True when `POST /assistant/client-errors` exists.
+ */
+export function supportsAssistantClientErrors(): Promise<boolean> {
+  return isUiApiExtensionAtLeast(UI_API_EXTENSION.assistant, ASSISTANT_CLIENT_ERRORS_VERSION)
+}
+
+/**
+ * Sends one PII-safe client error report (`POST /assistant/client-errors`), so UI failures
+ * show up in Admin.
+ *
+ * @param report - The report (see `lib/errors/client-errors`).
+ * @returns Whether the server accepted it (false when rate limited).
+ */
+export async function reportAssistantClientError(report: ClientErrorReport): Promise<boolean> {
+  const data = await apiClient.post<{ accepted?: boolean }>('/assistant/client-errors', report)
+  return data?.accepted !== false
 }

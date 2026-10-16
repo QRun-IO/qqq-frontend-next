@@ -335,6 +335,61 @@ describe('asking a question', () => {
     expect(await within(panel).findByText('Stopped.')).toBeInTheDocument()
   })
 
+  it('still stops when the stop request fails, and the composer stays usable', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => stream.response()),
+      http.post(`${BASE}/turns/9/cancel`, () => HttpResponse.json({ error: 'Gateway down' }, { status: 502 })),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'Count people{Enter}')
+    act(() => stream.write(sse(START, ['text.delta', { seq: 2, messageId: 11, text: 'Counting' }])))
+    await within(panel).findByText('Counting')
+    await user.click(within(panel).getByRole('button', { name: 'Stop the reply' }))
+    expect(await within(panel).findByText('Stopped.')).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /^Stop/ })).not.toBeInTheDocument()
+    expect(within(panel).getByRole('textbox', { name: 'Message the assistant' })).toBeEnabled()
+  })
+
+  it('stops at once on a second Stop while the server is still stopping', async () => {
+    mockAssistant()
+    const stream = controllableStream()
+    server.use(
+      http.post(`${BASE}/conversations/4/turns`, () => stream.response()),
+      http.post(`${BASE}/turns/9/cancel`, () => HttpResponse.json({ status: 'CANCELLING' }, { status: 202 })),
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'Count people{Enter}')
+    act(() => stream.write(sse(START)))
+    await user.click(await within(panel).findByRole('button', { name: 'Stop the reply' }))
+    await user.click(await within(panel).findByRole('button', { name: 'Stop now' }))
+    expect(await within(panel).findByText('Stopped.', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+  })
+
+  it('offers Retry on a failed reply, which asks the question again', async () => {
+    mockAssistant()
+    let posts = 0
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => {
+      posts++
+      return HttpResponse.json({ error: 'Provider unavailable' }, { status: 503 })
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'Hi{Enter}')
+    expect(await within(panel).findByText('Provider unavailable')).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(posts).toBe(2))
+  })
+
   it('shows a refused turn as an error in the reply', async () => {
     mockAssistant()
     server.use(http.post(`${BASE}/conversations/4/turns`, () => HttpResponse.json({ error: 'Daily budget reached' }, { status: 429 })))

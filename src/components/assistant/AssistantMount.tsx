@@ -24,12 +24,16 @@
 
 import React, { Suspense, lazy } from 'react'
 
+import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 import { useAssistant } from './assistant-context'
+import { AssistantPanelFailure } from './AssistantPanelFailure'
 
 const AssistantPanel = lazy(() => import('./AssistantPanel'))
 
 /**
- * Mounts the lazily loaded assistant panel when the assistant is available.
+ * Mounts the lazily loaded assistant panel when the assistant is available. The panel sits
+ * behind its own error boundary: if it (or its code chunk) fails, a small card offers Retry,
+ * Copy details and Report a bug, and the page keeps working. Reopening the panel retries.
  *
  * @returns The panel, or null until the assistant is available.
  */
@@ -37,8 +41,15 @@ export function AssistantMount() {
   const assistant = useAssistant()
   if (!assistant?.enabled) return null
   return (
-    <Suspense fallback={null}>
-      <AssistantPanel />
-    </Suspense>
+    <ErrorBoundary
+      scope="assistant-panel"
+      reportContext={{ conversationId: assistant.activeConversationId }}
+      resetKeys={[assistant.open]}
+      fallbackRender={({ report, error, reset }) => <AssistantPanelFailure report={report} error={error} onRetry={reset} />}
+    >
+      <Suspense fallback={null}>
+        <AssistantPanel />
+      </Suspense>
+    </ErrorBoundary>
   )
 }

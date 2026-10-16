@@ -17,7 +17,7 @@
 /** @file Shared discovery of registered UI API extensions. */
 
 import { useQuery } from '@tanstack/react-query'
-import { getUiApiVersion, type UiApiVersionInfo } from './ui-api-version'
+import { compareSemver, getUiApiVersion, parseSemver, type UiApiVersionInfo } from './ui-api-version'
 
 /** Extension names published by the UI API contract. */
 export const UI_API_EXTENSION = {
@@ -61,6 +61,24 @@ function loadVersion(): Promise<UiApiVersionInfo> {
 export async function isUiApiExtensionInstalled(name: string): Promise<boolean> {
   try {
     return (await loadVersion()).extensions.some((extension) => extension?.name === name)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether an extension is installed at or above a version (an operation added in a minor).
+ *
+ * @param name - The extension name.
+ * @param minimum - The lowest extension version that has the operation.
+ * @returns True when the installed extension is at least `minimum`.
+ */
+export async function isUiApiExtensionAtLeast(name: string, minimum: string): Promise<boolean> {
+  try {
+    const installed = (await loadVersion()).extensions.find((extension) => extension?.name === name)
+    const have = installed ? parseSemver(installed.version ?? '') : null
+    const need = parseSemver(minimum)
+    return Boolean(have && need && compareSemver(have, need) >= 0)
   } catch {
     return false
   }

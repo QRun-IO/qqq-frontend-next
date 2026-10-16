@@ -38,6 +38,7 @@ import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
 import { anyAbortSignal } from '@/lib/utils/abort'
 import { SseParser, type SseEvent } from './sse-parser'
+import { normalizeConversationDetail, normalizeStreamEvent } from './assistant-normalize'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
 const KNOWN_EVENTS = new Set<AssistantStreamEvent['type']>([
@@ -50,6 +51,8 @@ export class AssistantHttpError extends Error {
   readonly status: number
   /** Machine-readable backend error code, when supplied. */
   readonly code?: string
+  /** The response's `X-Request-Id`, for correlating with server logs. */
+  readonly requestId?: string
 
   /**
    * Creates the error.
@@ -57,12 +60,14 @@ export class AssistantHttpError extends Error {
    * @param status - The HTTP status code.
    * @param message - The backend's message, or a generic one.
    * @param code - The backend error code.
+   * @param requestId - The response's request id.
    */
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, requestId?: string) {
     super(message)
     this.name = 'AssistantHttpError'
     this.status = status
     this.code = code
+    this.requestId = requestId
   }
 }
 
@@ -110,11 +115,12 @@ export async function getAssistantConversation(id: number, page: { before?: numb
   const params: Record<string, number> = {}
   if (page.before !== undefined) params.before = page.before
   if (page.limit !== undefined) params.limit = page.limit
-  const data = await apiClient.get<AssistantConversationDetail>(
+  const data = await apiClient.get<unknown>(
     `/assistant/conversations/${id}`,
     Object.keys(params).length ? { params } : undefined
   )
-  return { conversation: data.conversation, messages: Array.isArray(data.messages) ? data.messages : [] }
+  // validated and repaired at the boundary: one malformed stored part never breaks the panel
+  return normalizeConversationDetail(data)
 }
 
 /**
@@ -230,7 +236,8 @@ export function toAssistantEvent(sse: SseEvent): { event: AssistantStreamEvent |
   const type = sse.event as AssistantStreamEvent['type']
   if (!KNOWN_EVENTS.has(type)) return { event: null, seq }
   if (type !== 'ping' && seq === undefined) return { event: null }
-  return { event: { ...body, type, ...(seq !== undefined ? { seq } : {}) } as AssistantStreamEvent, seq }
+  // a payload missing the ids needed to apply it is skipped; other gaps get safe defaults
+  return { event: normalizeStreamEvent({ ...body, type, ...(seq !== undefined ? { seq } : {}) }), seq }
 }
 
 /** Options of {@link streamAssistantTurn} and {@link resumeAssistantTurn}. */
@@ -243,6 +250,23 @@ export interface AssistantStreamOptions {
   resumeBudgetMs?: number
   /** Base exponential delay before a resume attempt, capped at 5000 ms (default 1000 ms). */
   resumeDelayMs?: number
+  /**
+   * A connection that delivers nothing (not even the server's 15 s ping) for this long is
+   * treated as lost and resumed (default 45 s).
+   */
+  idleTimeoutMs?: number
+}
+
+/** Default {@link AssistantStreamOptions.idleTimeoutMs}: three missed pings. */
+export const STREAM_IDLE_TIMEOUT_MS = 45_000
+
+/** A connection went quiet for longer than the idle timeout (resumed like a network failure). */
+export class AssistantStreamIdleError extends Error {
+  /** Creates the error. */
+  constructor() {
+    super('The assistant connection went quiet.')
+    this.name = 'AssistantStreamIdleError'
+  }
 }
 
 /** How a streamed turn ended. */
@@ -402,7 +426,7 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
   if (!response.ok) {
     if (response.status === 401) apiClient.notifyUnauthorized()
     const failure = await errorMessage(response)
-    throw new AssistantHttpError(response.status, failure.message, failure.code)
+    throw new AssistantHttpError(response.status, failure.message, failure.code, response.headers?.get?.('X-Request-Id') ?? undefined)
   }
   if (!response.body) throw new AssistantStreamLostError('This browser cannot read streamed responses.')
   return response
@@ -438,9 +462,11 @@ async function readStream(response: Response, state: StreamState, options: Assis
   if (options.signal?.aborted) abort()
   const decoder = new TextDecoder()
   const parser = new SseParser()
+  const idleMs = options.idleTimeoutMs ?? STREAM_IDLE_TIMEOUT_MS
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
   try {
     for (;;) {
-      const { done, value } = await reader.read()
+      const { done, value } = await readWithIdleTimeout(reader, idleMs, (timer) => { idleTimer = timer })
       const text = done ? decoder.decode() : decoder.decode(value, { stream: true })
       for (const sse of parser.push(text)) {
         applyEvent(sse, state, options)
@@ -449,10 +475,37 @@ async function readStream(response: Response, state: StreamState, options: Assis
       if (done) return
     }
   } finally {
+    clearTimeout(idleTimer)
     options.signal?.removeEventListener('abort', abort)
     parser.end()
     reader.cancel().catch(() => undefined)
   }
+}
+
+/**
+ * Reads the next chunk, failing with {@link AssistantStreamIdleError} (and cancelling the reader)
+ * when nothing arrives within the idle timeout.
+ *
+ * @param reader - The body reader.
+ * @param idleMs - The idle timeout.
+ * @param track - Receives the timer, so the caller can clear it.
+ * @returns The read result.
+ */
+function readWithIdleTimeout(reader: ReadableStreamDefaultReader<Uint8Array>, idleMs: number, track: (timer: ReturnType<typeof setTimeout>) => void): Promise<ReadableStreamReadResult<Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      void reader.cancel().catch(() => undefined)
+      reject(new AssistantStreamIdleError())
+    }, idleMs)
+    track(timer)
+    reader.read().then((result) => {
+      clearTimeout(timer)
+      resolve(result)
+    }, (error: unknown) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+  })
 }
 
 /**
