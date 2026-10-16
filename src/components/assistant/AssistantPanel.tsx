@@ -28,7 +28,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Check, Eye, MoreHorizontal, PanelLeft, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, Eye, History, MoreHorizontal, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils/cn'
 import { ASSISTANT_DOCKED_MEDIA_QUERY, assistantKeys, useAssistant, type AssistantController } from './assistant-context'
 import { AssistantElapsed } from './AssistantRunStatus'
 import { AssistantComposer } from './AssistantComposer'
+import { HeaderTip } from './AssistantHeaderTip'
 import { AssistantMessageView } from './AssistantMessageView'
 import { ConversationRail, conversationTitle } from './ConversationRail'
 import { useAssistantEngine, type AssistantEngine } from './use-assistant-engine'
@@ -321,17 +322,19 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2" style={{ minHeight: 'var(--qqq-header-height)' }}>
+        <HeaderTip label={railOpen ? 'Hide conversation history' : 'Conversation history'}>
         <button
           type="button"
           className={iconButton}
           onClick={() => setRailOpen((value) => !value)}
           aria-expanded={railOpen}
           aria-controls={listId}
-          aria-label={railOpen ? 'Hide conversations' : 'Show conversations'}
+          aria-label={railOpen ? 'Hide conversation history' : 'Conversation history'}
           data-qqq-id="assistant-rail-toggle"
         >
-          <PanelLeft className="h-4 w-4" aria-hidden="true" />
+          <History className="h-4 w-4" aria-hidden="true" />
         </button>
+        </HeaderTip>
         {renaming && conversation ? (
           <form
             className="min-w-0 flex-1"
@@ -419,6 +422,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         )}
+        <HeaderTip label="New conversation">
         <button
           type="button"
           className={iconButton}
@@ -432,9 +436,12 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
         >
           <SquarePen className="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" className={iconButton} onClick={() => assistant.setOpen(false)} aria-label="Close assistant" data-qqq-id="assistant-close">
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        </HeaderTip>
+        <HeaderTip label="Close assistant">
+          <button type="button" className={iconButton} onClick={() => assistant.setOpen(false)} aria-label="Close assistant" data-qqq-id="assistant-close">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </HeaderTip>
       </div>
 
       {Object.entries(engine.runs).filter(([id]) => (Number(id) !== activeConversationId || !showMessages)).map(([id, runs]) => {
@@ -488,11 +495,11 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                   {(profile?.starterPrompts?.length ?? 0) > 0 && (
                     <ul className="mt-4 flex flex-wrap justify-center gap-2" aria-label="Suggested questions" data-qqq-id="assistant-starters">
                       {profile?.starterPrompts?.map((prompt) => (
-                        <li key={prompt} className="max-w-full">
+                        <li key={prompt} className="w-full min-w-0 @md:w-auto @md:max-w-full" data-qqq-id="assistant-starter">
                           <button
                             type="button"
                             onClick={() => send(prompt)}
-                            className="max-w-full rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                            className="w-full whitespace-normal break-words rounded-2xl border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                           >
                             {prompt}
                           </button>
