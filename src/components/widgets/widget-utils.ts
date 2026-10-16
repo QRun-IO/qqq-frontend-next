@@ -408,5 +408,10 @@ export function widgetHelpKey(widgetName: string, slot: string): string {
  */
 export function plainText(value: unknown): string {
   if (value === null || value === undefined) return ''
-  return String(value).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim()
+  let text = String(value)
+  for (let previous = ''; previous !== text;) {
+    previous = text
+    text = text.replace(/<[^>]*>/g, '')
+  }
+  return text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim()
 }

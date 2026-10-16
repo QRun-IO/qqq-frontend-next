@@ -115,7 +115,8 @@
     "overrides": {
       "serialize-javascript": ">=7.0.3",
       "@humanfs/node": ">=0.16.8",
-      "@babel/core": ">=7.29.6 <8"
+      "@babel/core": ">=7.29.6 <8",
+      "source-map-js": ">=1.2.2"
     },
     "ignoredOptionalDependencies": [
       "electron"
