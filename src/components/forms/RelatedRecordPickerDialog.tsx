@@ -101,7 +101,7 @@ export function RelatedRecordPickerDialog({ tableName, picker, primaryKey, formV
   const { data: child } = useTableMetaData(picker.childTableName)
   const { data: instance } = useMetaData()
   const { userId } = useQContext()
-  const savedViews = useSavedViews(picker.targetTableName, instance, userId)
+  const savedViews = useSavedViews(picker.targetTableName, target ? instance : undefined, userId, target?.clientCapabilities)
 
   const [step, setStep] = useState<Step>('browse')
   const [search, setSearch] = useState('')

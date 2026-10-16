@@ -28,5 +28,5 @@ it('uses exactly the four vendored operations with typed response fixtures', asy
     ruleOverrides: [],
   })
   expect(Object.keys(spec.paths)).toHaveLength(4)
-  expect(spec.info.version).toBe('1.0.0')
+  expect(spec.info.version).toBe('1.1.0')
 })

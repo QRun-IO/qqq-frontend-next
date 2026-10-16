@@ -131,3 +131,8 @@ describe('record view layout from metadata', () => {
     })).toBe('col-span-12 @min-[66rem]:col-span-6 @min-[100rem]:col-span-4 @min-[120rem]:col-span-3 min-w-0')
   })
 })
+
+it('prefers client-neutral record action placement', () => {
+  const instance = { supplementalInstanceMetaData: { uiSettings: { recordViewActionsPlacement: 'INLINE_WITH_PAGE_TITLE' }, materialDashboard: { recordViewActionsPlacement: 'IN_IDENTITY_SECTION' } } } as unknown as QInstance
+  expect(recordViewActionsPlacement(instance, table({}))).toBe('INLINE_WITH_PAGE_TITLE')
+})

@@ -18,6 +18,8 @@
  * @file Widgets API — Endpoint for fetching runtime data for dashboard and embedded widgets.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import { AxiosError } from 'axios'
 
 import type { WidgetData } from '@/types'
@@ -61,8 +63,7 @@ export async function fetchWidgetData(
     data = await apiClient.post<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {}, { params })
   } catch (error) {
     if (error instanceof AxiosError) {
-      const body = error.response?.data as { error?: unknown } | undefined
-      const message = typeof body?.error === 'string' && body.error ? body.error : error.message
+      const message = getErrorMessage(error)
       throw new WidgetRequestError(message, error.response?.status)
     }
     throw error

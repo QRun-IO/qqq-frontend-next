@@ -23,6 +23,8 @@
  * tested through the `storeScriptRevision` and `testScript` processes, as the Material dashboard does.
  */
 
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
 import { isAxiosError } from 'axios'
 
 import type { QFieldMetaData, QQueryFilter, QRecord } from '@/types'
@@ -439,7 +441,7 @@ async function completedValues(processName: string, response: ProcessResponse): 
     await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MILLIS))
     current = await processStatus(processName, current.processUUID, jobUUID)
   }
-  if (current.type === 'ERROR') throw new Error(current.userFacingError || current.error || `${processName} failed.`)
+  if (current.type === 'ERROR') throw new Error(getErrorMessage(current, `${processName} failed.`))
   if (current.type !== 'COMPLETE') throw new Error('Unexpected server response.')
   return current.values
 }

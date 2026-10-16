@@ -144,7 +144,7 @@ export function buildTableActions(screen: TableScreen, metaData: QInstance): Tab
   if (canInsertRecords(table)) actions.push({ key: 'new', label: 'New', icon: { name: 'add' }, path: `${tablePath}/create` })
   if (recordPath && canInsertRecords(table)) actions.push({ key: 'copy', label: 'Copy', icon: { name: 'content_copy' }, path: `${recordPath}/copy` })
   if (recordPath && canEditRecords(table)) actions.push({ key: 'edit', label: 'Edit', icon: { name: 'edit' }, path: `${recordPath}/edit` })
-  if (recordPath && auditSource(metaData)) actions.push({ key: 'audit', label: 'Audit', icon: { name: 'checklist' } })
+  if (recordPath && auditSource(metaData, table.clientCapabilities)) actions.push({ key: 'audit', label: 'Audit', icon: { name: 'checklist' } })
 
   const screenProcesses = getProcessesForTable(metaData, table.name)
   const processes: QProcessMetaData[] = recordPath

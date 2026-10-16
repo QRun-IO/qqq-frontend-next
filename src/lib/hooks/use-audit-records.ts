@@ -18,6 +18,8 @@
  * @file useAuditRecords — fetches audit change history for a record.
  */
 
+import type { TableCapabilitiesV1 } from '@/types'
+
 import { useQuery } from '@tanstack/react-query'
 
 import { getAuditRecords, type AuditSource } from '@/lib/api/audits'
@@ -28,6 +30,7 @@ import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
  */
 interface UseAuditRecordsOptions {
   /** How the current user can read audits (see `auditSource`); `null` disables the query. */
+  capabilities?: TableCapabilitiesV1
   source: AuditSource
   /** The audited table. */
   tableName: string
@@ -45,10 +48,10 @@ interface UseAuditRecordsOptions {
  * @param options - See {@link UseAuditRecordsOptions}.
  * @returns The entries plus loading and error state (the caller renders errors).
  */
-export function useAuditRecords({ source, tableName, primaryKey, enabled = true, isSortAscending = false }: UseAuditRecordsOptions) {
+export function useAuditRecords({ source, capabilities, tableName, primaryKey, enabled = true, isSortAscending = false }: UseAuditRecordsOptions) {
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...queryKeys.audits(tableName, primaryKey), isSortAscending],
-    queryFn: () => getAuditRecords(source!, tableName, primaryKey, isSortAscending),
+    queryKey: [...queryKeys.audits(tableName, primaryKey), isSortAscending, capabilities],
+    queryFn: () => getAuditRecords(source!, tableName, primaryKey, isSortAscending, capabilities),
     enabled: enabled && source !== null,
     staleTime: 0,
     meta: HANDLES_OWN_ERRORS,

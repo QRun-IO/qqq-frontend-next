@@ -27,7 +27,7 @@ import {
   shareRecord,
 } from './collaboration'
 vi.mock('./client', () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), notifyUnauthorized: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), notifyUnauthorized: vi.fn(), sessionSignal: () => new AbortController().signal },
   CLIENT_CHANNEL_HEADER: { 'X-QQQ-Client': 'next-ui' },
   userTimeZoneHeader: () => ({}),
 }))

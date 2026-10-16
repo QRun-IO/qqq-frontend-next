@@ -416,7 +416,7 @@ export function DynamicForm({
                         onChange={field.onChange}
                         onBlur={field.onBlur}
                         focusRef={field.ref}
-                        required={cronField.isRequired}
+                        required={cronField.validation !== undefined ? cronField.validation.required === true : cronField.isRequired}
                         disabled={disabled}
                         error={fieldState.error?.message}
                       />

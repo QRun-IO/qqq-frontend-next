@@ -35,6 +35,7 @@ import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { preferencesFixture } from '@/mocks/fixtures/preferences'
 
 /**
@@ -538,4 +539,25 @@ it('loads menu sections lazily and only lists sections that opt in', async () =>
   expect(item.querySelector('[data-qqq-icon="key"]')).not.toBeNull()
   expect(screen.queryByRole('menuitem', { name: 'Regional settings' })).not.toBeInTheDocument()
   expect(screen.queryByRole('menuitem', { name: 'Notifications' })).not.toBeInTheDocument()
+})
+
+
+describe("What's new user menu", () => {
+  it('hides the entry without the extension and makes no summary request', async () => {
+    server.use(uiApiVersionHandler())
+    const request = vi.fn()
+    server.use(http.get('/qqq/v1/qbit/release-notes/summary', () => { request(); return HttpResponse.json({ unreadCount: 2 }) }))
+    render(<Sidebar routes={[]} userName="Avery" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Avery' }))
+    expect(screen.queryByRole('menuitem', { name: /What's new/ })).not.toBeInTheDocument()
+    expect(request).not.toHaveBeenCalled()
+  })
+  it.each([0, 3, 12])('shows the installed entry with unread count %i', async (unreadCount) => {
+    server.use(uiApiVersionHandler('release-notes'), http.get('/qqq/v1/qbit/release-notes/summary', () => HttpResponse.json({ unreadCount })))
+    render(<Sidebar routes={[]} userName="Avery" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Avery' }))
+    expect(await screen.findByRole('menuitem', { name: /What's new/ })).toHaveAttribute('href', '/app/whats-new')
+    if (unreadCount) expect(await screen.findByLabelText(`${unreadCount} unread releases`)).toHaveTextContent(unreadCount > 9 ? '9+' : String(unreadCount))
+    else expect(document.querySelector('[data-qqq-id="whats-new-unread"]')).toBeNull()
+  })
 })

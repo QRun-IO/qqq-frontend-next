@@ -545,7 +545,7 @@ test.describe('record developer view: associated scripts', () => {
         data: { contents: NEW_SCRIPT_CODE, commitMessage: 'Initial version' },
       })
       expect(refused.status()).toBe(403)
-      expect(await refused.json()).toEqual({ error: 'Permission denied.' })
+      expect(await refused.json()).toMatchObject({ error: 'Permission denied.', code: expect.any(String) })
       expect((await sqlOne(backend, 'select greeting_script_id from script_lab where id = 2')).greeting_script_id).toBeNull()
       expect(await sqlCount(backend, 'select count(*) as n from script')).toBe(scriptsBefore)
     })

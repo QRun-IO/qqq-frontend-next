@@ -19,6 +19,7 @@
  */
 
 import type { QInstance, QProcessMetaData } from '@/types'
+import { hasUiSettings, uiSetting } from './ui-settings'
 
 /**
  * Returns all visible, permitted processes that belong to a given table, followed by the
@@ -103,10 +104,9 @@ export const DEPRECATED_ALL_SCREENS_PROCESS = 'runRecordScript'
  */
 export function getProcessesForAllScreens(metaData: QInstance): QProcessMetaData[] {
   const processes = metaData.processes ?? {}
-  const supplemental = metaData.supplementalInstanceMetaData?.materialDashboard
   let names: unknown[]
-  if (supplemental && typeof supplemental === 'object') {
-    const configured = (supplemental as { processNamesToAddToAllQueryAndViewScreens?: unknown }).processNamesToAddToAllQueryAndViewScreens
+  if (hasUiSettings(metaData)) {
+    const configured = uiSetting(metaData, 'processNamesToAddToAllQueryAndViewScreens')
     names = Array.isArray(configured) ? configured : []
   } else {
     names = [DEPRECATED_ALL_SCREENS_PROCESS]

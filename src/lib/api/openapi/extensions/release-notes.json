@@ -1,0 +1,331 @@
+{
+ "components": {
+  "schemas": {
+   "ReleaseNotesErrorV1": {
+    "properties": {
+     "error": {
+      "description": "What went wrong.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesItemV1": {
+    "properties": {
+     "category": {
+      "description": "Item category.",
+      "enum": [
+       "NEW",
+       "IMPROVED",
+       "FIXED",
+       "SECURITY",
+       "REMOVED"
+      ],
+      "type": "string"
+     },
+     "categoryLabel": {
+      "description": "Category label, e.g. New.",
+      "type": "string"
+     },
+     "linkUrl": {
+      "description": "Optional app path or https link.",
+      "nullable": true,
+      "type": "string"
+     },
+     "screenshotUrl": {
+      "description": "Optional screenshot URL.",
+      "nullable": true,
+      "type": "string"
+     },
+     "text": {
+      "description": "Customer-facing text.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesLatestV1": {
+    "properties": {
+     "id": {
+      "description": "Release id.",
+      "type": "integer"
+     },
+     "publishedAt": {
+      "description": "When it was published (ISO-8601).",
+      "type": "string"
+     },
+     "title": {
+      "description": "Release title.",
+      "type": "string"
+     },
+     "version": {
+      "description": "Application version.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesReleaseV1": {
+    "properties": {
+     "id": {
+      "description": "Release id.",
+      "type": "integer"
+     },
+     "isNew": {
+      "description": "Published after the user last looked.",
+      "type": "boolean"
+     },
+     "items": {
+      "description": "Included items in category order.",
+      "items": {
+       "$ref": "#/components/schemas/ReleaseNotesItemV1"
+      },
+      "type": "array"
+     },
+     "publishedAt": {
+      "description": "When it was published (ISO-8601).",
+      "type": "string"
+     },
+     "summary": {
+      "description": "Short summary.",
+      "nullable": true,
+      "type": "string"
+     },
+     "title": {
+      "description": "Release title.",
+      "type": "string"
+     },
+     "version": {
+      "description": "Application version.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesReleasesV1": {
+    "properties": {
+     "lastSeenAt": {
+      "description": "When the user last marked What's new as seen.",
+      "nullable": true,
+      "type": "string"
+     },
+     "releases": {
+      "description": "This page of releases, newest first.",
+      "items": {
+       "$ref": "#/components/schemas/ReleaseNotesReleaseV1"
+      },
+      "type": "array"
+     },
+     "total": {
+      "description": "Visible published releases.",
+      "type": "integer"
+     },
+     "unreadCount": {
+      "description": "Releases new to the user.",
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesSeenV1": {
+    "properties": {
+     "unreadCount": {
+      "description": "Always 0 after marking seen.",
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "ReleaseNotesSummaryV1": {
+    "properties": {
+     "latest": {
+      "$ref": "#/components/schemas/ReleaseNotesLatestV1",
+      "description": "The newest visible release, or null.",
+      "nullable": true
+     },
+     "unreadCount": {
+      "description": "Releases new to the user.",
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   }
+  },
+  "securitySchemes": {
+   "sessionUuidCookie": {
+    "in": "cookie",
+    "name": "sessionUUID",
+    "type": "apiKey"
+   }
+  }
+ },
+ "info": {
+  "contact": {
+   "email": "contact@kingsrook.com"
+  },
+  "description": "What's new: published release notes and each user's unread count",
+  "title": "QQQ Middleware API extension: release-notes",
+  "version": "1.0.0"
+ },
+ "openapi": "3.0.3",
+ "paths": {
+  "/qqq/v1/qbit/release-notes/releases": {
+   "get": {
+    "description": "Published releases visible to the signed-in user, newest first, with their customer-facing items and whether each is new to the user.",
+    "operationId": "releaseNotesReleases",
+    "parameters": [
+     {
+      "description": "Releases per page (1-50, default 20).",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "description": "Releases to skip (default 0).",
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesReleasesV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Invalid request"
+     },
+     "401": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Sign in required"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Published release notes"
+   }
+  },
+  "/qqq/v1/qbit/release-notes/seen": {
+   "post": {
+    "description": "Clears the signed-in user's new indicator. Takes no body.",
+    "operationId": "releaseNotesSeen",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesSeenV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Invalid request"
+     },
+     "401": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Sign in required"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Mark What's new as seen"
+   }
+  },
+  "/qqq/v1/qbit/release-notes/summary": {
+   "get": {
+    "description": "How many published releases are new to the signed-in user, and the latest one, for a menu badge.",
+    "operationId": "releaseNotesSummary",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesSummaryV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Invalid request"
+     },
+     "401": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReleaseNotesErrorV1"
+        }
+       }
+      },
+      "description": "Sign in required"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "What's new summary"
+   }
+  }
+ }
+}

@@ -38,8 +38,8 @@ export const COUNTER_THRESHOLD = 0.8
  * @returns `error` (typing is capped), `truncate` (the server trims), or `soft` when the
  *   field declares no refusal or no policy: nothing is enforced on the client.
  */
-export function tooLongPolicy(field: Pick<QFieldMetaData, 'behaviors'>): TooLongPolicy {
-  const behaviors = field.behaviors ?? []
+export function tooLongPolicy(field: Pick<QFieldMetaData, 'behaviors' | 'validation'>): TooLongPolicy {
+  const behaviors = field.validation !== undefined ? [field.validation.tooLongBehavior] : field.behaviors ?? []
   if (behaviors.includes('ERROR')) return 'error'
   if (behaviors.includes('TRUNCATE') || behaviors.includes('TRUNCATE_ELLIPSIS')) return 'truncate'
   return 'soft'
@@ -118,11 +118,12 @@ export function notANumberMessage(label: string, isInteger: boolean): string {
  * @param side - Which bound was broken.
  * @param bound - The field's `minValue` or `maxValue`.
  * @returns The message, such as `The value for Age is too large (maximum allowed value is 100)`.
+ * @param inclusive - Whether equality at the bound is allowed.
  */
-export function outOfRangeMessage(label: string, side: 'min' | 'max', bound: number | string | null | undefined): string {
+export function outOfRangeMessage(label: string, side: 'min' | 'max', bound: number | string | null | undefined, inclusive = true): string {
   return side === 'min'
-    ? `The value for ${label} is too small (minimum allowed value is ${bound})`
-    : `The value for ${label} is too large (maximum allowed value is ${bound})`
+    ? `The value for ${label} is too small (minimum allowed value is ${inclusive ? '' : 'greater than '}${bound})`
+    : `The value for ${label} is too large (maximum allowed value is ${inclusive ? '' : 'less than '}${bound})`
 }
 
 /** Messages for native inputs whose browsers keep unreadable text out of the value (`validity.badInput`). */
@@ -241,4 +242,19 @@ export function mapServerErrors(messages: readonly string[], fields: readonly QF
     }
   }
   return { fieldErrors, unmatched }
+}
+
+/** Apply authoritative validation hints to the legacy presentation fields.
+ * @param field - Server field metadata.
+ * @returns Metadata with validation hints used consistently by forms and controls.
+ */
+export function validatedField(field: QFieldMetaData): QFieldMetaData {
+  const validation = field.validation
+  return validation === undefined ? field : {
+    ...field,
+    isRequired: validation.required === true,
+    maxLength: validation.maxLength,
+    minValue: validation.minValue,
+    maxValue: validation.maxValue,
+  }
 }

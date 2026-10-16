@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
-import { tooLongPolicy } from '@/lib/utils/field-validation'
+import { validatedField, tooLongPolicy } from '@/lib/utils/field-validation'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 
 import { HelpIcon } from '@/components/help/HelpIcon'
@@ -195,7 +195,7 @@ function DirtyWrapper({
  * @returns The rendered field input with label and error display, or null when suppressed.
  */
 export function DynamicFormField({
-  field,
+  field: rawField,
   placeholder,
   contextValues,
   idPrefix,
@@ -216,6 +216,7 @@ export function DynamicFormField({
   displayValueOverrides,
   helpKey,
 }: DynamicFormFieldProps) {
+  const field = validatedField(rawField)
   const helpHelpActive = useHelpHelpActive()
   if (field.isHidden) return null
   if (isRestricted(field)) return <div className="space-y-1" data-qqq-id={`readonly-${field.name}`}><span className="block text-sm font-medium">{field.label}</span><MaskedValue tier={field.accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} value={record?.displayValues?.[field.name] ?? record?.values[field.name]} /></div>
@@ -227,7 +228,7 @@ export function DynamicFormField({
   const dataQqqId = field.name
   // Typing stops at the limit only for a field that refuses over-long values (ERROR); otherwise
   // the counter and the server's policy handle it.
-  const policy = enforceMaxLength ? 'error' : tooLongPolicy(field)
+  const policy = enforceMaxLength && field.validation === undefined ? 'error' : tooLongPolicy(field)
   const capLength = field.maxLength && policy === 'error' ? field.maxLength : undefined
   const lengthLimit = field.maxLength ? { control, name: field.name, max: field.maxLength, policy } : undefined
 

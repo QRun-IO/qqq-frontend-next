@@ -20,7 +20,9 @@
  * otherwise by querying the standard `audit` table joined to `auditDetail`.
  */
 
-import type { QAuditRecord, QInstance, QRecord } from '@/types'
+import { getErrorMessage } from '@/lib/utils/error-utils'
+
+import type { QAuditRecord, QInstance, QRecord, TableCapabilitiesV1 } from '@/types'
 import { countRecords } from './tables'
 import apiClient from './client'
 
@@ -39,8 +41,15 @@ export type AuditSource = 'process' | 'table' | null
  *
  * @param metaData - Instance metadata.
  * @returns `process`, `table`, or `null` when the instance has no audits the user can read.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export function auditSource(metaData: QInstance | undefined): AuditSource {
+export function auditSource(metaData: QInstance | undefined, capabilities?: TableCapabilitiesV1): AuditSource {
+  // An available capability names the process or table. When it is absent (pre-1.6 servers) or
+  // unavailable (QQQ 4.1.0-RC.15 reports unaudited tables as unavailable, though a record can
+  // still have audits written explicitly), fall back to the instance metadata, which is also
+  // permission-filtered.
+  const audits = capabilities?.audits
+  if (audits?.available) return audits.processName ? 'process' : audits.tableName ? 'table' : null
   const process = metaData?.processes?.[AUDIT_PROCESS_NAME]
   if (process && process.hasPermission !== false) return 'process'
   const table = metaData?.tables?.[AUDIT_TABLE_NAME]
@@ -70,16 +79,22 @@ export interface AuditHistory {
  * @param primaryKey - The record's primary key.
  * @param isSortAscending - True for oldest first.
  * @returns Audit entries and the total when the backend supplies one.
+ * @param capabilities - Per-user table capabilities; absent for pre-1.6 servers.
  */
-export async function getAuditRecords(source: Exclude<AuditSource, null>, tableName: string, primaryKey: string | number, isSortAscending = false): Promise<AuditHistory> {
+export async function getAuditRecords(source: Exclude<AuditSource, null>, tableName: string, primaryKey: string | number, isSortAscending = false, capabilities?: TableCapabilitiesV1): Promise<AuditHistory> {
+  const declared = capabilities?.audits?.available ? capabilities.audits : undefined
+  const processName = declared === undefined ? AUDIT_PROCESS_NAME : declared.processName
+  const auditTableName = declared === undefined ? AUDIT_TABLE_NAME : declared.tableName
+  const detailTableName = declared === undefined ? 'auditDetail' : declared.detailTableName
   if (source === 'process') {
+    if (!processName) throw new Error('Audit process is unavailable.')
     const formData = new FormData()
     formData.append('values', JSON.stringify({ tableName, recordId: String(primaryKey), isSortAscending, limit: AUDIT_LIMIT }))
-    const response = await apiClient.post<ProcessCompleteResponse>(`/processes/${AUDIT_PROCESS_NAME}/init`, formData, {
+    const response = await apiClient.post<ProcessCompleteResponse>(`/processes/${encodeURIComponent(processName)}/init`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     if (response?.type === 'ERROR' || (response?.type !== 'COMPLETE' && !response?.values)) {
-      throw new Error(response?.userFacingError || response?.error || 'Error loading audits')
+      throw new Error(getErrorMessage(response, 'Error loading audits'))
     }
     const audits = response.values?.audits
     if (!Array.isArray(audits)) throw new Error('Invalid audit response')
@@ -87,32 +102,33 @@ export async function getAuditRecords(source: Exclude<AuditSource, null>, tableN
     return { records: groupAuditRows(audits as QRecord[]), total: typeof total === 'number' ? total : null }
   }
 
+  if (!auditTableName) throw new Error('Audit table is unavailable.')
   const criteria = [
     { fieldName: 'auditTable.name', operator: 'EQUALS' as const, values: [tableName] },
     { fieldName: 'recordId', operator: 'EQUALS' as const, values: [String(primaryKey)] },
   ]
-  const response = await apiClient.post<{ records?: QRecord[] }>(`/table/${AUDIT_TABLE_NAME}/query`, {
+  const response = await apiClient.post<{ records?: QRecord[] }>(`/table/${encodeURIComponent(auditTableName)}/query`, {
     filter: {
       criteria,
       orderBys: [
         { fieldName: 'timestamp', isAscending: isSortAscending },
         { fieldName: 'id', isAscending: isSortAscending },
-        { fieldName: 'auditDetail.id', isAscending: true },
+        ...(detailTableName ? [{ fieldName: `${detailTableName}.id`, isAscending: true }] : []),
       ],
       limit: AUDIT_LIMIT,
     },
     joins: [
       { joinTable: 'auditTable', select: false, type: 'INNER' },
-      { joinTable: 'auditDetail', select: true, type: 'LEFT' },
+      ...(detailTableName ? [{ joinTable: detailTableName, select: true, type: 'LEFT' }] : []),
     ],
   })
   if (!Array.isArray(response?.records)) throw new Error('Invalid audit response')
   let total: number | null = null
   if (response.records.length === AUDIT_LIMIT) {
-    const count = await countRecords(AUDIT_TABLE_NAME, { filter: { criteria } }, true)
+    const count = await countRecords(auditTableName, { filter: { criteria } }, true)
     total = count.distinctCount ?? count.count
   }
-  return { records: groupAuditRows(response.records), total }
+  return { records: groupAuditRows(response.records, detailTableName), total }
 }
 
 /**
@@ -120,8 +136,9 @@ export async function getAuditRecords(source: Exclude<AuditSource, null>, tableN
  *
  * @param rows - `audit` records with `auditDetail.*` join values.
  * @returns One entry per audit, in the rows' order, with details in their order.
+ * @param detailTableName - Declared detail join name.
  */
-export function groupAuditRows(rows: QRecord[]): QAuditRecord[] {
+export function groupAuditRows(rows: QRecord[], detailTableName = 'auditDetail'): QAuditRecord[] {
   const entries = new Map<string, QAuditRecord>()
   for (const row of rows) {
     const values = row.values ?? {}
@@ -142,13 +159,13 @@ export function groupAuditRows(rows: QRecord[]): QAuditRecord[] {
       }
       entries.set(id, entry)
     }
-    const detailId = values['auditDetail.id']
+    const detailId = values[`${detailTableName}.id`]
     if (detailId !== null && detailId !== undefined) {
       entry.fieldChanges.push({
-        fieldName: String(values['auditDetail.fieldName'] ?? ''),
-        oldValue: values['auditDetail.oldValue'] ?? null,
-        newValue: values['auditDetail.newValue'] ?? null,
-        message: typeof values['auditDetail.message'] === 'string' ? values['auditDetail.message'] as string : undefined,
+        fieldName: String(values[`${detailTableName}.fieldName`] ?? ''),
+        oldValue: values[`${detailTableName}.oldValue`] ?? null,
+        newValue: values[`${detailTableName}.newValue`] ?? null,
+        message: typeof values[`${detailTableName}.message`] === 'string' ? values[`${detailTableName}.message`] as string : undefined,
       })
     }
   }

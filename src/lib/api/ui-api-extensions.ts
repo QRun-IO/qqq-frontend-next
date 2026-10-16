@@ -22,6 +22,7 @@ import { getUiApiVersion, type UiApiVersionInfo } from './ui-api-version'
 /** Extension names published by the UI API contract. */
 export const UI_API_EXTENSION = {
   alerts: 'alerts',
+  releaseNotes: 'release-notes',
   assistant: 'assistant',
   sqlWorkbench: 'sql-workbench',
   esb: 'esb',
