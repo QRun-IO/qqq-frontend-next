@@ -178,6 +178,18 @@ export interface AssistantPendingAction {
   href?: string
 }
 
+/**
+ * A render this UI cannot show as designed: its type is unknown here, or it could not be
+ * repaired (see `lib/api/assistant-normalize`). Shown as raw JSON.
+ */
+export interface AssistantUnknownRender {
+  type: 'unknown'
+  /** The type the server sent ('' when there was none). */
+  originalType: string
+  /** The payload as received. */
+  raw: unknown
+}
+
 /** Structured UI payload of a tool result (never model-written HTML). */
 export type AssistantRender =
   | AssistantRecordsRender
@@ -186,6 +198,7 @@ export type AssistantRender =
   | AssistantWidgetRender
   | AssistantHistoryRender
   | AssistantPendingActionRender
+  | AssistantUnknownRender
 
 /** Markdown text written by the model. */
 export interface AssistantTextPart { type: 'text'; text: string }
@@ -260,7 +273,10 @@ export interface AssistantPresentationPart {
   blocks: Array<AssistantPresentationBlock | { kind: string; [key: string]: unknown }>
 }
 
-/** One part of a message. Unknown part types are ignored by the UI. */
+/** A part of a type this UI does not know; shown as raw JSON behind a toggle. */
+export interface AssistantUnknownPart { type: 'unknown'; originalType: string; raw: unknown }
+
+/** One part of a message. Unknown part types are normalized to {@link AssistantUnknownPart}. */
 export type AssistantPart =
   | AssistantPresentationPart
   | AssistantTextPart
@@ -268,6 +284,7 @@ export type AssistantPart =
   | AssistantRecordRefsPart
   | AssistantNavigatePart
   | AssistantNoticePart
+  | AssistantUnknownPart
 
 /** Who wrote a message. */
 export type AssistantRole = 'USER' | 'ASSISTANT' | 'SYSTEM_NOTICE'

@@ -27,6 +27,7 @@ import type { ActiveAssistantTurn, AssistantConcurrency, AssistantConversation, 
 import { AssistantStreamLostError, cancelAssistantTurn, createAssistantConversation, getAssistantConversation, listActiveAssistantTurns, resumeAssistantTurn, streamAssistantTurn, type AssistantTurnResult } from '@/lib/api/assistant'
 import { internalAppHref } from '@/lib/utils/assistant-links'
 import { getErrorMessage } from '@/lib/utils/error-utils'
+import { reportClientError } from '@/lib/errors/client-errors'
 import { assistantKeys, useAssistant } from './assistant-context'
 import { endReply, optimisticTurnMessages, reduceStreamEvent, type TurnMessageIds } from './message-reducer'
 
@@ -50,8 +51,13 @@ export interface AssistantEngine {
   lostConversations: number[]
   /** Sends another question, even while earlier answers are running. */
   send: (text: string, conversationId: number | null, pageContext?: AssistantPageContext | null, concurrency?: AssistantConcurrency) => Promise<void>
-  /** Stops every answer in the conversation. */
+  /**
+   * Stops every answer in the conversation. A second Stop while stopping (or a failed stop
+   * request) stops listening at once, so Stop always works.
+   */
   cancel: (conversationId: number) => void
+  /** Stops one reply, including a reply the server left running with no live connection. */
+  stopMessage: (conversationId: number, message: AssistantMessage) => void
   /** Replays a persisted streaming reply, once per turn. */
   attach: (conversationId: number, message: AssistantMessage, active?: ActiveAssistantTurn) => void
   /** Discovers active turns and refreshes finished or disconnected conversations. */
@@ -77,6 +83,8 @@ export function useAssistantEngine(): AssistantEngine {
   const activeRuns = useRef(new Map<number, { run: AssistantRun; controller: AbortController }>())
   const attempted = useRef(new Set<number>())
   const lost = useRef(new Set<number>())
+  /** Runs stopped here without the server's confirmation (their reply stays shown as stopped). */
+  const stoppedLocally = useRef(new Set<number>())
   const mounted = useRef(true)
   const checking = useRef<Promise<void> | null>(null)
 
@@ -108,7 +116,13 @@ export function useAssistantEngine(): AssistantEngine {
     const entry = activeRuns.current.get(key)
     if (!entry || !mounted.current) return
     const run = entry.run
-    setMessages(run.conversationId, (messages) => reduceStreamEvent(messages, event, ids))
+    try {
+      setMessages(run.conversationId, (messages) => reduceStreamEvent(messages, event, ids))
+    } catch (error) {
+      // a payload the reducer cannot apply is skipped; the stream (and the turn) carry on
+      reportClientError(error, { scope: 'assistant-stream', conversationId: run.conversationId, messageId: run.assistantMessageId, turnId: run.turnId, partType: event.type })
+      return
+    }
     if (event.type === 'message.start') {
       run.turnId = event.turnId
       attempted.current.add(event.turnId)
@@ -141,6 +155,7 @@ export function useAssistantEngine(): AssistantEngine {
       if (mounted.current && result.status === 'ABORTED') setMessages(entry.conversationId, (messages) => endReply(messages, ids.assistantId, 'CANCELLED'))
     } catch (error) {
       if (!mounted.current) return
+      reportClientError(error, { scope: 'assistant-stream', conversationId: entry.conversationId, messageId: ids.assistantId, turnId: entry.turnId })
       setMessages(entry.conversationId, (messages) => endReply(messages, ids.assistantId, 'ERROR', getErrorMessage(error, 'The assistant could not answer.')))
       if (error instanceof AssistantStreamLostError) {
         lost.current.add(entry.conversationId)
@@ -151,8 +166,9 @@ export function useAssistantEngine(): AssistantEngine {
       activeRuns.current.delete(entry.key)
       publish()
       if (mounted.current) {
-        // Do not refetch over another stream's optimistic messages or partial reply.
-        if (result && ![...activeRuns.current.values()].some(({ run }) => run.conversationId === entry.conversationId)) {
+        // Do not refetch over another stream's optimistic messages or partial reply, nor over a
+        // reply stopped here (the server may still report it running until it notices).
+        if (result && !stoppedLocally.current.delete(entry.key) && ![...activeRuns.current.values()].some(({ run }) => run.conversationId === entry.conversationId)) {
           void queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(entry.conversationId) })
         }
         void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(), 'conversations'] })
@@ -293,30 +309,44 @@ export function useAssistantEngine(): AssistantEngine {
   const cancel = useCallback((conversationId: number) => {
     for (const { run, controller } of activeRuns.current.values()) {
       if (run.conversationId !== conversationId) continue
-      run.status = 'cancelling'
-      if (run.turnId === null) {
+      // Stop again while stopping: stop listening now (the reply shows as stopped)
+      if (run.status === 'cancelling' || run.turnId === null) {
+        run.status = 'cancelling'
+        stoppedLocally.current.add(run.key)
         controller.abort()
         continue
       }
+      run.status = 'cancelling'
       const timer = setTimeout(() => controller.abort(), 15_000)
       controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true })
       void cancelAssistantTurn(run.turnId).then(({ status }) => {
         // Old servers report 409 for a finished turn; abort its stale tail and reconcile.
         if (['FINISHED', 'COMPLETE', 'CANCELLED', 'ERROR'].includes(status)) controller.abort()
       }).catch((error) => {
+        // The stop request failed: stop listening anyway, so the user is never stuck
         clearTimeout(timer)
-        run.status = 'running'
-        publish()
-        toast.error(getErrorMessage(error, 'Could not stop the answer.'))
+        stoppedLocally.current.add(run.key)
+        controller.abort()
+        toast.error(getErrorMessage(error, 'Could not reach the assistant to stop the answer; stopped here.'))
       })
     }
     publish()
   }, [publish])
+
+  const stopMessage = useCallback((conversationId: number, message: AssistantMessage) => {
+    if ([...activeRuns.current.values()].some(({ run }) => run.conversationId === conversationId && (run.assistantMessageId === message.id || run.turnId === message.turnId))) {
+      cancel(conversationId)
+      return
+    }
+    // No live connection (another tab, a restart): ask the server to stop and show it stopped
+    if (message.turnId !== null) void cancelAssistantTurn(message.turnId).catch(() => undefined)
+    setMessages(conversationId, (messages) => endReply(messages, message.id, 'CANCELLED'))
+  }, [cancel, setMessages])
 
   const runs = useMemo(() => {
     const grouped: Record<number, AssistantRun[]> = {}
     for (const entry of Object.values(runState).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt) || b.key - a.key)) (grouped[entry.conversationId] ??= []).push(entry)
     return grouped
   }, [runState])
-  return { runs, lostConversations, send, cancel, attach, reconcile }
+  return { runs, lostConversations, send, cancel, stopMessage, attach, reconcile }
 }

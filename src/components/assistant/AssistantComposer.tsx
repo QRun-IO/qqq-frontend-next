@@ -231,9 +231,8 @@ function AssistantComposerInner(
           <button
             type="button"
             onClick={onStop}
-            disabled={stopping}
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-            aria-label={stopping ? 'Stopping' : 'Stop the reply'}
+            aria-label={stopping ? 'Stopping - select to stop now' : 'Stop the reply'}
             data-qqq-id="assistant-stop"
           >
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />

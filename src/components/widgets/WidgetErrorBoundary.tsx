@@ -29,6 +29,8 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
+import { reportClientError } from '@/lib/errors/client-errors'
+
 /** Props accepted by the WidgetErrorBoundary class component. */
 interface Props {
   /** Child component tree to protect with the error boundary. */
@@ -39,6 +41,8 @@ interface Props {
   onRetry?: () => void
   /** A new payload allows a failed widget to render again after reload. */
   resetKey?: unknown
+  /** The report scope (default `widget`; record sections pass `record-section`). */
+  scope?: string
 }
 
 /** Internal state tracked by the WidgetErrorBoundary class component. */
@@ -81,13 +85,13 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
   /**
    * React lifecycle method called after a descendant error has been caught.
    *
-   * Logs the error and component stack to the console for debugging.
+   * Reports the error (console, with its request id, and the backend when a sink is registered).
    *
    * @param error - The error that was thrown.
    * @param info - React ErrorInfo object containing the component stack trace.
    */
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error(`[WidgetErrorBoundary] Widget "${this.props.widgetName}" crashed:`, error, info)
+    reportClientError(error, { scope: this.props.scope ?? 'widget', renderType: this.props.widgetName ?? null, componentStack: info.componentStack })
   }
 
   /**
