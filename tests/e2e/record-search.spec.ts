@@ -1,5 +1,5 @@
-// E2E: record search UX — header search-as-you-type with a mocked record search API
-// (highlights, counts, top hits, failure class, provider fallback), keyboard navigation
+// E2E: record search UX — command palette search-as-you-type with a mocked record search API
+// (highlights, counts, grouped records, failure class, provider fallback), keyboard navigation
 // (arrows, Enter, Ctrl+Enter new tab), the "/" dialog, and the URL-addressable search page.
 
 import { test, expect, type Page, type Route } from '@playwright/test'
@@ -54,11 +54,11 @@ async function waitForAppReady(page: Page) {
   await expect(page.locator('[data-qqq-id="main-content"]')).toBeVisible({ timeout: 30000 })
 }
 
-const headerInput = (page: Page) => page.locator('[data-qqq-id="header-search"]').getByRole('combobox', { name: 'Search pages and records' })
-const headerResults = (page: Page) => page.locator('#header-search-results')
+const paletteInput = (page: Page) => page.locator('[data-qqq-id="command-menu-search"]')
+const paletteResults = (page: Page) => page.locator('[data-qqq-id="command-menu-results"]')
 
-test.describe('Record search (header)', () => {
-  test('lists grouped, highlighted results with counts and opens the top hit with Enter', async ({ page }) => {
+test.describe('Record search (palette)', () => {
+  test('lists grouped, highlighted results with counts and opens the first record with Enter', async ({ page }) => {
     const bodies: Record<string, unknown>[] = []
     await setupSearch(page, (route, body) => {
       bodies.push(body)
@@ -66,21 +66,22 @@ test.describe('Record search (header)', () => {
     })
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
 
-    await headerInput(page).fill('alice')
-    const people = headerResults(page).getByRole('group', { name: /^People/ })
+    await paletteInput(page).fill('alice')
+    const people = paletteResults(page).getByRole('group', { name: /^People/ })
     await expect(people).toBeVisible()
-    await expect(people).toHaveAccessibleName('People 17 matches')
-    const top = headerResults(page).getByRole('group', { name: 'Top hits' })
-    await expect(top.getByRole('option').first()).toContainText('Alice Johnson')
-    await expect(top.getByRole('option').first()).toContainText('Email: alice@example.com')
-    await expect(top.locator('mark').first()).toHaveText('Alice')
-    await expect(people.getByRole('option').filter({ hasText: 'See all 17 matches in People' })).toHaveAttribute('href', '/app/search?q=alice&tables=person')
-    expect(bodies.at(-1)).toEqual({ searchTerm: 'alice', tableNames: ['person'], limitPerTable: 6 })
+    await expect(people).toHaveAccessibleName('People · 17')
+    const records = people
+    await expect(records.getByRole('option').first()).toContainText('Alice Johnson')
+    await expect(records.getByRole('option').first()).toContainText('Email: alice@example.com')
+    await expect(records.locator('mark').first()).toHaveText('Alice')
+    await expect(people.getByRole('option').filter({ hasText: 'See all matches in People' })).toHaveAttribute('data-value', 'search:/app/search?q=alice&tables=person')
+    expect(bodies.at(-1)).toEqual({ searchTerm: 'alice', tableNames: ['person'], limitPerTable: 5 })
 
     // the top hit is selected while typing
-    await expect(top.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
-    await headerInput(page).press('Enter')
+    await expect(records.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await paletteInput(page).press('Enter')
     await expect(page).toHaveURL(/\/app\/person\/1\/?$/)
   })
 
@@ -88,31 +89,32 @@ test.describe('Record search (header)', () => {
     await setupSearch(page, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALICE_RESPONSE) }))
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
 
-    await headerInput(page).fill('alice')
-    const options = headerResults(page).getByRole('option')
+    await paletteInput(page).fill('alice')
+    const options = paletteResults(page).getByRole('option')
     await expect(options.first()).toHaveAttribute('aria-selected', 'true')
-    await headerInput(page).press('ArrowDown')
+    await paletteInput(page).press('ArrowDown')
     await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true')
-    await expect(headerInput(page)).toHaveAttribute('aria-activedescendant', (await options.nth(1).getAttribute('id'))!)
-    await headerInput(page).press('ArrowUp')
-    const [popup] = await Promise.all([context.waitForEvent('page'), headerInput(page).press('Control+Enter')])
+    await expect(paletteInput(page)).toHaveAttribute('aria-activedescendant', (await options.nth(1).getAttribute('id'))!)
+    await paletteInput(page).press('ArrowUp')
+    const [popup] = await Promise.all([context.waitForEvent('page'), paletteInput(page).press('Control+Enter')])
     await expect(popup).toHaveURL(/\/app\/person\/1\/?$/)
     // this tab stays on the search
-    await expect(headerResults(page)).toBeVisible()
+    await expect(paletteResults(page)).toBeVisible()
   })
 
   test('names the failure class and keeps page results when record search fails', async ({ page }) => {
     await setupSearch(page, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Error in record search provider' }) }))
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
 
-    await headerInput(page).fill('peo')
-    const failure = page.locator('[data-qqq-id="header-search"] [data-qqq-id="search-failure"]')
+    await paletteInput(page).fill('peo')
+    const failure = page.locator('[data-qqq-id="command-menu-search-status"]')
     await expect(failure).toContainText('Record search failed: server error (HTTP 500)')
     await expect(failure).toContainText('Error in record search provider')
-    await expect(failure).toHaveAttribute('data-failure-kind', 'server')
-    await expect(headerResults(page).getByRole('option').filter({ hasText: 'People' }).first()).toBeVisible()
+    await expect(paletteResults(page).getByRole('option').filter({ hasText: 'People' }).first()).toBeVisible()
   })
 
   test('shows fallback results under a provider failure notice', async ({ page }) => {
@@ -123,12 +125,13 @@ test.describe('Record search (header)', () => {
     }) }))
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
 
-    await headerInput(page).fill('alice')
-    const fallback = page.locator('[data-qqq-id="header-search"] [data-qqq-id="search-fallback"]')
+    await paletteInput(page).fill('alice')
+    const fallback = page.locator('[data-qqq-id="command-menu-search-status"]')
     await expect(fallback).toContainText('Search index unavailable — showing basic matches instead')
     await expect(fallback).toContainText('ConnectException: Connection refused')
-    await expect(headerResults(page).getByRole('option').filter({ hasText: 'Alice Johnson' }).first()).toBeVisible()
+    await expect(paletteResults(page).getByRole('option').filter({ hasText: 'Alice Johnson' }).first()).toBeVisible()
   })
 
   test('cancels superseded requests while typing', async ({ page }) => {
@@ -141,21 +144,23 @@ test.describe('Record search (header)', () => {
     })
     await page.goto('/')
     await waitForAppReady(page)
+    await page.locator('[data-qqq-id="button-search"]').click()
 
-    await headerInput(page).pressSequentially('al', { delay: 50 })
+    await paletteInput(page).pressSequentially('al', { delay: 50 })
     await page.waitForTimeout(350)
-    await headerInput(page).pressSequentially('ice', { delay: 50 })
+    await paletteInput(page).pressSequentially('ice', { delay: 50 })
     // debounced: one request per pause, not per keystroke
     await expect.poll(() => terms).toEqual(['al', 'alice'])
-    await expect(headerResults(page).getByRole('option').filter({ hasText: 'Alice Johnson' }).first()).toBeVisible()
+    await expect(paletteResults(page).getByRole('option').filter({ hasText: 'Alice Johnson' }).first()).toBeVisible()
   })
 
-  test('the open dropdown has no axe violations', async ({ page }) => {
+  test('the open palette has no axe violations', async ({ page }) => {
     await setupSearch(page, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALICE_RESPONSE) }))
     await page.goto('/')
     await waitForAppReady(page)
-    await headerInput(page).fill('alice')
-    await expect(headerResults(page).getByRole('group', { name: /^People/ })).toBeVisible()
+    await page.locator('[data-qqq-id="button-search"]').click()
+    await paletteInput(page).fill('alice')
+    await expect(paletteResults(page).getByRole('group', { name: /^People/ })).toBeVisible()
     await checkA11y(page)
   })
 })
@@ -167,7 +172,7 @@ test.describe('Record search ("/" dialog)', () => {
     await waitForAppReady(page)
 
     await page.locator('body').press('/')
-    const dialog = page.getByRole('dialog', { name: 'Search' })
+    const dialog = page.getByRole('dialog', { name: 'Command palette' })
     const input = dialog.getByRole('combobox')
     await expect(input).toBeFocused()
     await input.fill('alice')

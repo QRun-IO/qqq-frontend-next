@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
 import type { QInstance, QAppTreeNode } from '@/types'
-import { buildRouteMap, useAppTreeRoutes } from './use-routes'
+import { buildRouteMap, buildSidebarSections, sectionRole, useAppTreeRoutes } from './use-routes'
 
 function makeMetaData(appTree: QAppTreeNode[]): QInstance {
   return {
@@ -160,7 +160,8 @@ describe('useAppTreeRoutes', () => {
             name: 'subApp',
             label: 'Sub App',
             type: 'APP',
-            children: [{ name: 'employee', label: 'Employees', type: 'TABLE' }],
+            // two children: an app with one child is shown as a leaf
+            children: [{ name: 'employee', label: 'Employees', type: 'TABLE' }, { name: 'department', label: 'Departments', type: 'TABLE' }],
           },
         ],
       },
@@ -194,7 +195,7 @@ describe('useAppTreeRoutes', () => {
         name: 'two', label: 'Two', type: 'APP',
         children: [{
           name: 'three', label: 'Three', type: 'APP', icon: { name: 'layers' },
-          children: [{ name: 'deep', label: 'Deep', type: 'TABLE', icon: { name: 'inventory_2' } }],
+          children: [{ name: 'deep', label: 'Deep', type: 'TABLE', icon: { name: 'inventory_2' } }, { name: 'other', label: 'Other', type: 'TABLE' }],
         }],
       }],
     }]
@@ -203,7 +204,7 @@ describe('useAppTreeRoutes', () => {
     expect(deep).toMatchObject({ key: 'deep', name: 'Deep', path: '/app/deep', type: 'item', nodeType: 'TABLE', icon: { name: 'inventory_2' } })
     expect(sidebarRoutes[1].icon).toEqual({ path: '/one.png' })
     expect(ancestorAppMap['/app/deep'].map((a) => a.label)).toEqual(['One', 'Two', 'Three'])
-    expect(navTargets.map((t) => t.key)).toEqual(['one', 'two', 'three', 'deep'])
+    expect(navTargets.map((t) => t.key)).toEqual(['one', 'two', 'three', 'deep', 'other'])
   })
 
   it('accepts the legacy iconName when no structured icon is declared', () => {
@@ -335,5 +336,75 @@ describe('buildRouteMap single landing page', () => {
 
     // without homeAppName the built-in Dashboard overview entry stays first, as before
     expect(buildRouteMap(metaData).sidebarRoutes.map((route) => route.path)).toEqual(['/app', '/app/cms', '/app/home'])
+  })
+})
+
+// ─── Sections, leaves, aliases (UI API 1.7.0; IA review 2026-10-15) ─────────────
+
+describe('sections', () => {
+  const tree: QAppTreeNode[] = [{
+    name: 'admin', label: 'Admin', type: 'APP', keywords: ['system'],
+    children: [
+      { name: 'alerts', label: 'Alerts', type: 'APP', children: [
+        { name: 'alert', label: 'Alerts', type: 'TABLE' },
+        { name: 'notification', label: 'Notifications', type: 'TABLE' },
+        { name: 'channel', label: 'Delivery Channels', type: 'TABLE', keywords: ['channels'] },
+      ] },
+      { name: 'esb', label: 'Message Bus', type: 'APP', keywords: ['ESB'], children: [] },
+      { name: 'sessions', label: 'Sessions', type: 'APP', children: [{ name: 'userSession', label: 'Sessions', type: 'TABLE' }] },
+      { name: 'help', label: 'Help', type: 'APP', children: [{ name: 'helpContent', label: 'Articles', type: 'TABLE' }] },
+    ],
+  }]
+  function metaData(): QInstance {
+    const instance = makeMetaData(tree)
+    instance.apps = {
+      admin: { name: 'admin', label: 'Admin', sections: [
+        { name: 'adminOperations', label: 'Operations', apps: ['alerts', 'esb'], role: 'GROUP' },
+        { name: 'adminSecurity', label: 'Users & Security', apps: ['sessions', 'help'] },
+      ] },
+      alerts: { name: 'alerts', label: 'Alerts', sections: [
+        { name: 'main', label: 'Alerts', tables: ['alert'] },
+        { name: 'history', label: 'History', tables: ['notification'] },
+        { name: 'settings', label: 'Settings', tables: ['channel'] },
+      ] },
+      sessions: { name: 'sessions', label: 'Sessions', widgets: ['sessionsByUser'] },
+      help: { name: 'help', label: 'Help' },
+    }
+    return instance
+  }
+
+  it('splits children into sections with explicit or inferred roles, Settings collapsed', () => {
+    const admin = buildRouteMap(metaData()).sidebarRoutes.find((route) => route.key === 'admin')!
+    expect(admin.sections?.map((section) => [section.key, section.role, section.routes.map((route) => route.key)])).toEqual([
+      ['adminOperations', 'GROUP', ['alerts', 'esb']],
+      ['adminSecurity', 'GROUP', ['sessions', 'help']],
+    ])
+    const alerts = admin.children!.find((route) => route.key === 'alerts')!
+    expect(alerts.sections?.map((section) => [section.role, section.collapsedByDefault, section.routes.map((route) => route.key)])).toEqual([
+      ['PRIMARY', false, ['alert']],
+      ['HISTORY', false, ['notification']],
+      ['SETTINGS', true, ['channel']],
+    ])
+  })
+
+  it('shows a single-child app as one leaf: its home when it has widgets, else its only child', () => {
+    const admin = buildRouteMap(metaData()).sidebarRoutes.find((route) => route.key === 'admin')!
+    const sessions = admin.children!.find((route) => route.key === 'sessions')!
+    expect(sessions).toMatchObject({ type: 'item', path: '/app/sessions', alsoActivePaths: ['/app/userSession'] })
+    const help = admin.children!.find((route) => route.key === 'help')!
+    expect(help).toMatchObject({ type: 'item', path: '/app/helpContent', alsoActivePaths: ['/app/help'] })
+  })
+
+  it('carries search aliases on nav targets and sends a group section path to its app', () => {
+    const map = buildRouteMap(metaData())
+    expect(map.navTargets.find((target) => target.key === 'esb')?.keywords).toEqual(['ESB'])
+    expect(map.navTargets.find((target) => target.key === 'channel')?.keywords).toEqual(['channels'])
+    expect(map.sectionRedirects).toEqual({ '/app/adminOperations': '/app/admin#adminOperations', '/app/adminSecurity': '/app/admin#adminSecurity' })
+  })
+
+  it('treats a lone primary section as a plain list and unknown roles as primary', () => {
+    expect(buildSidebarSections([{ name: 'main', label: 'X', tables: ['a'] }], [{ name: 'A', key: 'a', path: '/app/a', type: 'item' }])).toBeUndefined()
+    expect(sectionRole({ name: 'x', label: 'X', role: 'SOMETHING_NEW' })).toBe('PRIMARY')
+    expect(sectionRole({ name: 'cfg', label: 'Settings', tables: ['a'] })).toBe('SETTINGS')
   })
 })

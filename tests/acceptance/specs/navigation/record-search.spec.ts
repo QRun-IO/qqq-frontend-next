@@ -36,36 +36,34 @@ async function apiSearch(backend: Backend, data: Record<string, unknown>): Promi
   return (await response.json()).results
 }
 
-/** Opens the search dialog: the header's "Open search" button on phones, the '/' key otherwise. */
-async function openSearchDialog(page: Page): Promise<Locator> {
-  const button = page.getByRole('button', { name: 'Open search' })
-  if (await button.isVisible()) await button.click()
-  else await page.locator('body').press('/')
-  const dialog = page.getByRole('dialog', { name: 'Search' })
+/** Opens the command palette from the header search button. */
+async function openSearchPalette(page: Page): Promise<Locator> {
+  const button = page.getByRole('button', { name: 'Search or jump to' })
+  await button.click()
+  const dialog = page.getByRole('dialog', { name: 'Command palette' })
   await expect(dialog).toBeVisible()
   return dialog
 }
 
-/** The found-record options of a results listbox or dialog ("Top hits" and the per-table groups). */
+/** Found records in the palette's per-table groups. */
 function foundRecords(scope: Locator): Locator {
-  return scope.locator('[data-qqq-id="search-option-record"]')
+  return scope.locator('[data-value^="record:"]')
 }
 
-/** The labels of the found records, sorted (top hits are promoted, so order is checked elsewhere). */
+/** The labels of found records, sorted for comparison with the database. */
 async function foundLabels(scope: Locator): Promise<string[]> {
   return (await foundRecords(scope).locator('span.text-sm.font-medium').allTextContents()).sort()
 }
 
 /**
- * Asserts a found record's table: shown on the option in "Top hits", else its group is the table.
+ * Asserts a found record's table: its enclosing group names the table.
  *
  * @param option - A found-record option.
  * @param tableLabel - The table's label.
  */
 async function expectFromTable(option: Locator, tableLabel: string) {
   const group = option.locator('xpath=ancestor::*[@role="group"][1]')
-  if ((await group.getAttribute('data-qqq-id')) === 'search-group-top') await expect(option).toContainText(tableLabel)
-  else await expect(group).toHaveAccessibleName(new RegExp(`^${tableLabel}\\b`))
+  await expect(group).toHaveAccessibleName(new RegExp(`^${tableLabel}\\b`))
 }
 
 /** The label line of a result option (the table label is the second line). */
@@ -80,7 +78,7 @@ async function expectedPeople(backend: Backend, needle: string, limit: number): 
 }
 
 test.describe('record search results', () => {
-  test('[NAV-030] @mobile the search dialog finds a record by label with its table, ignoring case, and opens it by keyboard', async ({ page, backend, diagnostics }) => {
+  test('[NAV-030] @mobile the command palette finds a record by label with its table, ignoring case, and opens it by keyboard', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const searches = watchSearches(page)
     const pets = await backend.sql("select id, name from pet where lower(name) like '%coco%' order by id")
@@ -89,8 +87,8 @@ test.describe('record search results', () => {
 
     await open(page, '/app')
     await waitForShell(page)
-    const dialog = await openSearchDialog(page)
-    await dialog.getByRole('combobox', { name: 'Search pages and records' }).fill('COCO')
+    const dialog = await openSearchPalette(page)
+    await dialog.locator('[data-qqq-id="command-menu-search"]').fill('COCO')
     const records = foundRecords(dialog)
     await expect(records).toHaveCount(1)
     await expect(optionLabel(records.first())).toHaveText(pets[0].name!)
@@ -108,16 +106,16 @@ test.describe('record search results', () => {
     for (const call of searches) {
       expect(call.status).toBe(200)
       expect([...(call.body.tableNames ?? [])].sort()).toEqual(['person', 'pet', 'savedView'])
-      expect(call.body.limitPerTable).toBe(6)
+      expect(call.body.limitPerTable).toBe(5)
     }
     expect(searches.map((call) => call.body.searchTerm)).toContain('COCO')
   })
 
-  test('[NAV-030] the header search lists found records after pages; the search page lists every match and survives refresh', async ({ page, backend, diagnostics }) => {
+  test('[NAV-030] the header-opened palette lists found records after pages; the search page lists every match and survives refresh', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const searches = watchSearches(page)
     const personLabel = (await v1MetaData(backend)).tables.person.label
-    const dropdownPeople = await expectedPeople(backend, 'sample', 6)
+    const dropdownPeople = await expectedPeople(backend, 'sample', 5)
     const overviewPeople = await expectedPeople(backend, 'sample', 8)
     const pagePeople = await expectedPeople(backend, 'sample', 25)
     expect(dropdownPeople.length).toBeGreaterThan(1)
@@ -126,27 +124,22 @@ test.describe('record search results', () => {
 
     await open(page, '/app')
     await waitForShell(page)
-    const header = page.getByRole('combobox', { name: 'Search pages and records' })
+    await page.locator('[data-qqq-id="button-search"]').click()
+    const header = page.locator('[data-qqq-id="command-menu-search"]')
     await header.fill('Sample')
-    const results = page.getByRole('listbox', { name: 'Search results' })
+    const results = page.locator('[data-qqq-id="command-menu-results"]')
     const records = foundRecords(results)
-    // a full page of people (top hits plus the People group, which links to the rest)
+    // The People group lists its per-table limit and links to the rest.
     await expect(records.first()).toBeVisible()
-    await expect(results).toHaveAttribute('aria-busy', 'false')
+    await expect(page.locator('[data-qqq-id="command-menu-searching"]')).toHaveCount(0)
     const shown = await foundLabels(results)
     for (const label of shown) expect(dropdownPeople).toContain(label)
-    // with more than a group's worth, the People group links to the rest instead of listing them
-    if (dropdownPeople.length <= 5) expect(shown).toEqual([...dropdownPeople].sort())
-    else expect(shown.length).toBeGreaterThanOrEqual(5)
+    expect(shown).toEqual([...dropdownPeople].sort())
     for (const option of await records.all()) await expectFromTable(option, personLabel)
     await expect(results.getByRole('group', { name: new RegExp(`^${personLabel}\\b`) })).toBeVisible()
 
-    // ArrowUp above the preselected top hit leaves nothing selected; Enter opens the search page
-    await page.mouse.move(1, 1)
-    await expect(results.getByRole('option', { selected: true })).toHaveCount(1)
-    await page.keyboard.press('ArrowUp')
-    await expect(results.getByRole('option', { selected: true })).toHaveCount(0)
-    await page.keyboard.press('Enter')
+    // Search everything opens the full result page.
+    await results.locator('[data-qqq-id="command-search-all"]').click()
     await expect(page).toHaveURL(/\/app\/search\/?\?q=Sample$/)
     const cardLabels = async () => (await page.locator('[data-qqq-id="search-result-link"]').allTextContents()).sort()
     for (const attempt of ['navigate', 'reload']) {
@@ -177,13 +170,13 @@ test.describe('record search permissions', () => {
       const pets = await backend.sql("select name from pet where lower(name) like '%ey%' order by id")
       expect(pets.length).toBeGreaterThan(0)
       const people = await expectedPeople(backend, 'ey', 5)
-      const shownPeople = await expectedPeople(backend, 'ey', 6)
+      const shownPeople = await expectedPeople(backend, 'ey', 5)
       expect(people.length).toBeGreaterThan(0)
 
       await open(page, '/app')
       await waitForShell(page)
-      const dialog = await openSearchDialog(page)
-      await dialog.getByRole('combobox', { name: 'Search pages and records' }).fill('ey')
+      const dialog = await openSearchPalette(page)
+      await dialog.locator('[data-qqq-id="command-menu-search"]').fill('ey')
       await expect(foundRecords(dialog).first()).toBeVisible()
       for (const label of await foundLabels(dialog)) expect(shownPeople).toContain(label)
       for (const pet of pets) await expect(dialog.getByRole('option', { name: new RegExp(pet.name!) })).toHaveCount(0)
@@ -213,8 +206,8 @@ test.describe('record search permissions', () => {
 
     await open(page, '/app')
     await waitForShell(page)
-    const dialog = await openSearchDialog(page)
-    await dialog.getByRole('combobox', { name: 'Search pages and records' }).fill('people view')
+    const dialog = await openSearchPalette(page)
+    await dialog.locator('[data-qqq-id="command-menu-search"]').fill('people view')
     const records = foundRecords(dialog)
     await expect(records).toHaveCount(1)
     await expect(optionLabel(records.first())).toHaveText(view.label!)
@@ -247,12 +240,13 @@ test.describe('record search permissions', () => {
 
       await open(page, '/app')
       await waitForShell(page)
-      const dialog = await openSearchDialog(page)
-      await dialog.getByRole('combobox', { name: 'Search pages and records' }).fill('people view')
+      const dialog = await openSearchPalette(page)
+      await dialog.locator('[data-qqq-id="command-menu-search"]').fill('people view')
       await expect.poll(() => searches.filter((call) => call.body.searchTerm === 'people view').length).toBeGreaterThan(0)
-      await expect(dialog.getByRole('status')).toHaveText('')
+      await expect(dialog.locator('[data-qqq-id="command-menu-searching"]')).toHaveCount(0)
       await expect(foundRecords(dialog)).toHaveCount(0)
-      await expect(dialog.getByRole('listbox')).toContainText('No pages or records match “people view”')
+      // the search box still offers help and "Search everything", but never the locked view
+      await expect(dialog.locator('[data-value^="record:"]')).toHaveCount(0)
       expect(await apiSearch(backend, { searchTerm: 'people view', tableNames: ['savedView'] })).toEqual([])
     })
   })

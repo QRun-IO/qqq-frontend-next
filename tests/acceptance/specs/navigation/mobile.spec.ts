@@ -47,7 +47,7 @@ test.describe('mobile navigation', () => {
     await expect(drawer).toHaveCount(0)
     await expect(page.locator('[data-qqq-id="sidebar-desktop"]')).toBeHidden()
 
-    await page.getByRole('button', { name: 'Open navigation menu' }).click()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await expect(drawer).toBeVisible()
     await expectTouchReady(page, drawer)
     const nav = drawer.getByRole('navigation', { name: 'App navigation' })
@@ -58,14 +58,14 @@ test.describe('mobile navigation', () => {
     await expect(page).toHaveTitle('Carrier | Miscellaneous | QQQ Sample')
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveText('Carrier')
 
-    await page.getByRole('button', { name: 'Open navigation menu' }).click()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await expect(drawer.getByRole('link', { name: 'Carrier', exact: true })).toHaveAttribute('aria-current', 'page')
     await drawer.getByRole('button', { name: 'Close navigation' }).click()
     await expect(drawer).toHaveCount(0)
     await expect(page).toHaveURL(/\/app\/carrier\/?$/)
 
     // A tap on the backdrop closes the drawer too
-    await page.getByRole('button', { name: 'Open navigation menu' }).click()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await expect(drawer).toBeVisible()
     await page.locator('[data-qqq-id="sidebar-mobile-backdrop"]').click({ position: { x: 380, y: 400 } })
     await expect(drawer).toHaveCount(0)
@@ -74,7 +74,7 @@ test.describe('mobile navigation', () => {
   test('[NAV-037] the drawer opens from the keyboard, keeps Tab inside and gives focus back to the menu button @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/miscellaneous')
     await waitForShell(page)
-    const menu = page.getByRole('button', { name: 'Open navigation menu' })
+    const menu = page.getByRole('button', { name: 'Menu', exact: true })
     const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
     const tab = tabKey(page)
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
@@ -145,11 +145,17 @@ test('[NAV-038] the shell is touch-ready on phones and tablets: skip link, heade
   // The navigation (tablet sidebar or phone drawer) and its user menu
   const nav = await appNavigation(page)
   await expectTouchTargets(nav)
-  const sidebar = page.locator('[data-qqq-id="sidebar"]:visible')
-  await sidebar.locator('[data-qqq-id="sidebar-user-button"]').click()
-  const menu = sidebar.getByRole('menu')
-  await expect(menu.getByRole('menuitem')).toHaveText(['Preferences', 'Log Out'])
-  await expectTouchTargets(sidebar)
+  const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+  if (await drawer.isVisible()) await drawer.getByRole('button', { name: 'Close navigation' }).click()
+  await page.locator('[data-qqq-id="button-account"]').click()
+  const menu = page.locator('[data-qqq-id="button-account-menu"]')
+  await expect(menu.getByRole('menuitem', { name: 'Preferences', exact: true })).toBeVisible()
+  await expect(menu.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeVisible()
+  await expect(menu.getByRole('menuitemcheckbox', { name: 'Dark mode' })).toBeVisible()
+  if ((page.viewportSize()?.width ?? 1280) < 640) {
+    await expect(menu.getByRole('menuitem', { name: 'Keyboard shortcuts' })).toBeVisible()
+  }
+  await expectTouchTargets(menu)
 
   await menu.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
   const preferences = page.locator('[data-qqq-id="preferences-page"]')

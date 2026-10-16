@@ -81,7 +81,8 @@ async function setupSuggest(page: Page, installed = true, fail = false) {
 async function openHeader(page: Page) {
   await page.goto('/')
   await expect(page.locator('[data-qqq-id="main-content"]')).toBeVisible({ timeout: 30000 })
-  return page.locator('[data-qqq-id="header-search"]').getByRole('combobox')
+  await page.locator('[data-qqq-id="button-search"]').click()
+  return page.locator('[data-qqq-id="command-menu-search"]')
 }
 
 /**
@@ -106,13 +107,13 @@ test('header suggestions retain grouped subtitles, ARIA selection and keyboard r
   const requests = await setupSuggest(page)
   const input = await openHeader(page)
   await input.fill('alice')
-  const list = page.locator('#header-search-results')
+  const list = page.locator('[data-qqq-id="command-menu-results"]')
   const first = list.getByRole('option').filter({ hasText: 'Alice Johnson' })
   await expect(first).toContainText('Springfield office')
   await expect(list.getByRole('group', { name: /^People/ })).toContainText('Malice Aforethought')
   await expect(list.getByRole('group', { name: /^Pets/ })).toContainText('Alice’s golden retriever')
   await expect(first).toHaveAttribute('aria-selected', 'true')
-  await expect(input).toHaveAttribute('aria-controls', 'header-search-results')
+  await expect(input).toHaveAttribute('aria-controls', (await list.getAttribute('id'))!)
   await expect(input).toHaveAttribute('aria-activedescendant', await first.getAttribute('id') as string)
   await input.press('ArrowDown')
   await expect(list.getByRole('option').filter({ hasText: 'Malice Aforethought' })).toHaveAttribute('aria-selected', 'true')
@@ -131,7 +132,7 @@ for (const mode of ['absent', 'failure'] as const) {
     const requests = await setupSuggest(page, mode !== 'absent', mode === 'failure')
     const input = await openHeader(page)
     await input.fill('alice')
-    await expect(page.locator('#header-search-results')).toContainText('Core Alice')
+    await expect(page.locator('[data-qqq-id="command-menu-results"]')).toContainText('Core Alice')
     expect(requests.suggestions.length).toBe(mode === 'absent' ? 0 : 1)
     expect(requests.core).toHaveLength(1)
   })
@@ -145,14 +146,8 @@ for (const width of [390, 1440]) {
       // The app uses an explicit saved theme, rather than the OS preference.
       await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), theme === 'dark')
       await setupSuggest(page)
-      let input = await openHeader(page)
-      let panel = page.locator('[data-qqq-id="header-search-dropdown"]')
-      if (width < 768) {
-        // The existing mobile header opens the shared search dialog.
-        await page.getByRole('button', { name: 'Open search', exact: true }).click()
-        panel = page.getByRole('dialog', { name: 'Search', exact: true })
-        input = panel.getByRole('combobox')
-      }
+      const input = await openHeader(page)
+      const panel = page.getByRole('dialog', { name: 'Command palette' })
       await input.fill('alice')
       await expect(panel).toContainText('Springfield office')
       await expect(panel.getByRole('group', { name: /^Pets/ })).toContainText('Biscuit')

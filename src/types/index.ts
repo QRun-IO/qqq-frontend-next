@@ -54,6 +54,7 @@ export type {
   QAppMetaData,
   QAppTreeNode,
   QAppSection,
+  QAppSectionRole,
   QWidgetDropdown,
   QWidgetHelpContent,
   QWidgetIcon,

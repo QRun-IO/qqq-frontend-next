@@ -211,7 +211,7 @@ test.describe('accessibility', () => {
         if (violations.length) found[path] = violations
       }
       const menu = await openUserMenu(page)
-      await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+      await menu.getByRole('menuitem', { name: 'Sign out' }).click()
       await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
       const loginViolations = await scan(page)
       if (loginViolations.length) found['/login'] = loginViolations
@@ -279,7 +279,7 @@ test.describe('phone layout', () => {
     const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
     await open(page, '/app/miscellaneous')
     await expect(page.locator('[data-qqq-id="sidebar-desktop"]')).toBeHidden()
-    await page.getByRole('button', { name: 'Open navigation menu' }).click()
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
     const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
     await expect(drawer).toBeVisible()
     await drawer.getByRole('button', { name: 'Expand People App' }).click()

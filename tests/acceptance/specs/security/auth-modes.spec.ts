@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
+import { listCell, openUserMenu, recordRequests } from './support/ui'
 import { parsePolicy } from './support/csp'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
@@ -62,15 +62,16 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     // the backend fetched the provider keys to verify the access token
     expect(auth0.requests.some((request) => request.path === '/.well-known/jwks.json')).toBe(true)
     expect(Number((await variantSql('select count(*) as n from user_session'))[0].n)).toBe(1)
-    const nav = await navigation(page)
-    await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Dana Owner (OIDC)')
+    await page.keyboard.press('Escape')
 
     await page.reload()
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-    await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Dana Owner (OIDC)')
+    await page.keyboard.press('Escape')
 
     const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
     await expect.poll(() => auth0.requests.some((request) => request.path === '/v2/logout' && request.query.client_id === AUTH0_CLIENT && request.query.returnTo === `${SECURITY_UI_URL}/login`)).toBe(true)
     await expect.poll(() => auth0.activeSessions()).toBe(0)
@@ -88,7 +89,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     const sessionUUID = (await context.cookies()).find((cookie) => cookie.name === 'sessionUUID')?.value
     expect(sessionUUID).toBeTruthy()
     const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
     expect(await variantSql(`select count(*) as n from user_session where uuid = '${sessionUUID}'`)).toEqual([{ n: '0' }])
     const replay = await playwright.request.newContext({ baseURL: SECURITY_URL, extraHTTPHeaders: { Cookie: `sessionUUID=${sessionUUID}` } })
@@ -131,9 +132,10 @@ anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logo
   void diagnostics
   await open(page, '/app/person')
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Anonymous')
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Anonymous')
+  await page.keyboard.press('Escape')
   const menu = await openUserMenu(page)
-  await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+  await menu.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   await open(page, '/app/person')
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()

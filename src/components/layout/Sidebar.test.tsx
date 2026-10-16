@@ -33,10 +33,6 @@ vi.mock('next/navigation', () => ({
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { http, HttpResponse } from 'msw'
-import { server } from '@/mocks/node'
-import { uiApiVersionHandler } from '@/mocks/ui-api-version'
-import { preferencesFixture } from '@/mocks/fixtures/preferences'
 
 /**
  * Renders the sidebar with the same appearance context as the application.
@@ -49,7 +45,6 @@ function render(ui: React.ReactElement) {
 }
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
-import { md5Hex } from '@/lib/utils/gravatar'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -282,8 +277,6 @@ describe('Sidebar', () => {
           <a href="#behind">Behind the drawer</a>
           <Sidebar
             routes={leafRoutes}
-            userName="Avery"
-            logout={() => {}}
             open={open}
             onClose={() => { onClose?.(); setOpen(false) }}
             returnFocusRef={menuButtonRef}
@@ -345,16 +338,6 @@ describe('Sidebar', () => {
       expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
     })
 
-    it('lets Escape close an open user menu first and keeps the drawer open', async () => {
-      const { user, drawer } = await openFromKeyboard()
-      await user.click(screen.getByRole('button', { name: /Avery/ }))
-      expect(screen.getByRole('menu')).toBeInTheDocument()
-      await user.keyboard('{Escape}')
-      expect(screen.queryByRole('menu')).toBeNull()
-      expect(drawer.isConnected).toBe(true)
-      await user.keyboard('{Escape}')
-      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
-    })
   })
 
   // ─── data-qqq-id attributes ───────────────────────────────────────────────
@@ -466,55 +449,8 @@ describe('Sidebar', () => {
       expect(typed[0]).toContainElement(screen.getByRole('link', { name: 'Level One' }))
     })
 
-    it('marks the user profile and the logout entry', async () => {
-      currentPathname = '/'
-      render(<Sidebar routes={leafRoutes} userName="Alice" userEmail="alice@example.com" logout={vi.fn()} />)
-      const profile = document.querySelector('[data-qqq-sidenav-item-type="user-profile"]')
-      expect(profile).toHaveAttribute('data-qqq-id', 'sidebar-user-button')
-      await userEvent.setup().click(profile as HTMLElement)
-      expect(screen.getByRole('menuitem', { name: 'Log Out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
-    })
   })
 
-  // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
-
-  it('links the user menu Preferences item to the Preferences page', async () => {
-    const user = userEvent.setup()
-    render(<Sidebar routes={leafRoutes} userName="Alice" />)
-    const trigger = screen.getByRole('button', { name: 'Alice' })
-    await user.click(trigger)
-    expect(screen.getByRole('menuitem', { name: 'Preferences' })).toHaveAttribute('href', '/app/preferences')
-  })
-
-  it('switches dark mode from the user menu without leaving the page', async () => {
-    const user = userEvent.setup()
-    render(<Sidebar routes={leafRoutes} userName="Alice" />)
-    await user.click(screen.getByRole('button', { name: 'Alice' }))
-    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Dark mode' })
-    expect(toggle).toHaveAttribute('aria-checked', 'false')
-    await user.click(toggle)
-    expect(document.documentElement).toHaveClass('dark')
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Dark mode' })).toHaveAttribute('aria-checked', 'true')
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Dark mode' }))
-    expect(document.documentElement).not.toHaveClass('dark')
-  })
-
-  it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
-    render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)
-    expect(document.querySelector('[data-qqq-id="sidebar-user-name"]')).toHaveTextContent('Anonymous')
-    expect(document.querySelector('[data-qqq-id="sidebar-user-email"]')).toHaveTextContent('ann@example.com')
-    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')?.tagName).toBe('DIV')
-    expect(document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')).toBeNull()
-  })
-
-  it('shows the Gravatar when the branding declares gravatarDefault, and the initial if it fails', () => {
-    const branding: QBrandingMetaData = { companyName: '', companyUrl: '', appName: 'QQQ', gravatarDefault: 'identicon' }
-    render(<Sidebar routes={leafRoutes} branding={branding} userName="Avery" userEmail="avery@example.com" logout={vi.fn()} />)
-    const avatar = document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')!
-    expect(avatar).toHaveAttribute('src', `https://www.gravatar.com/avatar/${md5Hex('avery@example.com')}?d=identicon`)
-    fireEvent.error(avatar)
-    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
-  })
 })
 
 describe('Sidebar logo link', () => {
@@ -527,40 +463,87 @@ describe('Sidebar logo link', () => {
   })
 })
 
-it('loads menu sections lazily and only lists sections that opt in', async () => {
-  const request = vi.fn()
-  server.use(http.get('/qqq/v1/preferences', () => {
-    request()
-    return HttpResponse.json(preferencesFixture)
-  }))
-  render(<Sidebar routes={leafRoutes} userName="Alice" />)
-  expect(request).not.toHaveBeenCalled()
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Alice' }))
-  const item = await screen.findByRole('menuitem', { name: 'Access tokens' })
-  expect(request).toHaveBeenCalledTimes(1)
-  expect(item).toHaveAttribute('href', '/app/preferences?section=access-tokens')
-  expect(item.querySelector('[data-qqq-icon="key"]')).not.toBeNull()
-  expect(screen.queryByRole('menuitem', { name: 'Regional settings' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('menuitem', { name: 'Notifications' })).not.toBeInTheDocument()
+// ─── Sections (UI API 1.7.0 roles; IA review 2026-10-15) ───────────────────────
+
+const sectionedRoutes: SidebarRoute[] = [
+  {
+    name: 'CRM', key: 'crm', path: '/app/crm', nodeType: 'APP', type: 'collapse',
+    children: [
+      { name: 'Contacts', key: 'contact', path: '/app/contact', nodeType: 'TABLE', type: 'item' },
+      { name: 'Currencies', key: 'currency', path: '/app/currency', nodeType: 'TABLE', type: 'item' },
+      { name: 'Deals', key: 'deal', path: '/app/deal', nodeType: 'TABLE', type: 'item' },
+      { name: 'Runs', key: 'run', path: '/app/run', nodeType: 'TABLE', type: 'item' },
+    ],
+    sections: [
+      { key: 'main', label: 'CRM', role: 'PRIMARY', collapsedByDefault: false, routes: [] },
+      { key: 'history', label: 'History', role: 'HISTORY', collapsedByDefault: false, routes: [] },
+      { key: 'settings', label: 'Settings', role: 'SETTINGS', collapsedByDefault: true, routes: [] },
+    ],
+  },
+]
+const [contact, currency, deal, run] = sectionedRoutes[0].children!
+sectionedRoutes[0].sections![0].routes = [contact, deal]
+sectionedRoutes[0].sections![1].routes = [run]
+sectionedRoutes[0].sections![2].routes = [currency]
+
+describe('Sidebar sections', () => {
+  it('shows Primary without a heading, History under a group heading, and Settings collapsed with a count', async () => {
+    const user = userEvent.setup()
+    currentPathname = '/app/crm'
+    render(<Sidebar routes={sectionedRoutes} />)
+    expect(screen.getByRole('link', { name: 'Contacts' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'History' })).toContainElement(screen.getByRole('link', { name: 'Runs' }))
+    const settings = screen.getByRole('button', { name: /Settings/ })
+    expect(settings).toHaveAttribute('aria-expanded', 'false')
+    expect(settings).toHaveTextContent('· 1')
+    expect(screen.queryByRole('link', { name: 'Currencies' })).toBeNull()
+    // headings are labels, not links
+    expect(screen.queryByRole('link', { name: 'History' })).toBeNull()
+    await user.click(settings)
+    expect(settings).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'Currencies' })).toBeInTheDocument()
+  })
+
+  it('opens Settings when it holds the current page', () => {
+    currentPathname = '/app/currency'
+    render(<Sidebar routes={sectionedRoutes} />)
+    expect(screen.getByRole('button', { name: /Settings/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'Currencies' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('marks a single-child app shown as a leaf current on its home and on its only child', () => {
+    const leafApp: SidebarRoute[] = [{
+      name: 'Admin', key: 'admin', path: '/app/admin', nodeType: 'APP', type: 'collapse',
+      children: [{ name: 'Sessions', key: 'sessions', path: '/app/sessions', nodeType: 'APP', type: 'item', alsoActivePaths: ['/app/userSession'] }],
+    }]
+    currentPathname = '/app/userSession'
+    render(<Sidebar routes={leafApp} />)
+    expect(screen.getByRole('link', { name: 'Sessions' })).toHaveAttribute('aria-current', 'page')
+  })
 })
 
+describe('Sidebar drawer search', () => {
+  it('starts the drawer with the search field, which closes the drawer and then opens search', async () => {
+    const user = userEvent.setup()
+    const onSearchOpen = vi.fn()
+    currentPathname = '/'
+    function Harness() {
+      const [open, setOpen] = React.useState(false)
+      const menu = React.useRef<HTMLButtonElement>(null)
+      return (
+        <>
+          <button ref={menu} type="button" onClick={() => setOpen(true)}>Menu</button>
+          <Sidebar routes={leafRoutes} open={open} onClose={() => setOpen(false)} returnFocusRef={menu} onSearchOpen={onSearchOpen} />
+        </>
+      )
+    }
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(await screen.findByRole('button', { name: 'Search or jump to…' }))
+    await waitFor(() => expect(onSearchOpen).toHaveBeenCalledTimes(1))
+    expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+    // focus went back to the menu button first, so search returns it there when it closes
+    expect(screen.getByRole('button', { name: 'Menu' })).toHaveFocus()
+  })
 
-describe("What's new user menu", () => {
-  it('hides the entry without the extension and makes no summary request', async () => {
-    server.use(uiApiVersionHandler())
-    const request = vi.fn()
-    server.use(http.get('/qqq/v1/qbit/release-notes/summary', () => { request(); return HttpResponse.json({ unreadCount: 2 }) }))
-    render(<Sidebar routes={[]} userName="Avery" />)
-    await userEvent.click(screen.getByRole('button', { name: 'Avery' }))
-    expect(screen.queryByRole('menuitem', { name: /What's new/ })).not.toBeInTheDocument()
-    expect(request).not.toHaveBeenCalled()
-  })
-  it.each([0, 3, 12])('shows the installed entry with unread count %i', async (unreadCount) => {
-    server.use(uiApiVersionHandler('release-notes'), http.get('/qqq/v1/qbit/release-notes/summary', () => HttpResponse.json({ unreadCount })))
-    render(<Sidebar routes={[]} userName="Avery" />)
-    await userEvent.click(screen.getByRole('button', { name: 'Avery' }))
-    expect(await screen.findByRole('menuitem', { name: /What's new/ })).toHaveAttribute('href', '/app/whats-new')
-    if (unreadCount) expect(await screen.findByLabelText(`${unreadCount} unread releases`)).toHaveTextContent(unreadCount > 9 ? '9+' : String(unreadCount))
-    else expect(document.querySelector('[data-qqq-id="whats-new-unread"]')).toBeNull()
-  })
 })

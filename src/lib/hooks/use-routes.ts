@@ -21,7 +21,7 @@
 
 import { useMemo } from 'react'
 
-import type { QInstance, QAppTreeNode, QIcon } from '@/types'
+import type { QInstance, QAppTreeNode, QIcon, QAppSection, QAppSectionRole } from '@/types'
 import type { QAppNodeType } from '@/types/enums'
 import { DEFAULT_HOME_PATH, homePath as instanceHomePath } from '@/lib/utils/home-app'
 
@@ -46,6 +46,33 @@ export interface SidebarRoute {
   type: 'collapse' | 'item'
   /** Child routes nested under an APP node (child apps nest recursively). */
   children?: SidebarRoute[]
+  /**
+   * The app's sections (UI API 1.7.0 roles), each holding some of `children` in server order.
+   * Absent when the app has no sections, or only one plain (PRIMARY) section.
+   */
+  sections?: SidebarSection[]
+  /**
+   * Other paths this entry stands for. An app with a single child is shown as one leaf, active on
+   * the app's home and on its only child.
+   */
+  alsoActivePaths?: string[]
+}
+
+/**
+ * A heading inside an app's sidebar list (an app section). A section is a visual grouping only:
+ * it is never a destination (no page, no URL, no breadcrumb level).
+ */
+export interface SidebarSection {
+  /** Section name, unique within the app. */
+  key: string
+  /** Heading text (the metadata `label`). */
+  label: string
+  /** How the section is presented: PRIMARY without a heading, HISTORY and GROUP under a heading, SETTINGS collapsible. */
+  role: QAppSectionRole
+  /** Whether the section starts collapsed (SETTINGS unless the metadata says otherwise). */
+  collapsedByDefault: boolean
+  /** The section's entries, in server order. */
+  routes: SidebarRoute[]
 }
 
 /** An enclosing APP node, used for breadcrumbs and navigation context. */
@@ -70,6 +97,8 @@ export interface NavTarget {
   icon?: QIcon
   /** Enclosing apps, outermost first. */
   ancestors: ParentAppInfo[]
+  /** Search aliases from metadata (old labels, jargon): matched by search, never displayed. */
+  keywords?: string[]
 }
 
 /**
@@ -94,6 +123,66 @@ export interface RouteMap {
    * (`homeAppName`) when it designates one the user may open, otherwise the `/app` overview.
    */
   homePath: string
+  /**
+   * Where a section name used as a page path goes: `/app/{section}` to `/app/{app}#{section}`.
+   * Groups that used to be apps (and their saved links) land on the app that now heads them.
+   */
+  sectionRedirects: Record<string, string>
+}
+
+/** Known section roles; anything else from a newer server is shown as PRIMARY. */
+const SECTION_ROLES: readonly QAppSectionRole[] = ['PRIMARY', 'HISTORY', 'SETTINGS', 'GROUP']
+
+/**
+ * The role a client uses for a section: the metadata `role` (UI API 1.7.0), or, from an older
+ * server, inferred like the server does: `settings` (name or label) is SETTINGS, `history` is
+ * HISTORY, a section of apps only is GROUP, anything else PRIMARY.
+ *
+ * @param section - App section metadata.
+ * @returns The effective role.
+ */
+export function sectionRole(section: QAppSection): QAppSectionRole {
+  if (section.role) {
+    return (SECTION_ROLES as readonly string[]).includes(section.role) ? (section.role as QAppSectionRole) : 'PRIMARY'
+  }
+  if (section.name?.toLowerCase() === 'settings' || section.label?.toLowerCase() === 'settings') return 'SETTINGS'
+  if (section.name?.toLowerCase() === 'history') return 'HISTORY'
+  const hasObjects = Boolean(section.tables?.length || section.processes?.length || section.reports?.length)
+  return !hasObjects && Boolean(section.apps?.length) ? 'GROUP' : 'PRIMARY'
+}
+
+/**
+ * Splits an app's child routes into its sections, keeping the server's order inside each one.
+ * Children no section lists join the first PRIMARY section (or a leading untitled one). Empty
+ * sections are dropped. A lone PRIMARY section is no grouping at all, so it returns `undefined`.
+ *
+ * @param sections - The app's section metadata.
+ * @param children - The app's child routes, in server order.
+ * @returns The sidebar sections, or `undefined` for a plain list.
+ */
+export function buildSidebarSections(sections: QAppSection[] | undefined, children: SidebarRoute[]): SidebarSection[] | undefined {
+  if (!sections?.length || children.length === 0) return undefined
+  const placed = new Set<string>()
+  const result: SidebarSection[] = []
+  for (const section of sections) {
+    const names = new Set([...(section.tables ?? []), ...(section.processes ?? []), ...(section.reports ?? []), ...(section.apps ?? [])])
+    const routes = children.filter((child) => names.has(child.key) && !placed.has(child.key))
+    routes.forEach((child) => placed.add(child.key))
+    if (routes.length === 0) continue
+    const role = sectionRole(section)
+    result.push({ key: section.name, label: section.label, role, collapsedByDefault: section.collapsedByDefault ?? role === 'SETTINGS', routes })
+  }
+  const unplaced = children.filter((child) => !placed.has(child.key))
+  if (unplaced.length > 0) {
+    const primary = result.find((section) => section.role === 'PRIMARY')
+    if (primary) {
+      primary.routes = children.filter((child) => primary.routes.includes(child) || unplaced.includes(child))
+    } else {
+      result.unshift({ key: '', label: '', role: 'PRIMARY', collapsedByDefault: false, routes: unplaced })
+    }
+  }
+  if (result.length === 0 || (result.length === 1 && result[0].role === 'PRIMARY')) return undefined
+  return result
 }
 
 /** Fixed pages under `/app` that are not app-tree nodes. */
@@ -151,12 +240,13 @@ export function isHiddenNode(node: QAppTreeNode, metaData: QInstance): boolean {
  */
 export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
   if (!metaData) {
-    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps', homePath: DEFAULT_HOME_PATH }
+    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps', homePath: DEFAULT_HOME_PATH, sectionRedirects: {} }
   }
 
   const pathToLabelMap: Record<string, string> = { ...STATIC_PAGE_LABELS }
   const ancestorAppMap: Record<string, ParentAppInfo[]> = {}
   const navTargets: NavTarget[] = []
+  const sectionRedirects: Record<string, string> = {}
   let defaultRoute: string | undefined
 
   /**
@@ -182,8 +272,28 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
 
       if (node.type === 'APP') {
         defaultRoute ??= path
-        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors })
+        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors, keywords: node.keywords })
         const children = visit(node.children ?? [], [...ancestors, { label: node.label, path }])
+        const app = metaData!.apps?.[node.name]
+        for (const section of app?.sections ?? []) {
+          if (sectionRole(section) === 'GROUP') sectionRedirects[`/app/${section.name}`] ??= `${path}#${section.name}`
+        }
+        const only = children.length === 1 ? children[0] : undefined
+        if (ancestors.length > 0 && only?.type === 'item' && only.nodeType && only.nodeType !== 'APP') {
+          // One child: a leaf, not a collapse that opens to one item. With a home (widgets) it
+          // opens the app's home; without, its only child.
+          const hasHome = (app?.widgets?.length ?? 0) > 0
+          routes.push({
+            name: node.label,
+            key: node.name,
+            path: hasHome ? path : only.path,
+            icon,
+            nodeType: node.type,
+            type: 'item',
+            alsoActivePaths: hasHome ? [only.path] : [path],
+          })
+          continue
+        }
         routes.push({
           name: node.label,
           key: node.name,
@@ -192,9 +302,10 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
           nodeType: node.type,
           type: 'collapse',
           children: children.length > 0 ? children : undefined,
+          sections: buildSidebarSections(app?.sections, children),
         })
       } else if (!isHiddenNode(node, metaData!)) {
-        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors })
+        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors, keywords: node.keywords })
         routes.push({ name: node.label, key: node.name, path, icon, nodeType: node.type, type: 'item' })
       }
     }
@@ -227,7 +338,7 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
   const sidebarRoutes: SidebarRoute[] = homeRoute
     ? [homeRoute, ...appRoutes.filter((route) => route !== homeRoute)]
     : [{ name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' }, ...appRoutes]
-  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps', homePath }
+  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps', homePath, sectionRedirects }
 }
 
 /**

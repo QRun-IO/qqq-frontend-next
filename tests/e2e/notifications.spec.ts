@@ -177,7 +177,7 @@ test.describe('Notification center', () => {
         const mock = await mockInbox(page)
         await page.goto('/app/person')
 
-        const bell = page.getByRole('button', { name: 'Notifications, 4 unread' })
+        const bell = page.getByRole('button', { name: /^Notifications, 4 unread/ })
         await expect(bell).toBeVisible()
         const banner = page.getByRole('status', { name: /Warning: Scheduled maintenance tonight/ })
         await expect(banner).toBeVisible()
@@ -211,7 +211,7 @@ test.describe('Notification center', () => {
           await page.getByRole('button', { name: 'Unread', exact: true }).click()
           await expect(page.getByText('1–4 of 4')).toBeVisible()
           await page.getByRole('button', { name: /^Mark read: Nightly backup/ }).click()
-          await expect(page.getByRole('button', { name: 'Notifications, 3 unread' })).toBeVisible()
+          await expect(page.getByRole('button', { name: /^Notifications, 3 unread/ })).toBeVisible()
           await page.getByRole('button', { name: /^Dismiss: Scheduled maintenance tonight/ }).click()
           await expect(page.getByRole('status', { name: /Warning: Scheduled maintenance tonight/ })).toHaveCount(0)
           expect(mock.posts).toEqual([['read', { id: 100 }], ['dismiss', { id: 7 }]])

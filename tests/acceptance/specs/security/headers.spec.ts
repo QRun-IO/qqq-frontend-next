@@ -13,7 +13,7 @@ import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from '../../support/ports'
 import { allowBlockedByPolicy, customComponentOrigins, inlineScriptHashes, parsePolicy, POLICY_DIRECTIVES } from './support/csp'
-import { allowExternalQuickSightWidget, listCell, navigation } from './support/ui'
+import { allowExternalQuickSightWidget, listCell, navigation, openUserMenu } from './support/ui'
 import { openRecord } from '../widgets/widget-support'
 
 /**
@@ -234,7 +234,8 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     await backend.setPersona('admin', 'bob')
     await page.reload()
     await expect(page.locator('[data-qqq-id="dashboard-home"]')).toBeVisible()
-    await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toContainText('Bob')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toContainText('Bob')
+    await page.keyboard.press('Escape')
     await expect(page.locator('[data-qqq-id^="dashboard-recent-"]')).toHaveCount(0)
     expect(await page.evaluate(() => localStorage.getItem('qqq-recent-records') ?? '')).not.toContain('/app/pet/1')
     expect(await page.evaluate(() => localStorage.getItem('qqq.recordQueryView.person'))).toBeNull()
