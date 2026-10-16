@@ -7,14 +7,13 @@
 
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll } from '../../support/touch'
-import { appNavigation } from './nav-helpers'
+import { openUserMenu } from '../security/support/ui'
 import { checkA11y } from '../../../e2e/a11y-helpers'
 
 test('[NAV-057] regional preferences save from the user menu and persist after reload @mobile', async ({ page, backend, diagnostics }) => {
   void backend; void diagnostics
   await open(page, '/app/person')
-  await appNavigation(page)
-  await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+  await openUserMenu(page)
   await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
   await expect(page).toHaveURL(/\/app\/preferences\/?$/)
   await expect(page.getByRole('heading', { name: 'Display', exact: true })).toBeVisible()

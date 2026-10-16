@@ -35,6 +35,7 @@ import { getAlertsInboxSummary } from '@/lib/api/alerts'
 import { queryKeys } from '@/lib/query-client'
 import type { AlertsInboxSummary } from '@/types/alerts'
 import type { QInstance } from '@/types/metadata'
+import { HEADER_BUTTON_CLASS } from '@/components/layout/HeaderMenu'
 
 const AlertsBellPopover = lazy(() => import('./AlertsBellPopover'))
 
@@ -115,21 +116,23 @@ export function AlertsBell(_props: { metaData: QInstance | undefined }) {
   if (!data) return null
 
   const unread = data.unreadCount
-  const label = unread > 0 ? `Notifications, ${unread} unread` : 'Notifications, none unread'
   const critical = data.highestUnreadSeverity === 'CRITICAL'
+  // severity is in the name, not only in the badge's color
+  const label = unread > 0 ? `Notifications, ${unread} unread${critical ? ', critical' : ''}` : 'Notifications, none unread'
   return (
     <div className="relative">
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative flex items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={HEADER_BUTTON_CLASS}
         aria-label={label}
+        title="Notifications"
         aria-haspopup="dialog"
         aria-expanded={open}
         data-qqq-id="button-notifications"
       >
-        <Bell className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+        <Bell className="h-5 w-5" aria-hidden="true" />
         {unread > 0 && (
           <span
             className={`absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${critical ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground'}`}

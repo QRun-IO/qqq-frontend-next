@@ -20,37 +20,29 @@
 
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { UI_API_EXTENSION, useUiApiExtensionInstalled } from '@/lib/api/ui-api-extensions'
-import { getPreferences } from '@/lib/api/preferences'
-import { queryKeys } from '@/lib/query-client'
+import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   ChevronDown,
   ChevronRight,
-  ChevronUp,
+  Search,
   X,
-  Settings,
-  Sparkles,
-  LogOut,
-  Moon,
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
-import { ReportBugMenuItems } from '@/components/qa-capture/ReportBugMenuItems'
-import type { SidebarRoute } from '@/lib/hooks/use-routes'
+import type { SidebarRoute, SidebarSection } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
-import { useTheme } from '@/lib/theme/theme-provider'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
-import { useMyProfile } from '@/lib/hooks/use-my-profile'
-import { UserAvatar } from '@/components/ui/UserAvatar'
 import { NAV_WIDTH_CSS } from '@/lib/utils/nav-width'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
 import { NavResizeHandle } from './NavResizeHandle'
+
+/** The personal Favorites section; it checks for collaboration and loads after hydration. */
+const SidebarFavorites = dynamic(() => import('@/components/collaboration/SidebarFavorites').then((module) => module.SidebarFavorites), { ssr: false })
 
 /** Fallback icon kind for each app-tree node type. */
 const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
@@ -86,7 +78,20 @@ function matchesPath(pathname: string, path: string): boolean {
  * @returns `true` when the route subtree contains the active page.
  */
 function containsActive(route: SidebarRoute, pathname: string): boolean {
-  return matchesPath(pathname, route.path) || (route.children ?? []).some((child) => containsActive(child, pathname))
+  return matchesRoute(route, pathname) || (route.children ?? []).some((child) => containsActive(child, pathname))
+}
+
+/**
+ * Whether a route is the current page: its path, or another path it stands for (an app shown as
+ * one leaf is current on its home and on its only child).
+ *
+ * @param route - Sidebar route.
+ * @param pathname - Current browser path.
+ * @returns `true` when the route is active.
+ */
+function matchesRoute(route: SidebarRoute, pathname: string): boolean {
+  if (route.path === '/app') return pathname.replace(/\/+$/, '') === '/app'
+  return matchesPath(pathname, route.path) || (route.alsoActivePaths ?? []).some((path) => matchesPath(pathname, path))
 }
 
 /**
@@ -122,12 +127,10 @@ export interface SidebarProps {
   onMouseEnter?: () => void
   /** Called when the mouse leaves the sidebar (desktop hover collapse). */
   onMouseLeave?: () => void
-  /** Logout handler passed to the user footer menu. */
-  logout?: () => void
-  /** Display name of the logged-in user shown in the footer. */
-  userName?: string
-  /** Email of the logged-in user shown in the footer. */
-  userEmail?: string
+  /** Opens the search box; the drawer shows a search field at its top (hidden navigation keeps search visible). */
+  onSearchOpen?: () => void
+  /** Show the personal Favorites section (signed in). */
+  showFavorites?: boolean
   /** When provided the sidebar renders as a mobile drawer overlay; `true` = open. */
   open?: boolean
   /** Called when the mobile drawer overlay should close (backdrop click, close button, Escape or a chosen link). */
@@ -198,9 +201,8 @@ export default function Sidebar({
   homePath = '/app',
   onMouseEnter,
   onMouseLeave,
-  logout,
-  userName,
-  userEmail,
+  onSearchOpen,
+  showFavorites = false,
   open,
   onClose,
   returnFocusRef,
@@ -208,6 +210,8 @@ export default function Sidebar({
   const pathname = usePathname()
   const [openCollapses, setOpenCollapses] = React.useState<Record<string, boolean>>({})
   const drawerRef = useRef<HTMLDivElement>(null)
+  // the drawer's search field: open search once the drawer has closed and focus is back on the menu button
+  const searchAfterClose = useRef(false)
 
   // Expand every group that contains the current route
   useEffect(() => {
@@ -226,14 +230,15 @@ export default function Sidebar({
   }, [pathname])
 
   /**
-   * Toggles the open/closed state of a collapsible navigation group.
+   * Opens or closes a collapsible navigation group or section.
    *
-   * @param path - The route path used as the key for the group's open state.
+   * @param key - The group's path (or `{path}#{section}` for a section).
+   * @param next - The new state; omitted, the state flips.
    */
-  const toggleCollapse = (path: string) => {
+  const toggleCollapse = (key: string, next?: boolean) => {
     setOpenCollapses((prev) => ({
       ...prev,
-      [path]: !prev[path],
+      [key]: next ?? !prev[key],
     }))
   }
 
@@ -268,12 +273,28 @@ export default function Sidebar({
         </div>
         <BannerComponent banners={branding?.banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" className="mx-3 mt-3 rounded-lg" />
 
+        {/* Hidden navigation keeps search visible: the drawer starts with the search field */}
+        {isMobileDrawer && onSearchOpen && (
+          <div className="px-3 pt-3">
+            <button
+              type="button"
+              onClick={() => { searchAfterClose.current = true; onClose?.() }}
+              className="flex h-11 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-qqq-id="sidebar-search"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+              Search or jump to…
+            </button>
+          </div>
+        )}
+
         {/* Navigation */}
         <nav
           className="flex-1 overflow-y-auto px-3 pt-4 pb-4"
           role="navigation"
           aria-label="App navigation"
         >
+          {showFavorites && <SidebarFavorites pathname={pathname} open={openCollapses['#favorites'] ?? false} onToggle={(next) => toggleCollapse('#favorites', next)} />}
           {routes.length === 0 ? (
             /* Skeleton placeholder while metadata is loading */
             <div aria-hidden="true" data-qqq-id="sidebar-skeleton">
@@ -289,14 +310,6 @@ export default function Sidebar({
           )}
         </nav>
 
-        {/* User info footer with menu */}
-        {(userName || userEmail || logout) && (
-          <UserFooter
-            userName={userName}
-            userEmail={userEmail}
-            logout={logout}
-          />
-        )}
       </div>
     </aside>
   )
@@ -317,15 +330,15 @@ export default function Sidebar({
             aria-describedby={undefined}
             data-qqq-id="sidebar-mobile-drawer"
             ref={drawerRef}
-            onEscapeKeyDown={(event) => {
-              // An open user menu takes Escape first; the drawer stays open
-              if (drawerRef.current?.querySelector('[data-qqq-id="sidebar-user-menu"]')) event.preventDefault()
-            }}
             onCloseAutoFocus={(event) => {
               const trigger = returnFocusRef?.current
               if (trigger?.isConnected) {
                 event.preventDefault()
                 trigger.focus()
+              }
+              if (searchAfterClose.current) {
+                searchAfterClose.current = false
+                setTimeout(() => onSearchOpen?.(), 0)
               }
             }}
             onClick={(event) => {
@@ -341,9 +354,10 @@ export default function Sidebar({
     )
   }
 
-  // Desktop: a static column whose width the user sets with the handle on its right edge
+  // Desktop (from 1024 px; a drawer below, so a 768 px screen keeps its width for content): a
+  // static column whose width the user sets with the handle on its right edge
   return (
-    <div className="relative hidden md:flex h-full flex-shrink-0" style={{ width: NAV_WIDTH_CSS }} data-qqq-id="sidebar-desktop">
+    <div className="relative hidden lg:flex h-full flex-shrink-0" style={{ width: NAV_WIDTH_CSS }} data-qqq-id="sidebar-desktop">
       {asideEl}
       <NavResizeHandle controls="qqq-desktop-nav" />
     </div>
@@ -358,10 +372,14 @@ interface SidebarListProps {
   pathname: string
   /** Open state of app groups, keyed by path. */
   openCollapses: Record<string, boolean>
-  /** Toggles an app group. */
-  onToggle: (path: string) => void
+  /** Opens or closes an app group or section (flips without `next`). */
+  onToggle: (key: string, next?: boolean) => void
   /** Nesting depth (0 = top level). */
   depth?: number
+  /** Inside a sectioned app: no extra indent (the sections carry it). */
+  flat?: boolean
+  /** Element id, for a list a disclosure button controls. */
+  id?: string
 }
 
 /**
@@ -370,10 +388,11 @@ interface SidebarListProps {
  * @param props - Component properties.
  * @returns A `<ul>` of sidebar entries.
  */
-function SidebarList({ routes, pathname, openCollapses, onToggle, depth = 0 }: SidebarListProps) {
+function SidebarList({ routes, pathname, openCollapses, onToggle, depth = 0, flat = false, id }: SidebarListProps) {
   return (
     <ul
-      className={cn('space-y-0.5', depth > 0 && 'mt-0.5 ml-3 border-l border-border/60 pl-2')}
+      id={id}
+      className={cn('space-y-0.5', depth > 0 && !flat && 'mt-0.5 ml-3 border-l border-border/60 pl-2')}
       role="list"
       data-qqq-id={depth === 0 ? 'sidenav-menu-list' : undefined}
     >
@@ -392,7 +411,7 @@ function SidebarList({ routes, pathname, openCollapses, onToggle, depth = 0 }: S
           <SidebarLinkItem
             key={route.path}
             route={route}
-            isActive={route.path === '/app' ? pathname.replace(/\/+$/, '') === '/app' : matchesPath(pathname, route.path)}
+            isActive={matchesRoute(route, pathname)}
           />
         )
       )}
@@ -412,8 +431,8 @@ interface SidebarCollapseItemProps {
   pathname: string
   /** Open state of nested app groups, keyed by path. */
   openCollapses: Record<string, boolean>
-  /** Toggles an app group. */
-  onToggle: (path: string) => void
+  /** Opens or closes an app group or section. */
+  onToggle: (key: string, next?: boolean) => void
   /** Nesting depth of this group. */
   depth: number
 }
@@ -471,10 +490,79 @@ function SidebarCollapseItem({ route, isOpen, pathname, openCollapses, onToggle,
         </button>
       </div>
 
-      {isOpen && route.children && (
+      {isOpen && route.children && (route.sections ? (
+        <SidebarSections route={route} sections={route.sections} pathname={pathname} openCollapses={openCollapses} onToggle={onToggle} depth={depth + 1} />
+      ) : (
         <SidebarList routes={route.children} pathname={pathname} openCollapses={openCollapses} onToggle={onToggle} depth={depth + 1} />
-      )}
+      ))}
     </li>
+  )
+}
+
+/**
+ * An app's children in its sections (metadata roles): PRIMARY entries without a heading, HISTORY
+ * and GROUP entries under a heading, and SETTINGS as a disclosure ("Settings · 6") that starts
+ * closed unless it holds the current page. Headings are group labels, never links.
+ *
+ * @param props - Component properties.
+ * @param props.route - The app whose sections these are.
+ * @param props.sections - Its sections, each with its entries in server order.
+ * @param props.pathname - Current browser path.
+ * @param props.openCollapses - Open state of groups and sections.
+ * @param props.onToggle - Opens or closes a group or section.
+ * @param props.depth - Nesting depth of the entries.
+ * @returns The sections, indented under the app.
+ */
+function SidebarSections({ route, sections, pathname, openCollapses, onToggle, depth }: {
+  route: SidebarRoute
+  sections: SidebarSection[]
+  pathname: string
+  openCollapses: Record<string, boolean>
+  onToggle: (key: string, next?: boolean) => void
+  depth: number
+}) {
+  const listProps = { pathname, openCollapses, onToggle, depth, flat: true }
+  return (
+    <div className="mt-0.5 ml-3 space-y-1 border-l border-border/60 pl-2" data-qqq-id={`sidebar-sections-${route.key}`}>
+      {sections.map((section) => {
+        const baseId = `sidebar-section-${route.key}-${section.key || 'main'}`.replace(/[^A-Za-z0-9_-]/g, '_')
+        if (section.role === 'PRIMARY') {
+          return <SidebarList key={baseId} routes={section.routes} {...listProps} />
+        }
+        if (section.collapsedByDefault) {
+          const stateKey = `${route.path}#${section.key}`
+          const holdsActive = section.routes.some((child) => containsActive(child, pathname))
+          const isOpen = openCollapses[stateKey] ?? holdsActive
+          const count = section.routes.length
+          return (
+            <div key={baseId} role="group" aria-labelledby={`${baseId}-heading`} data-qqq-id={baseId} data-qqq-section-role={section.role}>
+              <button
+                id={`${baseId}-heading`}
+                type="button"
+                onClick={() => onToggle(stateKey, !isOpen)}
+                aria-expanded={isOpen}
+                aria-controls={`${baseId}-list`}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
+                data-qqq-id={`${baseId}-toggle`}
+              >
+                <span className="flex-1 truncate">{section.label}</span>
+                <span className="font-normal normal-case" aria-label={`${count} ${count === 1 ? 'item' : 'items'}`}>· {count}</span>
+                {isOpen ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
+              </button>
+              {isOpen && <SidebarList id={`${baseId}-list`} routes={section.routes} {...listProps} />}
+            </div>
+          )
+        }
+        return (
+          <div key={baseId} role="group" aria-labelledby={`${baseId}-heading`} data-qqq-id={baseId} data-qqq-section-role={section.role}>
+            <div id={`${baseId}-heading`} className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {section.label}
+            </div>
+            <SidebarList routes={section.routes} {...listProps} />
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -515,213 +603,5 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
         <span className="truncate">{route.name}</span>
       </Link>
     </li>
-  )
-}
-
-// --- User footer with popover menu ---
-
-/**
- * Renders the sticky user-info footer at the bottom of the sidebar.
- *
- * Clicking the footer opens a popover menu with a Preferences entry and,
- * when `logout` is provided, a Log Out entry. The menu closes on outside
- * click, Escape key, or after an item is selected.
- *
- * @param props - Component properties.
- * @returns A React fragment containing a `<div>` with the popover menu (above
- *   the user bar) and the user-info `<button>`. Preferences links to its page.
- *   The popover is dismissed on outside
- *   click or Escape and re-mounts cleanly each time it opens.
- */
-function UserFooter({
-  userName,
-  userEmail,
-  logout,
-}: {
-  userName?: string
-  userEmail?: string
-  logout?: () => void
-}) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const { theme, isDarkMode, setDarkMode } = useTheme()
-  const releaseNotesInstalled = useUiApiExtensionInstalled(UI_API_EXTENSION.releaseNotes)
-  const releaseSummary = useQuery({
-    queryKey: queryKeys.releaseNotesSummary(),
-    queryFn: () => import('@/lib/api/release-notes').then((api) => api.getReleaseNotesSummary()),
-    enabled: releaseNotesInstalled,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    retry: false,
-  })
-  const unreadReleases = releaseSummary.data?.unreadCount ?? 0
-  const preferences = useQuery({
-    queryKey: queryKeys.preferencesIndex(),
-    queryFn: getPreferences,
-    enabled: menuOpen,
-    retry: false,
-  })
-  // The photo (or the Gravatar the user chose) from their profile; else initials. Branding alone
-  // never sends anyone's email hash to a third party.
-  const profile = useMyProfile()
-  // Material names a user without a name "Anonymous"
-  const displayName = profile.displayName || userName || 'Anonymous'
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpen])
-
-  // Close menu on Escape
-  useEffect(() => {
-    if (!menuOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [menuOpen])
-
-  return (
-    <>
-      <div className="relative border-t border-border" ref={menuRef}>
-        {/* Popover menu — positioned above the user info */}
-        {menuOpen && (
-          <div
-            className={cn(
-              'absolute bottom-full left-2 right-2 mb-1 rounded-xl border border-border bg-popover shadow-lg',
-              'animate-in fade-in-0 slide-in-from-bottom-2 duration-150'
-            )}
-            role="menu"
-            data-qqq-id="sidebar-user-menu"
-          >
-            <div className="py-1">
-              <Link
-                href="/app/preferences"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false)
-                }}
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
-                  'hover:bg-accent transition-colors',
-                  'focus:outline-none focus:bg-accent'
-                )}
-                data-qqq-id="menu-item-preferences"
-              >
-                <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                Preferences
-              </Link>
-              {/* Applies immediately, without leaving the page; full display settings live on the Preferences page. */}
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={isDarkMode}
-                disabled={Boolean(theme)}
-                title={theme ? 'This application theme requires light mode.' : undefined}
-                onClick={() => setDarkMode(!isDarkMode)}
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
-                  'hover:bg-accent transition-colors focus:outline-none focus:bg-accent',
-                  'disabled:cursor-not-allowed disabled:opacity-60'
-                )}
-                data-qqq-id="menu-item-dark-mode"
-              >
-                <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <span className="flex-1 text-left">Dark mode</span>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
-                    isDarkMode ? 'bg-primary' : 'bg-muted-foreground/30'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform',
-                      isDarkMode ? 'translate-x-4' : 'translate-x-0.5'
-                    )}
-                  />
-                </span>
-              </button>
-              {preferences.data?.sections.filter((section) => section.showInUserMenu).map((section) => (
-                <Link key={section.name} href={`/app/preferences?section=${encodeURIComponent(section.name)}`} role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:bg-accent"
-                  data-qqq-id={`menu-item-preferences-${section.name}`}>
-                  <MetadataIcon icon={section.icon} kind="section" className="h-4 w-4 text-muted-foreground" />
-                  {section.label}
-                </Link>
-              ))}
-              {releaseNotesInstalled && <Link href="/app/whats-new" role="menuitem" onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:bg-accent"
-                data-qqq-id="menu-item-whats-new">
-                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <span className="flex-1">What&apos;s new</span>
-                {unreadReleases > 0 && <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground" data-qqq-id="whats-new-unread" aria-label={`${unreadReleases} unread releases`}>{unreadReleases > 9 ? '9+' : unreadReleases}</span>}
-              </Link>}
-              <ReportBugMenuItems onSelect={() => setMenuOpen(false)} />
-              {logout && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    logout()
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
-                    'hover:bg-accent transition-colors',
-                    'focus:outline-none focus:bg-accent'
-                  )}
-                  data-qqq-id="sidenav-logout-button"
-                >
-                  <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  Log Out
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Clickable user info bar */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          className={cn(
-            'flex w-full items-center gap-3 px-4 py-4 text-left transition-colors',
-            'hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring'
-          )}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          data-qqq-id="sidebar-user-button"
-          data-qqq-sidenav-item-type="user-profile"
-        >
-          <UserAvatar src={profile.avatarUrl} name={displayName} size={36} data-qqq-id="sidebar-user-avatar" />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
-              {displayName}
-            </span>
-            {userEmail && (
-              <span className="truncate text-xs text-muted-foreground" data-qqq-id="sidebar-user-email">
-                {userEmail}
-              </span>
-            )}
-          </div>
-          {menuOpen ? (
-            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-          ) : (
-            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-          )}
-        </button>
-      </div>
-    </>
   )
 }

@@ -9,6 +9,7 @@ import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { appNavigation, expectRecordsLoaded } from './nav-helpers'
 import { openReadyPivotEditor } from './pivot-readiness'
+import { openUserMenu } from '../security/support/ui'
 import { expect, open, test } from '../../support/fixtures'
 
 // Theme metadata is instance-wide; every scenario needs the backend reset before navigation.
@@ -98,10 +99,10 @@ test('[NAV-056] Material theme metadata drives CSS tokens, custom CSS and the br
     getComputedStyle(root).getPropertyValue('--qqq-primary-color').trim())).toBe('#0f766e')
 })
 
-/** Opens the same user preferences from either the sidebar or the phone drawer. */
+/** Opens preferences from the header account menu. */
 async function openPreferences(page: Page) {
   await appNavigation(page)
-  await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+  await openUserMenu(page)
   await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
   const dialog = page.locator('[data-qqq-id="preferences-page"]')
   await expect(dialog).toBeVisible()
@@ -194,7 +195,7 @@ for (const mode of ['light', 'dark'] as const) {
     // flip the theme live from the user menu, staying on the playground
     const oppositeMode = mode === 'dark' ? 'light' : 'dark'
     await appNavigation(page)
-    await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+    await openUserMenu(page)
     await page.getByRole('menuitemcheckbox', { name: 'Dark mode', exact: true }).click()
     await page.keyboard.press('Escape')
     await expect(docs).toHaveJSProperty('theme', oppositeMode)

@@ -93,8 +93,8 @@ test('share preview, access deep link, task assignment refusal, toggle and My wo
   await page.getByRole('checkbox', { name: 'Complete Follow up with customer' }).check()
   await page.locator('[data-qqq-id="tasks-show-done"]').check()
   await page.getByRole('checkbox', { name: 'Reopen Follow up with customer' }).uncheck()
-  await page.locator('[data-qqq-id="favorites-menu"]').click()
-  await page.locator('[data-qqq-id="favorites-my-work"]').click()
+  await page.locator('[data-qqq-id="button-search"]').click()
+  await page.locator('[data-qqq-id="command-my-work"]').click()
   await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Follow up with customer' })).toBeVisible()
   await page.goto(

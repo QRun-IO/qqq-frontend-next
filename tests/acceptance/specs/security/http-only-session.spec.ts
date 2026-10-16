@@ -14,7 +14,7 @@ import { expect, open, test } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { ACCEPTANCE_UI_URL } from '../../support/ports'
 import { expireTableSessions, IDP_PORT, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu } from './support/ui'
+import { listCell, openUserMenu } from './support/ui'
 
 const SESSION_COOKIES = ['sessionId', 'sessionUUID']
 const TESS = { username: 'tess.table', password: 'table:pass-2026', name: 'Tess Table (table-based)' }
@@ -61,24 +61,21 @@ async function reloadAndCaptureResume(page: Page): Promise<{ body: string | null
 async function logOut(page: Page): Promise<number> {
   const menu = await openUserMenu(page)
   const logout = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
-  await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+  await menu.getByRole('menuitem', { name: 'Sign out' }).click()
   const status = (await logout).status()
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   return status
 }
 
 /**
- * Checks the current user and closes the touch navigation drawer so the page remains usable.
+ * Checks the current user and closes the account menu so the page remains usable.
  *
  * @param page - The page.
  * @param name - Expected user name.
  */
 async function expectUserAndCloseNavigation(page: Page, name: string) {
-  const nav = await navigation(page)
-  await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(name)
-  if (await page.locator('[data-qqq-id="sidebar-mobile-drawer"]').isVisible()) {
-    await nav.locator('[data-qqq-id="button-sidebar-close"]').click()
-  }
+  await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText(name)
+  await page.keyboard.press('Escape')
 }
 
 test('[SEC-048] script in the page can neither read the session cookies nor obtain the session token @mobile', async ({ page, backend, diagnostics, context }) => {
@@ -204,7 +201,7 @@ tableTest('[SEC-049] a pending logout finishes cookie expiry before another user
   const logoutResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
   try {
     const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     await logoutStarted
     // Hold the real logout request; its eventual response must expire the old cookies first.
     await expect(page.getByRole('status', { name: 'Loading', exact: true })).toBeVisible()

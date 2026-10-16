@@ -33,12 +33,26 @@ async function starRecord(page: Page) {
 
 // The header's palette button, or the app's '.' shortcut (layout.tsx) from the page body.
 async function openPalette(page: Page, via: 'button' | 'shortcut' = 'button') {
-  if (via === 'button') await page.locator('[data-qqq-id="button-command-palette"]').click()
+  if (via === 'button') await page.locator('[data-qqq-id="button-search"]').click()
   else await page.keyboard.press('.')
   await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible()
 }
 
-test('collaboration-favorites: star, menu, palette, unstar and server recents', async ({
+async function openFavorites(page: Page) {
+  const drawerButton = page.locator('[data-qqq-id="button-mobile-menu"]')
+  if (await drawerButton.isVisible()) await drawerButton.click()
+  const section = page.locator('[data-qqq-id="sidebar-favorites"]:visible')
+  const toggle = section.locator('[data-qqq-id="sidebar-favorites-toggle"]')
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
+  return section
+}
+
+async function closeFavorites(page: Page) {
+  const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+  if (await drawer.isVisible()) await drawer.getByRole('button', { name: 'Close navigation' }).click()
+}
+
+test('collaboration-favorites: star, sidebar, palette, unstar and server recents', async ({
   page,
 }) => {
   const recentWrites: string[] = []
@@ -48,12 +62,12 @@ test('collaboration-favorites: star, menu, palette, unstar and server recents', 
   })
   await openRecord(page)
   await starRecord(page)
-  await page.locator('[data-qqq-id="favorites-menu"]').click()
-  const menu = page.locator('[data-qqq-id="favorites-popover"]')
+  const menu = await openFavorites(page)
   await expect(menu.getByRole('link', { name: 'Alice Johnson' })).toBeVisible()
-  await expect(menu.getByText('Unavailable', { exact: true })).toBeVisible()
-  await expect(menu.getByRole('heading', { name: 'Operations' })).toBeVisible()
-  await page.getByRole('button', { name: 'Close favorites' }).click()
+  await expect(menu.getByText('Unavailable', { exact: true })).toHaveCount(0)
+  await expect(menu.locator('[data-qqq-id="sidebar-favorites-all"]')).toHaveAttribute('href', /\/app\/collaboration_favorite\/?$/)
+  expect(await menu.locator('[data-qqq-id="sidebar-favorite-link"]').count()).toBeLessThanOrEqual(5)
+  await closeFavorites(page)
   await openPalette(page)
   const favorites = page.locator('[data-qqq-id="command-group-favorites"]')
   await expect(favorites.getByText('Alice Johnson')).toBeVisible()
@@ -74,9 +88,9 @@ test('collaboration-favorites: star, menu, palette, unstar and server recents', 
     'false'
   )
   await expect(page.locator('[data-qqq-id="favorite-toggle"]')).toBeEnabled()
-  await page.locator('[data-qqq-id="favorites-menu"]').click()
+  await openFavorites(page)
   await expect(menu.getByRole('link', { name: 'Alice Johnson' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Close favorites' }).click()
+  await closeFavorites(page)
   await openPalette(page, 'shortcut')
   await expect(favorites.getByText('Alice Johnson')).toHaveCount(0)
   await expect(
@@ -113,8 +127,7 @@ for (const width of [390, 1440]) {
         })
       }
       await shot('record-header-with-star')
-      await page.locator('[data-qqq-id="favorites-menu"]').click()
-      const menu = page.locator('[data-qqq-id="favorites-popover"]')
+      const menu = await openFavorites(page)
       await expect(menu.getByRole('link', { name: 'Alice Johnson' })).toBeVisible()
       const box = await menu.boundingBox()
       expect(box!.x).toBeGreaterThanOrEqual(0)
@@ -122,8 +135,8 @@ for (const width of [390, 1440]) {
       expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
         true
       )
-      await shot('favorites-menu-open')
-      await page.getByRole('button', { name: 'Close favorites' }).click()
+      await shot('sidebar-favorites-open')
+      await closeFavorites(page)
       await openPalette(page)
       await expect(
         page.locator('[data-qqq-id="command-group-favorites"]').getByText('Alice Johnson')

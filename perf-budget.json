@@ -53,11 +53,6 @@
       "marker": "search-result-card",
       "gzipKB": 14.5
     },
-    "quickSearchPanel": {
-      "$comment": "The quick search results panel of the header box and the '/' dialog (groups, highlights, completions, failure and fallback notices), loaded when the panel first opens: import() in GlobalSearch and SearchDialog. Measured 9.4 KB gzip at introduction (#59); budget about 8% above.",
-      "marker": "search-results-status",
-      "gzipKB": 10.2
-    },
     "commandRecordResults": {
       "$comment": "The command palette's record groups, loaded when the palette searches records: import() in CommandMenu. Measured 7.5 KB gzip at introduction (#59); budget about 8% above.",
       "marker": "command-menu-searching",

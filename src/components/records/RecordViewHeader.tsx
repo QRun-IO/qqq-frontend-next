@@ -307,7 +307,8 @@ export function RecordViewHeader({
     n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
     e: !hideActions && canEdit && (() => router.push(`${recordPath}/edit`)),
     c: !hideActions && canInsert && (() => router.push(`${recordPath}/copy`)),
-    d: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
+    // Shift+D, not d: a destructive action needs more than one stray key press (it still asks to confirm)
+    D: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
     a: Boolean(auditSource) && (() => setAuditOpen(true)),
   })
 

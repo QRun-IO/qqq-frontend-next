@@ -25,10 +25,13 @@ import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
+import { HEADER_BUTTON_CLASS } from '@/components/layout/HeaderMenu'
+import { cn } from '@/lib/utils/cn'
 import { assistantKeys, useAssistant } from './assistant-context'
 
 /**
- * Toggles the assistant panel; the badge counts unread replies.
+ * Toggles the assistant panel ("Ask"); the badge counts unread replies. The sparkles icon alone is
+ * ambiguous, so from 1440 px it carries the text label "Ask" (its tooltip says so below that).
  *
  * @returns The button, or null when the assistant is unavailable.
  */
@@ -37,7 +40,7 @@ export function AssistantHeaderButton() {
   const { data: busy = false } = useQuery({ queryKey: assistantKeys.busy(), queryFn: () => false, enabled: false })
   if (!assistant?.enabled) return null
   const { open, unreadCount, toggle, triggerRef } = assistant
-  const label = unreadCount > 0 ? `Assistant, ${unreadCount} unread (Ctrl+J or ⌘J)` : 'Assistant (Ctrl+J or ⌘J)'
+  const label = unreadCount > 0 ? `Ask the assistant, ${unreadCount} unread (Ctrl+J or ⌘J)` : 'Ask the assistant (Ctrl+J or ⌘J)'
   return (
     <button
       ref={triggerRef}
@@ -47,12 +50,14 @@ export function AssistantHeaderButton() {
         event.currentTarget.focus({ preventScroll: true })
         toggle()
       }}
-      className="relative flex items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(HEADER_BUTTON_CLASS, 'gap-1.5')}
       aria-label={label}
+      title="Ask the assistant (Ctrl+J or ⌘J)"
       aria-pressed={open}
       data-qqq-id="button-assistant"
     >
-      <Sparkles className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+      <Sparkles className="h-5 w-5" aria-hidden="true" />
+      <span className="hidden text-sm font-medium min-[1440px]:inline" aria-hidden="true">Ask</span>
       {busy && <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-primary motion-safe:animate-pulse" role="status" aria-label="Assistant is answering" data-qqq-id="assistant-busy" />}
       {unreadCount > 0 && (
         <span

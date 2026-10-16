@@ -148,7 +148,7 @@ describe('AlertsBell', () => {
       return HttpResponse.json({ ...SUMMARY, pollSeconds: 0.05 })
     }))
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    expect(await screen.findByRole('button', { name: 'Notifications, 2 unread' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Notifications, 2 unread/ })).toBeInTheDocument()
     await waitFor(() => expect(calls).toBeGreaterThanOrEqual(3))
   })
 
@@ -159,7 +159,7 @@ describe('AlertsBell', () => {
       return HttpResponse.json({ ...SUMMARY, pollSeconds: 0.05 })
     }))
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    await screen.findByRole('button', { name: /^Notifications, 2 unread/ })
     act(() => focusManager.setFocused(false))
     await sleep(100)
     const hidden = calls
@@ -194,15 +194,17 @@ describe('AlertsBell', () => {
   it('shows the unread count, red for critical, capped at 99+, with an accessible label', async () => {
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json(SUMMARY)))
     const first = renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    const bell = await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    const bell = await screen.findByRole('button', { name: /^Notifications, 2 unread/ })
     expect(bell).toHaveAttribute('aria-expanded', 'false')
+    // severity is in the name, not only in the badge color
+    expect(bell).toHaveAccessibleName('Notifications, 2 unread, critical')
     expect(screen.getByText('2', { selector: '[data-qqq-id="alerts-unread-badge"]' })).toHaveClass('bg-destructive')
     expect(document.querySelector('[data-qqq-id="alerts-unread-announcer"]')).toHaveAttribute('aria-live', 'polite')
     first.unmount()
 
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json({ ...SUMMARY, unreadCount: 140, highestUnreadSeverity: 'WARNING' })))
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await screen.findByRole('button', { name: 'Notifications, 140 unread' })
+    await screen.findByRole('button', { name: /^Notifications, 140 unread/ })
     expect(screen.getByText('99+', { selector: '[data-qqq-id="alerts-unread-badge"]' })).toHaveClass('bg-primary')
   })
 
@@ -211,7 +213,7 @@ describe('AlertsBell', () => {
     const reads = captureAction('read')
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    const bell = await screen.findByRole('button', { name: 'Notifications, 2 unread' })
+    const bell = await screen.findByRole('button', { name: /^Notifications, 2 unread/ })
     await user.click(bell)
     const dialog = await screen.findByRole('dialog', { name: 'Notifications' })
     expect(await axe(dialog)).toHaveNoViolations()
@@ -241,7 +243,7 @@ describe('AlertsBell', () => {
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json(SUMMARY)))
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 2 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 2 unread/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Notifications' })
     const first = within(dialog).getAllByRole('link')[0]
     await waitFor(() => expect(first).toHaveFocus())
@@ -258,7 +260,7 @@ describe('AlertsBell', () => {
     const dismissals = captureAction('dismiss')
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 2 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 2 unread/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Notifications' })
 
     await user.click(within(dialog).getByRole('button', { name: 'Mark read: Nightly backup did not run' }))
@@ -283,11 +285,11 @@ describe('AlertsBell', () => {
     )
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 2 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 2 unread/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Notifications' })
     await user.click(within(dialog).getByRole('button', { name: 'Dismiss: Nightly backup did not run' }))
     expect(within(dialog).queryByText('Nightly backup did not run')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Notifications, 1 unread/ })).toBeInTheDocument()
   })
 
   it('rolls back when an action fails', async () => {
@@ -297,9 +299,9 @@ describe('AlertsBell', () => {
     )
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 2 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 2 unread/ }))
     await user.click(await screen.findByRole('button', { name: 'Mark all read' }))
-    expect(await screen.findByRole('button', { name: 'Notifications, 2 unread' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Notifications, 2 unread/ })).toBeInTheDocument()
   })
 
   it('marks all read and opens the notifications page', async () => {
@@ -307,7 +309,7 @@ describe('AlertsBell', () => {
     const reads = captureAction('read')
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 2 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 2 unread/ }))
     await user.click(await screen.findByRole('button', { name: 'Mark all read' }))
     await waitFor(() => expect(reads).toEqual([{ all: true }]))
     await user.click(screen.getByRole('link', { name: 'View all' }))
@@ -319,7 +321,7 @@ describe('AlertsBell', () => {
     const reads = captureAction('read')
     const user = userEvent.setup()
     renderWithClient(<AlertsBell metaData={WITH_ALERTS} />)
-    await user.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
+    await user.click(await screen.findByRole('button', { name: /^Notifications, 1 unread/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Notifications' })
     expect(dialog).toHaveTextContent('CDN · 20 min ago')
     expect(within(dialog).queryByRole('button', { name: /Dismiss/ })).not.toBeInTheDocument()

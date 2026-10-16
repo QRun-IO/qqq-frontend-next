@@ -59,7 +59,7 @@ const RecordView = lazy(() => import('@/components/records/RecordView').then((mo
  *
  * Loads the base record and optional whole-association expansion independently. Once
  * the record loads it is registered in the recently-viewed history (via
- * `addRecentRecord`) so it surfaces in the GlobalSearch and SearchDialog.
+ * `addRecentRecord`) so it surfaces in the search box (recently viewed records).
  * The page header in QContext is updated to the record label.
  *
  * @returns A composed view that assembles:

@@ -1,7 +1,7 @@
 // E2E: Navigation — sidebar, routing, breadcrumbs
 
 import { test, expect } from '@playwright/test'
-import { setupApiMocks } from './api-mocks'
+import { METADATA, setupApiMocks } from './api-mocks'
 import { checkA11y } from './a11y-helpers'
 
 // Wait for the auth+meta loading sequence to complete.
@@ -96,3 +96,51 @@ for (const width of [320, 390, 768, 1440]) {
     expect(await nav.evaluate((element) => element.getBoundingClientRect().bottom <= element.closest('header')!.getBoundingClientRect().bottom + 1)).toBe(true)
   })
 }
+
+for (const width of [390, 768, 1024]) {
+  test(`navigation uses a drawer below 1024px (${width}px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await setupApiMocks(page)
+    await page.goto('/app/person')
+    await waitForAppReady(page)
+    const desktop = page.locator('[data-qqq-id="sidebar-desktop"]')
+    const menu = page.getByRole('button', { name: 'Menu', exact: true })
+    if (width >= 1024) {
+      await expect(desktop).toBeVisible()
+      await expect(menu).toBeHidden()
+    } else {
+      await expect(desktop).toBeHidden()
+      await menu.click()
+      const drawer = page.getByRole('dialog', { name: 'Navigation' })
+      await expect(drawer).toBeVisible()
+      await drawer.locator('[data-qqq-id="sidebar-search"]').click()
+      await expect(drawer).toBeHidden()
+      await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible()
+      await expect(page.locator('[data-qqq-id="command-menu-search"]')).toBeFocused()
+    }
+  })
+}
+
+test('Settings entries stay behind their disclosure until expanded', async ({ page }) => {
+  await setupApiMocks(page)
+  await page.route(/\/qqq\/v1\/metaData(?:\?|$)/, (route) => route.fulfill({ json: {
+    ...METADATA,
+    apps: { ...METADATA.apps, crm: { ...METADATA.apps.crm, sections: [
+      { name: 'settings', label: 'Settings', role: 'SETTINGS', tables: ['person'] },
+    ] } },
+  } }))
+  await page.goto('/app')
+  await waitForAppReady(page)
+  const sidebar = page.locator('[data-qqq-id="sidebar-desktop"]')
+  await sidebar.getByRole('button', { name: 'Expand CRM' }).click()
+  const settings = sidebar.locator('[data-qqq-id="sidebar-section-crm-settings-toggle"]')
+  await expect(settings).toHaveAttribute('aria-expanded', 'false')
+  await expect(settings).toContainText('Settings')
+  await expect(settings).toContainText('1')
+  await expect(sidebar.getByRole('link', { name: 'People', exact: true })).toHaveCount(0)
+  await settings.click()
+  await expect(settings).toHaveAttribute('aria-expanded', 'true')
+  await sidebar.getByRole('link', { name: 'People', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/person\/?$/)
+  await expect(sidebar.getByRole('link', { name: 'People', exact: true })).toHaveAttribute('aria-current', 'page')
+})

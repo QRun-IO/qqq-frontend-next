@@ -15,97 +15,101 @@
  */
 
 /**
- * @file Header — top bar rendering breadcrumbs, global search, and notifications.
+ * @file Header — the top bar: navigation and breadcrumbs on the left; on the right, from the most
+ * general to the most personal, Search · Ask · Jobs · Notifications · Help · Account.
  */
 
 'use client'
 
-import React, { useRef } from 'react'
-import { Command, Menu, Search, HelpCircle } from 'lucide-react'
+import React, { useRef, useSyncExternalStore } from 'react'
+import { Menu, Search } from 'lucide-react'
 
-import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import { JobsHeaderButton } from '@/components/jobs/JobsHeaderButton'
-import { QaModeIndicator } from '@/components/qa-capture/QaModeIndicator'
 import { useToastTopBelow } from '@/components/feedback/Toast'
-import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
-import type { SearchableTable } from '@/lib/utils/record-search'
+import type { ParentAppInfo } from '@/lib/hooks/use-routes'
+import { cn } from '@/lib/utils/cn'
+import { HEADER_BUTTON_CLASS } from './HeaderMenu'
 
 /**
  * Props for the Header component.
  */
 export interface HeaderProps {
-  /** Application name from branding metadata (currently unused in layout but reserved for future title display). */
+  /** Application name from branding metadata (reserved for a future title display). */
   appName?: string
-  /** Called when the mobile hamburger menu button is clicked to open the sidebar drawer. */
+  /** Opens the navigation drawer (below 1024 px, where the sidebar is not a column). */
   onMenuOpen?: () => void
-  /** Whether the mobile navigation drawer is open (reflected on the menu button). */
+  /** Whether the navigation drawer is open (reflected on the menu button). */
   menuOpen?: boolean
-  /** Ref to the mobile menu button, so the drawer can return focus to it when it closes. */
+  /** Ref to the menu button, so the drawer can return focus to it when it closes. */
   menuButtonRef?: React.Ref<HTMLButtonElement>
-  /** Called when the mobile search icon button is clicked to open the search dialog. */
+  /** Opens the search box (the one search: pages, records, actions, help, Ask). */
   onSearchOpen?: () => void
-  /** Called when the command palette button is clicked (Material's navbar search icon opens its palette). */
-  onCommandOpen?: () => void
-  /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
-  onHelpOpen?: () => void
-  /** Ref to the keyboard shortcuts help button, so the help dialog can return focus to it when it closes. */
-  helpButtonRef?: React.Ref<HTMLButtonElement>
   /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
   /** Maps node paths to their enclosing apps, passed through to Breadcrumbs. */
   ancestorAppMap?: Record<string, ParentAppInfo[]>
   /** Where the breadcrumb home crumb links (the instance's home app, or `/app`). */
   homePath?: string
-  /** Navigable app-tree nodes for the header search. */
-  navTargets?: NavTarget[]
-  /** Tables the backend record search covers, for the header search (empty: local search only). */
-  searchTables?: SearchableTable[]
-  /** The assistant toggle, shown before the help button when the assistant is available. */
+  /** The assistant's Ask button, when the assistant is available. */
   assistantButton?: React.ReactNode
-  /** The notifications bell (the Alerts qbit's), shown last when Alerts is available. */
+  /** The notifications bell (the Alerts qbit's), when Alerts is available. */
   notificationsButton?: React.ReactNode
-  /** Personal favorites menu when collaboration is installed. */
-  favoritesButton?: React.ReactNode
+  /** The Help menu (always present: WCAG 3.2.6 consistent help). */
+  helpMenu?: React.ReactNode
+  /** The signed-in user's account menu (avatar), always last. */
+  accountMenu?: React.ReactNode
+}
+
+/**
+ * Whether the browser runs on an Apple platform, for the ⌘K / Ctrl K hint.
+ *
+ * @returns `true` on macOS and iOS.
+ */
+function useIsApplePlatform(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent),
+    () => false
+  )
 }
 
 /**
  * Renders the application top bar.
  *
- * Provides breadcrumb navigation on the left and a global search pill plus
- * notifications bell on the right. On viewports narrower than the `md`
- * breakpoint the breadcrumbs are replaced by a hamburger button that invokes
- * `onMenuOpen`, and the global search is hidden. A search icon button and a
- * keyboard-shortcuts help button are shown on mobile in place of the full
- * search pill.
+ * Collapse rules by width (IA review 2026-10-15 §6.3; owner: Jobs is always shown):
+ * - below 640 px: menu, breadcrumbs, then search (icon), Jobs, Notifications and the avatar; Help
+ *   and Ask move into the avatar menu;
+ * - from 640 px: Ask and Help return as icons; from 768 px search is a field;
+ * - from 1024 px the sidebar is a column, so the menu button goes;
+ * - from 1440 px Ask shows its text label and search its ⌘K hint; the field is at most 560 px.
+ * Every control is 40 px square, 44 px for coarse pointers, with 4 px gaps.
  *
  * @param props - Component properties.
- * @returns A `<header>` element with `min-height: var(--qqq-header-height)` that
- *   contains the hamburger button + {@link Breadcrumbs} on the left and
- *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
- *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
+ * @returns The `<header>` element.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton, notificationsButton, favoritesButton }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, pathToLabelMap = {}, ancestorAppMap = {}, homePath, assistantButton, notificationsButton, helpMenu, accountMenu }: HeaderProps) {
   // toasts appear below the header, never over its controls
   const headerRef = useRef<HTMLElement>(null)
   useToastTopBelow(headerRef)
+  const apple = useIsApplePlatform()
+  const shortcut = apple ? '⌘K' : 'Ctrl K'
 
   return (
     <header
       ref={headerRef}
-      className="flex items-center justify-between border-b border-border bg-card px-4 py-2 md:px-6"
+      className="flex items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 md:px-6"
       style={{ minHeight: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + a breadcrumb trail that truncates long labels and wraps (the header grows) instead of scrolling */}
+      {/* Left: navigation drawer button + a breadcrumb trail that truncates long labels and wraps instead of scrolling */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        {/* Mobile hamburger — only visible below md breakpoint */}
         <button
           ref={menuButtonRef}
           type="button"
           onClick={onMenuOpen}
-          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Open navigation menu"
+          className={cn(HEADER_BUTTON_CLASS, 'lg:hidden')}
+          aria-label="Menu"
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
           data-qqq-id="button-mobile-menu"
@@ -115,58 +119,46 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
         <Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} homePath={homePath} />
       </div>
 
-      {/* Right section: search + help + notifications */}
-      <div className="ml-2 md:ml-3 flex flex-shrink-0 items-center gap-0 md:gap-3">
-        <QaModeIndicator />
-        {/* Mobile search icon — only visible below md breakpoint */}
+      {/* Right: find, ask, monitor, help, me */}
+      <div className="flex flex-shrink-0 items-center gap-1 md:min-w-0 md:flex-1 md:justify-end">
         <button
+          type="button"
           onClick={(event) => {
-            // WebKit can activate a button without focusing it; preserve this dialog's opener.
+            // WebKit can activate a button without focusing it; focus returns here when search closes
             event.currentTarget.focus({ preventScroll: true })
             onSearchOpen?.()
           }}
-          className="flex shrink-0 md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Open search"
-          data-qqq-id="button-mobile-search"
+          aria-label="Search or jump to"
+          aria-haspopup="dialog"
+          aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'}
+          className={cn(
+            HEADER_BUTTON_CLASS,
+            'md:w-full md:max-w-[560px] md:justify-start md:gap-2 md:border md:border-border md:bg-background md:px-3 md:text-sm md:text-muted-foreground'
+          )}
+          data-qqq-id="button-search"
         >
-          <Search className="h-5 w-5" aria-hidden="true" />
+          <Search className="h-5 w-5 shrink-0 md:h-4 md:w-4" aria-hidden="true" />
+          <span className="hidden flex-1 truncate text-left md:inline">Search or jump to…</span>
+          <kbd className="hidden shrink-0 rounded border border-border px-1.5 font-mono text-xs min-[1440px]:inline" aria-hidden="true">{shortcut}</kbd>
         </button>
 
-        {/* Global search — hidden on mobile */}
-        <GlobalSearch navTargets={navTargets} searchTables={searchTables} className="hidden md:block" />
-
-        {/* Command palette (Material's navbar search icon opens its "." menu) */}
-        {onCommandOpen && (
-          <button
-            type="button"
-            onClick={onCommandOpen}
-            className="flex items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Open command palette (.)"
-            aria-haspopup="dialog"
-            data-qqq-id="button-command-palette"
-          >
-            <Command className="h-5 w-5 text-foreground/60" aria-hidden="true" />
-          </button>
+        {assistantButton && (
+          <div role="group" aria-label="Assistant" className="hidden items-center sm:flex" data-qqq-id="header-group-assistant">
+            {assistantButton}
+          </div>
         )}
 
-        {favoritesButton}
-        {assistantButton}
+        <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+        <div role="group" aria-label="Activity" className="flex items-center gap-1" data-qqq-id="header-group-activity">
+          <JobsHeaderButton />
+          {notificationsButton}
+        </div>
 
-        {/* Keyboard shortcuts hint */}
-        <button
-          ref={helpButtonRef}
-          type="button"
-          onClick={onHelpOpen}
-          className="rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Keyboard shortcuts (?)"
-          data-qqq-id="button-keyboard-shortcuts"
-        >
-          <HelpCircle className="h-5 w-5 text-foreground/60" aria-hidden="true" />
-        </button>
-
-        {/* Notifications bell (the Alerts qbit's; renders nothing when Alerts is not available) */}
-        {notificationsButton}
-        <JobsHeaderButton />
+        <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+        <div role="group" aria-label="Help and account" className="flex items-center gap-1" data-qqq-id="header-group-account">
+          {helpMenu && <div className="hidden sm:flex">{helpMenu}</div>}
+          {accountMenu}
+        </div>
       </div>
     </header>
   )

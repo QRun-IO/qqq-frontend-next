@@ -113,10 +113,23 @@ export function RecordChips({ refs }: { refs: AssistantRecordRef[] }) {
  * @returns The records view.
  */
 function RecordsView({ render }: { render: AssistantRecordsRender }) {
-  const shown = render.rows.length
+  // Older servers omit empty lists (a query that matched nothing): treat as [].
+  const rows = Array.isArray(render.rows) ? render.rows : []
+  const columns = Array.isArray(render.columns) ? render.columns : []
+  const shown = rows.length
   const total = render.totalCount ?? shown
   const caption = `${render.tableLabel}: ${shown === total ? `${total} ${total === 1 ? 'row' : 'rows'}` : `${shown} of ${total} rows`}`
-  const [firstColumn, ...otherColumns] = render.columns
+  const [firstColumn, ...otherColumns] = columns
+  if (shown === 0) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2" data-qqq-id="assistant-records">
+        <span className="truncate text-xs text-muted-foreground">{render.tableLabel}: no rows match</span>
+        <SafeLink href={render.openHref} className={ACTION_LINK} qqqId="assistant-open-query">
+          Open in Query screen<ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </SafeLink>
+      </div>
+    )
+  }
   return (
     <div className="@container rounded-lg border border-border bg-card" data-qqq-id="assistant-records">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
@@ -130,17 +143,17 @@ function RecordsView({ render }: { render: AssistantRecordsRender }) {
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
-              {render.columns.map((column) => <th key={column.name} scope="col" className="whitespace-nowrap px-3 py-1.5 font-medium">{column.label}</th>)}
+              {columns.map((column) => <th key={column.name} scope="col" className="whitespace-nowrap px-3 py-1.5 font-medium">{column.label}</th>)}
             </tr>
           </thead>
           <tbody>
-            {render.rows.map((row) => (
+            {rows.map((row) => (
               <tr key={String(row.id)} className="border-b border-border last:border-0">
-                {render.columns.map((column, index) => (
+                {columns.map((column, index) => (
                   <td key={column.name} className="max-w-[16rem] truncate px-3 py-1.5 text-foreground">
                     {index === 0 ? (
-                      <SafeLink href={row.href} className="font-medium text-primary hover:underline">{row.values[column.name] ?? String(row.id)}</SafeLink>
-                    ) : (row.values[column.name] ?? '')}
+                      <SafeLink href={row.href} className="font-medium text-primary hover:underline">{row.values?.[column.name] ?? String(row.id)}</SafeLink>
+                    ) : (row.values?.[column.name] ?? '')}
                   </td>
                 ))}
               </tr>
@@ -150,18 +163,18 @@ function RecordsView({ render }: { render: AssistantRecordsRender }) {
       </div>
       {/* narrow: one card per row */}
       <ul className="divide-y divide-border @lg:hidden">
-        {render.rows.map((row) => (
+        {rows.map((row) => (
           <li key={String(row.id)} className="px-3 py-2">
             {firstColumn && (
               <SafeLink href={row.href} className="block truncate text-sm font-medium text-primary hover:underline">
-                {row.values[firstColumn.name] ?? String(row.id)}
+                {row.values?.[firstColumn.name] ?? String(row.id)}
               </SafeLink>
             )}
             <dl className="mt-1 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
               {otherColumns.slice(0, 4).map((column) => (
                 <React.Fragment key={column.name}>
                   <dt className="truncate text-muted-foreground">{column.label}</dt>
-                  <dd className="truncate text-foreground">{row.values[column.name] ?? ''}</dd>
+                  <dd className="truncate text-foreground">{row.values?.[column.name] ?? ''}</dd>
                 </React.Fragment>
               ))}
             </dl>
@@ -188,7 +201,7 @@ function RecordView({ render }: { render: AssistantRecordRender }) {
         <SafeLink href={render.href} className={ACTION_LINK}>Open<ArrowRight className="h-3 w-3" aria-hidden="true" /></SafeLink>
       </div>
       <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-        {render.fields.map((field) => (
+        {(render.fields ?? []).map((field) => (
           <React.Fragment key={field.name}>
             <dt className="truncate text-muted-foreground">{field.label}</dt>
             <dd className="break-words text-foreground">{field.value ?? '—'}</dd>
@@ -228,16 +241,16 @@ function CountView({ render }: { render: AssistantCountRender }) {
  * @returns The history list.
  */
 function HistoryView({ render }: { render: AssistantHistoryRender }) {
-  if (!render.entries.length) return <p className="text-xs text-muted-foreground">No changes recorded.</p>
+  if (!render.entries?.length) return <p className="text-xs text-muted-foreground">No changes recorded.</p>
   return (
     <ol className="space-y-2 rounded-lg border border-border bg-card px-3 py-2" data-qqq-id="assistant-history">
       {render.entries.map((entry, index) => (
         <li key={index} className="text-xs">
           <p className="text-muted-foreground">{formatTimestamp(entry.timestamp)} · {entry.user}</p>
           <p className="text-foreground">{entry.message}</p>
-          {entry.details.length > 0 && (
+          {(entry.details?.length ?? 0) > 0 && (
             <ul className="mt-0.5 space-y-0.5 pl-3">
-              {entry.details.map((detail, detailIndex) => (
+              {(entry.details ?? []).map((detail, detailIndex) => (
                 <li key={detailIndex} className="break-words text-muted-foreground">
                   <span className="font-medium text-foreground">{detail.field}</span>: {detail.oldValue ?? '—'} {'→'} {detail.newValue ?? '—'}{detail.truncated ? ' …' : ''}
                 </li>

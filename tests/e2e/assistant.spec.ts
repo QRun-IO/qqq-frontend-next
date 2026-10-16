@@ -186,7 +186,7 @@ test.describe('Assistant panel: gating', () => {
     page.on('request', (request) => { if (request.url().includes('/assistant/')) requests.push(request.url()) })
     await page.goto('/app/person')
     await waitForAppReady(page)
-    await expect(page.locator('[data-qqq-id="button-keyboard-shortcuts"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="button-help"]')).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-assistant"]')).toHaveCount(0)
     await page.locator('body').click()
     await page.keyboard.press('Control+j')
@@ -200,7 +200,7 @@ test.describe('Assistant panel: gating', () => {
     await page.route('**/qqq/v1/assistant/**', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"Not found"}' }))
     await page.goto('/app/person')
     await waitForAppReady(page)
-    await expect(page.locator('[data-qqq-id="button-keyboard-shortcuts"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="button-help"]')).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-assistant"]')).toHaveCount(0)
     await page.locator('body').click()
     await page.keyboard.press('Control+j')
@@ -331,13 +331,18 @@ for (const [name, viewport] of Object.entries({ tablet: VIEWPORTS.tablet, phone:
   test.describe(`Assistant panel: ${name} (sheet)`, () => {
     test.use({ viewport, hasTouch: name !== 'tablet' })
 
-    test(`opens as a sheet from the header button, stays readable without horizontal scroll, and Escape restores focus @mobile`, async ({ page }) => {
+    test(`opens as a sheet from the header or compact account menu, stays readable without horizontal scroll, and Escape restores focus @mobile`, async ({ page }) => {
       await setupApiMocks(page)
       await mockAssistant(page)
       await page.goto('/app/person')
       await waitForAppReady(page)
       const button = page.locator('[data-qqq-id="button-assistant"]')
-      await button.click()
+      const opener = viewport.width < 640 ? page.locator('[data-qqq-id="button-account"]') : button
+      await opener.click()
+      if (viewport.width < 640) {
+        await expect(button).toBeHidden()
+        await page.getByRole('menuitem', { name: 'Ask the assistant' }).click()
+      }
       const sheet = page.locator('[role="dialog"][data-qqq-id="assistant-panel"]')
       await expect(sheet).toBeVisible()
       const box = await sheet.boundingBox()
@@ -373,7 +378,7 @@ for (const [name, viewport] of Object.entries({ tablet: VIEWPORTS.tablet, phone:
 
       await page.keyboard.press('Escape')
       await expect(sheet).toHaveCount(0)
-      await expect(button).toBeFocused()
+      await expect(opener).toBeFocused()
     })
   })
 }

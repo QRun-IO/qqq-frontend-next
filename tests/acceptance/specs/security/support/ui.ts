@@ -28,15 +28,17 @@ export async function navigation(page: Page): Promise<Locator> {
 }
 
 /**
- * Opens the user menu in the visible sidebar.
+ * Opens the account menu in the header, closing the navigation drawer if necessary.
  *
  * @param page - The page.
  * @returns The open menu.
  */
 export async function openUserMenu(page: Page): Promise<Locator> {
-  const nav = await navigation(page)
-  await nav.locator('[data-qqq-id="sidebar-user-button"]').click()
-  return nav.getByRole('menu')
+  const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+  if (await drawer.isVisible()) await drawer.getByRole('button', { name: 'Close navigation' }).click()
+  const menu = page.locator('[data-qqq-id="button-account-menu"]')
+  if (!(await menu.isVisible())) await page.locator('[data-qqq-id="button-account"]').click()
+  return menu
 }
 
 /**

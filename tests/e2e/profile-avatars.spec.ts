@@ -111,7 +111,7 @@ test('profile photo: crop, upload, save, refresh sidebar avatar and reject SVG',
   await page.getByRole('button', { name: 'Use photo', exact: true }).click()
   await page.getByRole('button', { name: 'Save changes', exact: true }).click()
   await expect.poll(() => patches).toEqual([{ values: { avatar: 'up-1' } }])
-  const avatar = page.locator('[data-qqq-id="sidebar-user-avatar"] img')
+  const avatar = page.locator('[data-qqq-id="header-user-avatar"] img')
   await expect(avatar).toHaveAttribute('src', /\/avatars\/0123456789abcdef0123456789abcdef\?v=k1/)
   await expect(avatar).toBeVisible()
   await expect.poll(() => avatar.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(480)

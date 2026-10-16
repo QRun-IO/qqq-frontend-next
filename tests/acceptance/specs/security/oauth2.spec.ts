@@ -11,7 +11,7 @@ import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu } from './support/ui'
+import { listCell, openUserMenu } from './support/ui'
 import { allowBlockedByPolicy, parsePolicy } from './support/csp'
 
 const CLIENT_ID = 'qqq-acceptance'
@@ -72,9 +72,10 @@ test.describe('OAUTH2 with PKCE', () => {
     expect(token[0].form.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(await variantSql('select user_id from user_session')).toEqual([{ user_id: 'oidc|dana' }])
 
-    const nav = await navigation(page)
-    await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
-    await expect(nav.locator('[data-qqq-id="sidebar-user-email"]')).toHaveText('dana@qrun.example')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-name"]')).toHaveText('Dana Owner (OIDC)')
+    await page.keyboard.press('Escape')
+    await expect((await openUserMenu(page)).locator('[data-qqq-id="header-user-email"]')).toHaveText('dana@qrun.example')
+    await page.keyboard.press('Escape')
 
     await page.reload()
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
@@ -138,7 +139,7 @@ test.describe('OAUTH2 with PKCE', () => {
 
     const menu = await openUserMenu(page)
     const backendLogout = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click()
     expect((await backendLogout).status()).toBe(200)
     await expect(page).toHaveURL(/\/login\/?$/)
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()

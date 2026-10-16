@@ -86,12 +86,14 @@ test.describe('Material CSS and test hooks', () => {
     await expect(list.locator(':scope > li > a[data-qqq-sidenav-item-type]')).toHaveCount(0)
 
     // User profile entry and the logout entry of its menu
-    const profile = sidebar.locator('[data-qqq-sidenav-item-type="user-profile"]')
-    await expect(profile).toHaveAttribute('data-qqq-id', 'sidebar-user-button')
+    const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+    if (await drawer.isVisible()) await drawer.getByRole('button', { name: 'Close navigation' }).click()
+    const profile = page.locator('[data-qqq-id="button-account"]')
+    await expect(profile).toHaveAttribute('data-qqq-id', 'button-account')
     await profile.click()
-    await expect(sidebar.getByRole('menuitem', { name: 'Log Out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
+    await expect(page.getByRole('menuitem', { name: 'Sign out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
     await page.keyboard.press('Escape')
-    await expect(sidebar.getByRole('menuitem', { name: 'Log Out' })).toHaveCount(0)
+    await expect(page.getByRole('menuitem', { name: 'Sign out' })).toHaveCount(0)
   })
 
   test('[NAV-055] create and edit forms carry record-{mode} hooks, section and field wrappers, and default button variants @mobile', async ({ page, backend, diagnostics }) => {
