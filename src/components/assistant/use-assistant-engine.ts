@@ -29,6 +29,7 @@ import { internalAppHref } from '@/lib/utils/assistant-links'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { reportClientError } from '@/lib/errors/client-errors'
 import { assistantKeys, useAssistant } from './assistant-context'
+import { markConversationRead } from './mark-read'
 import { endReply, optimisticTurnMessages, reduceStreamEvent, type TurnMessageIds } from './message-reducer'
 
 /** A single independently streamed answer. */
@@ -171,15 +172,21 @@ export function useAssistantEngine(): AssistantEngine {
         if (result && !stoppedLocally.current.delete(entry.key) && ![...activeRuns.current.values()].some(({ run }) => run.conversationId === entry.conversationId)) {
           void queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(entry.conversationId) })
         }
-        void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(), 'conversations'] })
         const current = assistantRef.current
-        if (result?.status === 'COMPLETE' && current && (!current.open || current.activeConversationId !== entry.conversationId)) {
-          queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(), (list) =>
-            list?.map((conversation) => conversation.id === entry.conversationId ? { ...conversation, unreadCount: conversation.unreadCount + 1 } : conversation))
-          toast('Assistant finished', { action: { label: 'View', onClick: () => {
-            assistantRef.current?.setActiveConversationId(entry.conversationId)
-            assistantRef.current?.setOpen(true)
-          } } })
+        if (current?.open && current.activeConversationId === entry.conversationId) {
+          // The user is looking at it: the reply is read, not unread (here and on the server);
+          // the lists are refetched once the server knows
+          markConversationRead(queryClient, entry.conversationId)
+        } else {
+          void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(), 'conversations'] })
+          if (result?.status === 'COMPLETE' && current) {
+            queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(), (list) =>
+              list?.map((conversation) => conversation.id === entry.conversationId ? { ...conversation, unreadCount: conversation.unreadCount + 1 } : conversation))
+            toast('Assistant finished', { action: { label: 'View', onClick: () => {
+              assistantRef.current?.setActiveConversationId(entry.conversationId)
+              assistantRef.current?.setOpen(true)
+            } } })
+          }
         }
       }
     }

@@ -35,6 +35,8 @@ export interface AssistantConfig {
   preferences?: { defaultWriteMode?: boolean; autoConfirmLowRisk?: boolean }
   /** The assistant's persona (admin-configured profile); text only, it never changes access. */
   profile?: AssistantProfile
+  /** Name of the table that lists the user's conversations; present only when the user may open it. */
+  conversationsTable?: string
 }
 
 /** How the assistant presents itself. */
@@ -57,6 +59,8 @@ export interface AssistantConversation {
   pinned: boolean
   lastMessageAt: string | null
   unreadCount: number
+  /** A reply is being written now (absent on servers that do not report it). */
+  running?: boolean
   createDate: string
   /** Write mode (Read-only when false or absent): the assistant's write tools exist only in Write mode. */
   writeMode?: boolean
@@ -314,6 +318,8 @@ export interface AssistantConversationUpdate {
   pinned?: boolean
   status?: AssistantConversationStatus
   writeMode?: boolean
+  /** `true` marks the conversation read (its unread count becomes 0). */
+  read?: boolean
 }
 
 /** Body of `POST /assistant/messages/{id}/feedback`. */
