@@ -98,7 +98,7 @@ export function ChildRecordListEditor({ widgetMetaData, data, table, onChange }:
           <button
             type="button"
             onClick={() => setOpenForm({ rowIndex: null, defaults: newDefaults, disabled: lockedForNew })}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-primary hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-link hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
             data-qqq-id={`child-record-add-${widgetName}`}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />

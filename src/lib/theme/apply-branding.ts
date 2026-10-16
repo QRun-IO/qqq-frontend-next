@@ -27,6 +27,91 @@ const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
 /** Custom properties that carry the primary accent color (including the Material `--qqq-primary-color`). */
 const ACCENT_PROPERTIES = ['--qqq-accent-color', '--qqq-primary-color', '--color-primary', '--primary', '--ring', '--qqq-sidebar-active-bg']
 
+/** Background of the muted surface in the light theme: the darkest surface text may sit on. */
+const LIGHT_SURFACE = '#f0f2f6'
+
+/** Background of the muted surface in the dark theme: the lightest surface text may sit on. */
+const DARK_SURFACE = '#1e2130'
+
+/** Contrast the derived link text color must reach on its surface (WCAG AA is 4.5; a little margin for rounding). */
+const LINK_CONTRAST = 4.6
+
+/**
+ * Parses a `#rgb`, `#rrggbb` or `rgb()/rgba()` color.
+ *
+ * @param color - The CSS color.
+ * @returns Its red, green and blue channels (0-255), or `null` for any other format.
+ */
+function parseRgb(color: string): [number, number, number] | null {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(color.trim())
+  if (hex) {
+    const digits = hex[1].length === 3 ? hex[1].replace(/./g, (c) => c + c) : hex[1].slice(0, 6)
+    return [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16)) as [number, number, number]
+  }
+  const rgb = /^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/i.exec(color.trim())
+  return rgb ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])] : null
+}
+
+/**
+ * Relative luminance of a color (WCAG 2).
+ *
+ * @param rgb - Red, green and blue channels (0-255).
+ * @returns The luminance, 0 (black) to 1 (white).
+ */
+function luminance(rgb: readonly number[]): number {
+  const [r, g, b] = rgb.map((channel) => {
+    const value = Math.max(0, Math.min(255, channel)) / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * WCAG contrast ratio of two colors.
+ *
+ * @param a - First color channels.
+ * @param b - Second color channels.
+ * @returns The ratio, 1 to 21.
+ */
+export function contrastRatio(a: readonly number[], b: readonly number[]): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (light + 0.05) / (dark + 0.05)
+}
+
+/**
+ * Moves a color toward black or white, in the smallest steps, until it reaches {@link LINK_CONTRAST}
+ * on a surface. A color that already does is returned unchanged.
+ *
+ * @param rgb - The accent channels.
+ * @param surface - The surface channels the text sits on.
+ * @param target - What to mix in: black (0) or white (255).
+ * @returns The adjusted color as `#rrggbb`.
+ */
+function mixUntilReadable(rgb: [number, number, number], surface: readonly number[], target: 0 | 255): string {
+  let result = rgb
+  for (let step = 0; step <= 50 && contrastRatio(result, surface) < LINK_CONTRAST; step += 1) {
+    const t = step / 50
+    result = rgb.map((channel) => Math.round(channel + (target - channel) * t)) as [number, number, number]
+  }
+  return `#${result.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Derives the link-text colors of an accent: the accent itself when it is readable, otherwise
+ * darkened (light theme) or lightened (dark theme) until it reaches 4.5:1 on the theme's surfaces.
+ *
+ * @param accent - The branding accent color.
+ * @returns The light-theme and dark-theme text colors, or `null` when the color format is not parsed
+ *   (the stylesheet then derives them from the accent).
+ */
+export function linkTextColors(accent: string): { light: string; dark: string } | null {
+  const rgb = parseRgb(accent)
+  if (!rgb) return null
+  const light = mixUntilReadable(rgb, parseRgb(LIGHT_SURFACE)!, 0)
+  const dark = mixUntilReadable(rgb, parseRgb(DARK_SURFACE)!, 255)
+  return { light, dark }
+}
+
 /**
  * Whether a branding color may be applied to CSS custom properties.
  *
@@ -68,6 +153,12 @@ export function applyBrandingTheme(branding: QLoginBranding | undefined): string
   if (isSafeAccentColor(branding.accentColor)) {
     for (const property of ACCENT_PROPERTIES) root.style.setProperty(property, branding.accentColor)
     applied = branding.accentColor
+    // Link text must stay readable whatever the brand color is (--color-link, see qqq-theme.css).
+    const link = linkTextColors(branding.accentColor)
+    if (link) {
+      root.style.setProperty('--qqq-link-text-light', link.light)
+      root.style.setProperty('--qqq-link-text-dark', link.dark)
+    }
   }
   if (isSafeAccentColor(branding.accentColorLight)) {
     root.style.setProperty('--qqq-accent-color-light', branding.accentColorLight)

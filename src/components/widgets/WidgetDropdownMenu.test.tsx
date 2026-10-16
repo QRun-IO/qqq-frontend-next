@@ -70,6 +70,12 @@ describe('WidgetDropdownMenu combobox', () => {
     expect(onChange).toHaveBeenLastCalledWith(null)
   })
 
+  it('gives the clear button a target of at least 24 x 24 px (WCAG 2.2 target size)', () => {
+    renderMenu({ value: 'alpha' })
+    const clear = screen.getByRole('button', { name: 'Clear Choice' })
+    expect(clear).toHaveClass('min-h-6', 'min-w-6')
+  })
+
   it('hides the clear button with disableClearable, sizes to the metadata width and shows the start icon', () => {
     renderMenu({ value: 'alpha', disableClearable: true, width: 300, startIconName: 'star' })
     expect(screen.queryByRole('button', { name: 'Clear Choice' })).toBeNull()

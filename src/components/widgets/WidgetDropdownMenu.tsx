@@ -81,7 +81,7 @@ export const DEFAULT_DROPDOWN_WIDTH = 225
 export const CUSTOM_TIMEFRAME_DEBOUNCE_MS = 500
 
 /** Classes for a small icon button that is a 44 px target on touch screens. */
-const ICON_BUTTON = 'inline-flex flex-shrink-0 items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11'
+const ICON_BUTTON = 'inline-flex flex-shrink-0 items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 min-h-6 min-w-6 pointer-coarse:min-h-11 pointer-coarse:min-w-11'
 
 /**
  * Renders one widget header dropdown.
@@ -137,7 +137,7 @@ function DatePickerDropdown({ widgetName, control, onChange }: WidgetDropdownMen
       <button
         type="button"
         onClick={() => choose(new Date())}
-        className="rounded px-2 py-1 text-sm font-medium text-primary hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        className="rounded px-2 py-1 text-sm font-medium text-link hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         aria-label={`Today for ${label}`}
         data-qqq-id={`button-widget-dropdown-today-${id}`}
       >

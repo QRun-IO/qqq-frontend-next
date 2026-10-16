@@ -24,7 +24,7 @@ import userEvent from '@testing-library/user-event'
 import type { QWidgetMetaData } from '@/types'
 import { QContext, type QContextType } from '@/lib/context/q-context'
 import { WidgetBlock, initialCollapsibleOpenState } from './WidgetBlock'
-import { WidgetMetaDataContext } from './widget-context'
+import { WidgetHeadingLevelContext, WidgetMetaDataContext } from './widget-context'
 
 const base: QWidgetMetaData = { name: 'accChrome', label: 'Owned Chrome', type: 'html', hasPermission: true, isCard: true }
 const collapsible: QWidgetMetaData = {
@@ -128,6 +128,18 @@ describe('WidgetBlock labels', () => {
   it('keeps a normal heading for other widgets and when the page-title flag is off', () => {
     render(<WidgetBlock widgetMetaData={base} data={{ label: 'Owned Label', isLabelPageTitle: true }}><p>Body</p></WidgetBlock>)
     expect(screen.getByRole('heading', { level: 3, name: 'Owned Label' })).toBeInTheDocument()
+  })
+
+  it('renders the title as h2 where the page provides level 2 (an app home), and keeps nested widgets at h3', () => {
+    const NestedTitle = () => <WidgetBlock widgetMetaData={{ ...base, name: 'accNested', label: 'Nested' }}><p>Inner</p></WidgetBlock>
+    render(
+      <WidgetHeadingLevelContext.Provider value={2}>
+        <WidgetBlock widgetMetaData={base}><NestedTitle /></WidgetBlock>
+      </WidgetHeadingLevelContext.Provider>
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Owned Chrome' })).toHaveAttribute('data-qqq-id', 'widget-label-accChrome')
+    expect(screen.getByRole('heading', { level: 3, name: 'Nested' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 3, name: 'Owned Chrome' })).toBeNull()
   })
 
   it('shows the label help, and its key in help-authoring mode', () => {

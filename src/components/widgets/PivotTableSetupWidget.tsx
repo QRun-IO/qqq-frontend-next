@@ -264,7 +264,7 @@ function PivotTableSetupEditor({ widgetMetaData, formContext }: { widgetMetaData
         onClick={openEditor}
         disabled={editDisabled}
         data-qqq-id={`pivot-add-${noun}-${widgetName}`}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline pointer-coarse:min-h-11"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-link hover:underline focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline pointer-coarse:min-h-11"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         Add new {noun}

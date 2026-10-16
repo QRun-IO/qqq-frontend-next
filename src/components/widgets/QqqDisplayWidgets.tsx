@@ -165,7 +165,7 @@ export function QqqStepperWidget({ widgetMetaData, data }: WidgetComponentProps<
               {step.label}
             </span>
             {state === 'current' && step.linkURL && (
-              <WidgetLink href={step.linkURL} className="text-xs text-primary" qqqId={`stepper-link-${name}-${index}`}>{step.linkText ?? step.linkURL}</WidgetLink>
+              <WidgetLink href={step.linkURL} className="text-xs text-link" qqqId={`stepper-link-${name}-${index}`}>{step.linkText ?? step.linkURL}</WidgetLink>
             )}
           </li>
         )

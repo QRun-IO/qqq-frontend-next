@@ -180,7 +180,7 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
           <div className="mt-2 text-center" data-qqq-id={`widget-grid-view-all-${widgetName}`}>
             <a
               href={`/app/${tableName}`}
-              className="text-sm text-primary underline hover:text-primary/80"
+              className="text-sm text-link underline hover:text-link/80"
             >
               View all {records.length} records &rarr;
             </a>

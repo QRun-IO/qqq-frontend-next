@@ -443,7 +443,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, for
       type="button"
       onClick={() => setShowAllColumns((current) => !current)}
       aria-expanded={showAllColumns}
-      className="rounded text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+      className="rounded text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
       data-qqq-id={`child-record-columns-toggle-${widgetName}`}
     >
       {showAllColumns ? 'Fewer columns' : `+${hiddenCount} more column${hiddenCount === 1 ? '' : 's'}`}
@@ -464,7 +464,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, for
             // a plain anchor: the record view reacts to the hash change (Next's Link would not fire it)
             <a
               href={addChildHref(data, table.name, recordContext?.record?.values)}
-              className="text-sm font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+              className="text-sm font-medium text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
               data-qqq-id={`child-record-add-${widgetName}`}
             >
               Add new {tableLabel}
@@ -507,7 +507,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, for
                         return (
                           <td key={column.name} className="px-2 py-1.5 align-top text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
                             {columnIndex === 0 && href && !isRestricted(fields[column.name]) && !hasFilePreview(fields[column.name]) ? (
-                              <Link href={href} data-row-link="" className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
+                              <Link href={href} data-row-link="" className="text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
                                 {text || pkText}
                               </Link>
                             ) : (
@@ -536,7 +536,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, for
           {viewAllHref && (
             <Link
               href={viewAllHref}
-              className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+              className="text-link underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
               data-qqq-id={`child-record-view-all-${widgetName}`}
             >
               View All

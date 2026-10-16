@@ -145,7 +145,7 @@ function BridgeButton({ label, onClick, extra }: { label: string; onClick: () =>
         'inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
         variant === 'filled' && 'bg-primary text-primary-foreground hover:bg-primary/90',
         variant === 'outlined' && 'border border-input bg-card text-foreground hover:bg-accent',
-        variant === 'text' && 'text-primary hover:bg-accent'
+        variant === 'text' && 'text-link hover:bg-accent'
       )}
       data-qqq-id="bridge-button"
     >

@@ -9,6 +9,10 @@
      automatically picks up runtime theme overrides applied to the --color-* tokens. */
   --qqq-primary-color: var(--color-primary);
   --qqq-accent-color: var(--color-primary);
+  /* Link text on card and muted surfaces: 4.5:1 or more. applyBrandingTheme sets
+     --qqq-link-text-light/-dark from the brand accent; without them the accent is used (light)
+     or lightened (dark). */
+  --qqq-link-text: var(--qqq-link-text-light, var(--color-primary));
   --qqq-sidebar-active-bg: var(--color-primary);
 
   /* === Brand Colors (fallback literals — used when --color-* tokens are not yet resolved) === */
@@ -197,6 +201,7 @@
   --color-primary: #2563eb;
   --color-primary-foreground: #ffffff;
   --text-color-primary: color-mix(in srgb, var(--color-primary) 40%, white);
+  --qqq-link-text: var(--qqq-link-text-dark, color-mix(in srgb, var(--color-primary) 60%, white));
   --color-secondary: #1e2130;
   --color-secondary-foreground: #f0f2f5;
   --color-muted: #1e2130;
