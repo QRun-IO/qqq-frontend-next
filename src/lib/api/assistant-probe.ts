@@ -24,6 +24,7 @@ import type { AssistantConfig, AssistantConversation, AssistantConversationStatu
 import type { ClientErrorReport } from '@/lib/errors/client-errors'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
+import { normalizeConversationSummary } from './assistant-normalize'
 import { isUiApiExtensionAtLeast, isUiApiExtensionInstalled, UI_API_EXTENSION } from './ui-api-extensions'
 
 /**
@@ -45,7 +46,11 @@ export async function getAssistantConfig(): Promise<AssistantConfig | null> {
     throw error
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
-  return typeof (data as { enabled?: unknown }).enabled === 'boolean' ? (data as AssistantConfig) : null
+  if (typeof (data as { enabled?: unknown }).enabled !== 'boolean') return null
+  const config = data as AssistantConfig
+  // an optional field of newer servers: anything but a non-empty name is ignored
+  const table = (config as { conversationsTable?: unknown }).conversationsTable
+  return { ...config, conversationsTable: typeof table === 'string' && table.trim() ? table.trim() : undefined }
 }
 
 /**
@@ -59,7 +64,7 @@ export async function listAssistantConversations(status?: AssistantConversationS
     '/assistant/conversations',
     status ? { params: { status } } : undefined
   )
-  return Array.isArray(data?.conversations) ? data.conversations : []
+  return Array.isArray(data?.conversations) ? data.conversations.flatMap((item) => normalizeConversationSummary(item) ?? []) : []
 }
 
 /** The assistant extension version that added `POST /assistant/client-errors`. */
