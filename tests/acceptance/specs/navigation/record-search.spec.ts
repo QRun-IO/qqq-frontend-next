@@ -245,7 +245,8 @@ test.describe('record search permissions', () => {
       await expect.poll(() => searches.filter((call) => call.body.searchTerm === 'people view').length).toBeGreaterThan(0)
       await expect(dialog.locator('[data-qqq-id="command-menu-searching"]')).toHaveCount(0)
       await expect(foundRecords(dialog)).toHaveCount(0)
-      await expect(dialog.getByRole('listbox')).toContainText('No results found.')
+      // the search box still offers help and "Search everything", but never the locked view
+      await expect(dialog.locator('[data-value^="record:"]')).toHaveCount(0)
       expect(await apiSearch(backend, { searchTerm: 'people view', tableNames: ['savedView'] })).toEqual([])
     })
   })
