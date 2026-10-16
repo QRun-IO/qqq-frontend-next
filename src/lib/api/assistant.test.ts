@@ -449,3 +449,40 @@ describe('turn recovery contracts', () => {
     expect(post).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('stream failure handling', () => {
+  it('carries the X-Request-Id of a refused turn', async () => {
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => HttpResponse.json({ error: 'Boom' }, { status: 500, headers: { 'X-Request-Id': 'req-77' } })))
+    const error = await streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn() }).catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(AssistantHttpError)
+    expect((error as AssistantHttpError).requestId).toBe('req-77')
+  })
+
+  it('skips malformed chunks, repairs payloads and still finishes', async () => {
+    const malformed = 'id: 2\nevent: text.delta\ndata: {not json\n\n'
+    const result3 = ['tool.result', { seq: 3, messageId: 11, toolCallId: 't', name: 'q', summary: 's', outcome: 'OK', render: { type: 'records' } }] as [string, Record<string, unknown>]
+    server.use(http.post(`${BASE}/conversations/4/turns`, () => streamResponse(sse(START), malformed, sse(result3, END))))
+    const events: AssistantStreamEvent[] = []
+    const result = await streamAssistantTurn(4, { text: 'Hi' }, { onEvent: (event) => events.push(event) })
+    expect(result.status).toBe('COMPLETE')
+    expect(events.map((event) => event.type)).toEqual(['message.start', 'tool.result', 'message.end'])
+    expect(events[1]).toMatchObject({ render: { rows: [], columns: [] } })
+  })
+
+  it('treats a connection that goes quiet as lost and resumes it', async () => {
+    let resumes = 0
+    server.use(
+      // never closes and never pings
+      http.post(`${BASE}/conversations/4/turns`, () => new HttpResponse(new ReadableStream({
+        start(controller) { controller.enqueue(new TextEncoder().encode(sse(START, DELTA_A))) },
+      }), { headers: { 'Content-Type': 'text/event-stream' } })),
+      http.get(`${BASE}/turns/9/events`, () => {
+        resumes++
+        return streamResponse(sse(DELTA_B, END))
+      })
+    )
+    const result = await streamAssistantTurn(4, { text: 'Hi' }, { onEvent: vi.fn(), idleTimeoutMs: 30, resumeDelayMs: 1 })
+    expect(result.status).toBe('COMPLETE')
+    expect(resumes).toBe(1)
+  })
+})
