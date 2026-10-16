@@ -43,6 +43,7 @@ import type { AssistantRun } from './use-assistant-engine'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AssistantPresentation, type AssistantPresentationActions } from './AssistantPresentation'
 import { AssistantRenderView, RecordChips } from './AssistantRenders'
+import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 import Link from 'next/link'
 
 /** Plain-language outcome of a tool call. */
@@ -168,7 +169,28 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
  */
 function PartView({ part, onSend, sending, finished }: { part: AssistantPart; finished?: boolean } & AssistantPresentationActions) {
   const render = (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type]
-  return render ? <>{render({ part, onSend, sending, finished })}</> : null
+  if (!render) return null
+  // One part that fails to render (for example, a malformed tool payload) must
+  // not take down the reply - or the page - around it.
+  return (
+    <ErrorBoundary fallback={<PartFallback />}>
+      {render({ part, onSend, sending, finished })}
+    </ErrorBoundary>
+  )
+}
+
+/**
+ * Shown in place of a part that could not be rendered.
+ *
+ * @returns The fallback note.
+ */
+function PartFallback() {
+  return (
+    <p className="flex items-start gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-part-error">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 break-words">This part of the answer could not be shown.</span>
+    </p>
+  )
 }
 
 /**
