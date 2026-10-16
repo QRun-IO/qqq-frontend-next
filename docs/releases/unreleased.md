@@ -1,6 +1,6 @@
 # Next UI — unreleased
 
-[RC34 preparation](1.0.0-RC.34.md) collects every change merged since [RC33](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.33). RC33 is published and immutable. Changes merged after the RC34 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC35 preparation](1.0.0-RC.35.md) collects every change merged since [RC34](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.34). RC34 is published and immutable. Changes merged after the RC35 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Features
 
