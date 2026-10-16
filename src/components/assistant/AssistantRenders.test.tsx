@@ -78,7 +78,42 @@ describe('AssistantMessageView', () => {
     } as unknown as AssistantMessage
     render(<AssistantMessageView message={message} onSend={vi.fn()} sending={false} />)
     expect(screen.getByText('Still readable.')).toBeInTheDocument()
-    expect(screen.getByText('This part of the answer could not be shown.')).toBeInTheDocument()
+    // the tool step (its label) stays; only its result is replaced
+    expect(screen.getByText('Counted')).toBeInTheDocument()
+    expect(screen.getByText("This result couldn't be displayed.")).toBeInTheDocument()
     consoleError.mockRestore()
+  })
+
+  it('isolates a part that throws outside a render, and shows unknown parts and renders as JSON', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const message = {
+      id: 86, role: 'ASSISTANT', status: 'COMPLETE', turnId: 7, createDate: '2026-10-16T00:30:00Z',
+      parts: [
+        { type: 'record_refs', refs: null }, // refs.length throws in RecordChips
+        { type: 'tool', toolCallId: 'toolu_z', name: 'future_tool', summary: 'Mapped', outcome: 'OK', render: { type: 'unknown', originalType: 'map', raw: { type: 'map', pins: 2 } } },
+        { type: 'unknown', originalType: 'approval', raw: { type: 'approval', id: 9 } },
+        { type: 'text', text: 'After the bad parts.' },
+      ],
+    } as unknown as AssistantMessage
+    render(<AssistantMessageView message={message} onSend={vi.fn()} sending={false} />)
+    expect(screen.getByText('After the bad parts.')).toBeInTheDocument()
+    expect(screen.getByText("This part couldn't be displayed.")).toBeInTheDocument()
+    expect(screen.getByText('Unsupported result (map)')).toBeInTheDocument()
+    expect(screen.getByText('Unsupported content (approval)')).toBeInTheDocument()
+    consoleError.mockRestore()
+  })
+
+  it('offers Retry on a failed reply and Stop on a running one', async () => {
+    const onRetry = vi.fn()
+    const onStop = vi.fn()
+    const failed = { id: 87, role: 'ASSISTANT', status: 'ERROR', turnId: 8, createDate: '2026-10-16T00:30:00Z', parts: [] } as unknown as AssistantMessage
+    const { rerender } = render(<AssistantMessageView message={failed} onSend={vi.fn()} sending={false} onRetry={onRetry} />)
+    expect(screen.getByText('The reply did not finish.')).toBeInTheDocument()
+    screen.getByRole('button', { name: 'Retry' }).click()
+    expect(onRetry).toHaveBeenCalledOnce()
+    const running = { ...failed, status: 'STREAMING' } as AssistantMessage
+    rerender(<AssistantMessageView message={running} onSend={vi.fn()} sending={false} onStop={onStop} />)
+    screen.getByRole('button', { name: 'Stop' }).click()
+    expect(onStop).toHaveBeenCalledOnce()
   })
 })
