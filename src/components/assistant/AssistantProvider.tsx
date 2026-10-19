@@ -117,6 +117,9 @@ export function useAssistantController(metaData: QInstance | undefined, isAuthen
     queryFn: () => listAssistantConversations(),
     enabled,
     staleTime: 1000 * 60,
+    // Replies landing in background threads (another tab, a long turn): refetch while the server
+    // reports one running, so the badge and rail catch up; idle, only the usual refetch on focus
+    refetchInterval: (query) => ((query.state.data ?? []).some((conversation) => conversation.running) ? 8000 : false),
   })
   const unreadCount = useMemo(() => (conversations ?? []).reduce((total, conversation) => total + (conversation.unreadCount || 0), 0), [conversations])
 

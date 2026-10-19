@@ -90,6 +90,22 @@ describe('getAssistantConfig', () => {
     await expect(getAssistantConfig()).resolves.toEqual({ enabled: true, shortcut: 'mod+j' })
   })
 
+  it('normalizes conversation and attachment configuration together', async () => {
+    server.use(http.get(`${BASE}/config`, () => HttpResponse.json({
+      enabled: true,
+      conversationsTable: ' assistant_conversation ',
+      features: { attachments: true },
+      limits: { maxAttachmentBytes: -1, attachmentTypes: [' image/png ', ''] },
+    })))
+    await expect(getAssistantConfig()).resolves.toMatchObject({
+      enabled: true,
+      conversationsTable: 'assistant_conversation',
+      features: { attachments: true },
+      limits: { attachmentTypes: ['image/png'] },
+    })
+    expect((await getAssistantConfig())?.limits).not.toHaveProperty('maxAttachmentBytes')
+  })
+
   it.each([403, 404])('returns null on %i (qbit absent or not for this user)', async (status) => {
     server.use(http.get(`${BASE}/config`, () => HttpResponse.json({ error: 'nope' }, { status })))
     await expect(getAssistantConfig()).resolves.toBeNull()

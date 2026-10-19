@@ -651,7 +651,7 @@ describe('answer lifecycle and recovery', () => {
     renderShell()
     await openComposer(user)
     await user.click(screen.getByRole('button', { name: 'Show conversations' }))
-    await user.click(await screen.findByRole('option', { name: /Saved conversation/ }))
+    await user.click(await screen.findByRole('button', { name: 'Saved conversation' }))
     await user.click(await screen.findByRole('button', { name: 'Stop the reply' }))
     expect(await screen.findByText('Finished on another pod', { selector: MESSAGE_TEXT })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())

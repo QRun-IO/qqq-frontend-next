@@ -50,6 +50,8 @@ import { AssistantElapsed } from './AssistantRunStatus'
 import { AssistantComposer } from './AssistantComposer'
 import { AssistantMessageView } from './AssistantMessageView'
 import { ConversationRail, conversationTitle } from './ConversationRail'
+import { markConversationRead } from './mark-read'
+import { useRailActions } from './use-rail-actions'
 import { useAssistantEngine, type AssistantEngine } from './use-assistant-engine'
 import { useAssistantAttachments } from './use-assistant-attachments'
 import { useStreamAnnouncer } from './use-stream-announcer'
@@ -162,6 +164,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const [railStatus, setRailStatus] = useState<AssistantConversationStatus>('ACTIVE')
   const [renaming, setRenaming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** The rail row whose delete is being confirmed; the open conversation when null. */
+  const [rowDelete, setRowDelete] = useState<AssistantConversation | null>(null)
   const [dismissedRoute, setDismissedRoute] = useState<string | null>(null)
   const [pageInfo, setPageInfo] = useState(() => readPageInfo(metaData))
   const [prefill, setPrefill] = useState<{ id: number; text: string } | null>(null)
@@ -193,12 +197,28 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     ?? conversationsQuery.data?.find((item) => item.id === activeConversationId)
   const announcement = useStreamAnnouncer(messages)
 
-  // Opening a conversation reads it: the badge drops its unread replies
+  // Opening a conversation reads it: the badge drops its unread replies, here and on the server
   useEffect(() => {
     if (activeConversationId === null || !assistant.open) return
-    queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(), (list) =>
-      list?.map((item) => (item.id === activeConversationId && item.unreadCount ? { ...item, unreadCount: 0 } : item)))
+    const unread = queryClient.getQueriesData<AssistantConversation[]>({ queryKey: [...assistantKeys.all(), 'conversations'] })
+      .some(([, list]) => list?.some((item) => item.id === activeConversationId && item.unreadCount > 0))
+    if (unread) markConversationRead(queryClient, activeConversationId)
   }, [activeConversationId, assistant.open, queryClient, messages.length])
+
+  // Anything else working or unread in the active list, for the History toggle's dot
+  const activeList = useQuery({
+    queryKey: assistantKeys.conversations(),
+    queryFn: () => listAssistantConversations(),
+    staleTime: 1000 * 60,
+  }).data
+  const othersBusy = (activeList ?? []).some((item) => item.id !== activeConversationId && (item.running === true || item.unreadCount > 0))
+    || Object.keys(engine.runs).some((id) => Number(id) !== activeConversationId)
+  const railConversations = useMemo(() => conversationsQuery.data?.map((item) => (
+    item.running || !engine.runs[item.id] ? item : { ...item, running: true }
+  )), [conversationsQuery.data, engine.runs])
+  const railActions = useRailActions({ activeConversationId, setActiveConversationId })
+  const manageTable = assistant.config?.conversationsTable
+  const manageHref = manageTable && metaData?.tables?.[manageTable] ? `/app/${encodeURIComponent(manageTable)}` : null
 
   // A reply still streaming on the server (another tab, a reload): follow it
   useEffect(() => {
@@ -277,18 +297,11 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     }
   }
 
-  /** Deletes the active conversation. */
+  /** Deletes the conversation being confirmed (a rail row, or the open one). */
   const deleteConversation = async () => {
-    if (activeConversationId === null) return
-    const id = activeConversationId
-    try {
-      await deleteAssistantConversation(id)
-      setActiveConversationId(null)
-      queryClient.removeQueries({ queryKey: assistantKeys.conversation(id) })
-      await queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(), 'conversations'] })
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not delete the conversation.'))
-    }
+    const target = rowDelete ?? conversation
+    if (!target) return
+    await railActions.remove(target)
   }
 
   const showMessages = wide || !railOpen
@@ -304,14 +317,21 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2" style={{ minHeight: 'var(--qqq-header-height)' }}>
         <button
           type="button"
-          className={iconButton}
+          className={cn(iconButton, 'relative')}
           onClick={() => setRailOpen((value) => !value)}
           aria-expanded={railOpen}
           aria-controls={listId}
           aria-label={railOpen ? 'Hide conversations' : 'Show conversations'}
+          aria-describedby={othersBusy ? `${listId}-busy` : undefined}
           data-qqq-id="assistant-rail-toggle"
         >
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
+          {othersBusy && (
+            <>
+              <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary" aria-hidden="true" data-qqq-id="assistant-rail-toggle-dot" />
+              <span id={`${listId}-busy`} className="sr-only">Other conversations are working or have unread replies</span>
+            </>
+          )}
         </button>
         {renaming && conversation ? (
           <form
@@ -435,11 +455,15 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           <div id={listId} className={cn('flex min-h-0', wide ? 'w-52 shrink-0 border-r border-border' : 'min-w-0 flex-1')}>
             <ConversationRail
               className="min-w-0 flex-1"
-              conversations={conversationsQuery.data}
+              conversations={railConversations}
               loading={conversationsQuery.isLoading}
               activeId={activeConversationId}
               status={railStatus}
               onStatusChange={setRailStatus}
+              onArchive={(item) => void railActions.archive(item)}
+              onDelete={(item) => { setRowDelete(item); setConfirmDelete(true) }}
+              manageHref={manageHref}
+              onManage={() => { if (!wide) assistant.setOpen(false) }}
               onSelect={(id) => {
                 if (id !== activeConversationId) clearAttachments()
                 setActiveConversationId(id)
@@ -538,12 +562,12 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
       </div>
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-qqq-id="assistant-announcer">{announcement}</div>
 
-      <AlertDialog.Root open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialog.Root open={confirmDelete} onOpenChange={(open) => { setConfirmDelete(open); if (!open) setRowDelete(null) }}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-[2200] bg-black/40" />
           <AlertDialog.Content className="fixed left-1/2 top-1/2 z-[2201] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-lg focus:outline-none" data-qqq-id="assistant-delete-dialog">
             <AlertDialog.Title className="text-base font-semibold text-foreground">Delete this conversation?</AlertDialog.Title>
-            <AlertDialog.Description className="mt-1 text-sm text-muted-foreground">{conversationTitle(conversation)} and its messages are deleted. This cannot be undone.</AlertDialog.Description>
+            <AlertDialog.Description className="mt-1 text-sm text-muted-foreground">{conversationTitle(rowDelete ?? conversation)} and its messages are deleted. This cannot be undone.</AlertDialog.Description>
             <div className="mt-4 flex justify-end gap-2">
               <AlertDialog.Cancel className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">Cancel</AlertDialog.Cancel>
               <AlertDialog.Action

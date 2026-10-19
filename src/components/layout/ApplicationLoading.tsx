@@ -14,7 +14,7 @@
 export function ApplicationLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600" data-qqq-id="application-loading">
-      <div role="status" aria-live="polite" className="flex flex-col items-center gap-4 p-6">
+      <div role="status" aria-label="Loading" aria-live="polite" className="flex flex-col items-center gap-4 p-6">
         <span aria-hidden="true" className="h-8 w-8 rounded-full border-2 border-slate-200 border-t-slate-600 motion-safe:animate-spin" />
         <p className="text-sm">Loading your workspace…</p>
       </div>
