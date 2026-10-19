@@ -68,9 +68,10 @@ describe('helpPlainText', () => {
     expect(helpPlainText({ summary: 'Only a summary.' })).toBe('Only a summary.')
   })
 
-  it('removes nested or split tags and decodes &amp; last', () => {
-    expect(helpPlainText({ contentAsHtml: 'a<scr<script>x</script>ipt>b</script >c' })).toBe('ac')
-    expect(helpPlainText({ contentAsHtml: '<<b>i>x' })).toBe('i>x')
+  it('uses HTML parser semantics for malformed tags and decodes entities once', () => {
+    // Literal angle brackets remain plain text; callers render text, never HTML.
+    expect(helpPlainText({ contentAsHtml: 'a<scr<script>x</script>ipt>b</script >c' })).toBe('axipt>bc')
+    expect(helpPlainText({ contentAsHtml: '<<b>i>x' })).toBe('<i>x')
     expect(helpPlainText({ contentAsHtml: '&amp;lt;b&amp;gt;' })).toBe('&lt;b&gt;')
   })
 })

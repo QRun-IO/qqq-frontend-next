@@ -20,6 +20,7 @@
  */
 
 import type { QHelpContent } from '@/types'
+import { htmlPlainText } from './sanitize-html'
 
 /** Roles of the record view screen, most specific first. */
 export const VIEW_SCREEN_HELP_ROLES = ['VIEW_SCREEN', 'READ_SCREENS', 'ALL_SCREENS'] as const
@@ -129,26 +130,6 @@ export function helpSummary(entry: QHelpContent): string {
  */
 export function helpPlainText(entry: QHelpContent): string {
   const source = entry.contentAsHtml || entry.content || entry.summary || ''
-  const withoutBlocks = replaceUntilStable(source, (s) => s
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ''))
-  const withoutTags = replaceUntilStable(withoutBlocks.replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' '), (s) => s.replace(/<[^>]*>/g, ''))
-  return withoutTags.replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  return htmlPlainText(source).replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
     .replace(/\s+/g, ' ').trim()
-}
-
-/**
- * Applies a replacement repeatedly until the text stops changing, so removing one tag cannot
- * leave behind (or assemble) another one, e.g. `<scr<script>ipt>`.
- * @param text - Input text.
- * @param step - One replacement pass.
- * @returns The stable result.
- */
-function replaceUntilStable(text: string, step: (s: string) => string): string {
-  let previous = text
-  for (;;) {
-    const next = step(previous)
-    if (next === previous) return next
-    previous = next
-  }
 }
