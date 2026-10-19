@@ -83,3 +83,19 @@ export function sanitizeHtml(html: string | null | undefined, options: SanitizeH
   const config: Config = { FORBID_TAGS: FORBIDDEN_TAGS, ...(options.allowedUriRegexp ? { ALLOWED_URI_REGEXP: options.allowedUriRegexp } : {}) }
   return instance().sanitize(html, config) as string
 }
+
+/**
+ * Parses untrusted HTML into text without inserting it into the document.
+ * Block boundaries remain readable and entities are decoded once by the parser.
+ * @param html - Untrusted HTML.
+ * @returns Plain text, or empty outside the browser, like sanitizeHtml.
+ */
+export function htmlPlainText(html: string): string {
+  if (!html || typeof window === 'undefined') return ''
+  const fragment = instance().sanitize(html, { FORBID_TAGS: FORBIDDEN_TAGS, RETURN_DOM_FRAGMENT: true })
+  for (const block of fragment.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6')) {
+    block.before(document.createTextNode(' '))
+    block.after(document.createTextNode(' '))
+  }
+  return fragment.textContent ?? ''
+}

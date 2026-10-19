@@ -47,10 +47,38 @@ export async function getAssistantConfig(): Promise<AssistantConfig | null> {
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
   if (typeof (data as { enabled?: unknown }).enabled !== 'boolean') return null
-  const config = data as AssistantConfig
+  const config = normalizeAttachmentSettings(data as AssistantConfig)
   // an optional field of newer servers: anything but a non-empty name is ignored
   const table = (config as { conversationsTable?: unknown }).conversationsTable
   return { ...config, conversationsTable: typeof table === 'string' && table.trim() ? table.trim() : undefined }
+}
+
+/**
+ * Repairs the attachment fields of the config (`features.attachments`,
+ * `limits.maxAttachmentBytes`, `limits.attachmentTypes`): a value of the wrong type is dropped,
+ * so the panel falls back to the bulk-load attach behaviour of older servers.
+ *
+ * @param config - The config as received.
+ * @returns The config with valid attachment fields only.
+ */
+export function normalizeAttachmentSettings(config: AssistantConfig): AssistantConfig {
+  const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+  const features = isObject(config.features) ? { ...config.features } : undefined
+  const limits = isObject(config.limits) ? { ...config.limits } : undefined
+  if (features && typeof features.attachments !== 'boolean') delete features.attachments
+  if (limits) {
+    const max = limits.maxAttachmentBytes
+    if (typeof max !== 'number' || !Number.isFinite(max) || max <= 0) delete limits.maxAttachmentBytes
+    const types = limits.attachmentTypes
+    if (Array.isArray(types)) {
+      const names = types.filter((type): type is string => typeof type === 'string' && type.trim() !== '').map((type) => type.trim())
+      if (names.length) limits.attachmentTypes = names
+      else delete limits.attachmentTypes
+    } else {
+      delete limits.attachmentTypes
+    }
+  }
+  return { ...config, features, limits }
 }
 
 /**

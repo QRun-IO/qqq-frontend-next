@@ -20,7 +20,7 @@
  */
 'use client'
 
-import React, { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import React, { createContext, type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react'
 
 import type { QThemeMetaData } from '@/types'
 import { applyMaterialTheme } from './material-theme'
@@ -119,8 +119,8 @@ export function ThemeProvider({
     }
   }, [])
 
-  // Apply the dark class when the mode changes
-  useEffect(() => {
+  // Apply the dark class before the themed shell is painted.
+  useLayoutEffect(() => {
     if (!ready) return
     const root = document.documentElement
     root.classList.toggle('dark', isDarkMode)
@@ -128,7 +128,7 @@ export function ThemeProvider({
   }, [isDarkMode, ready])
 
   // Apply the application theme; the cleanup removes it again (sign-out, theme change)
-  useEffect(() => applyMaterialTheme(theme), [theme])
+  useLayoutEffect(() => applyMaterialTheme(theme), [theme])
 
   const setTheme = useCallback((next: QThemeMetaData | null) => setThemeState(next), [])
 

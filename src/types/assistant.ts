@@ -29,8 +29,22 @@ export interface AssistantConfig {
   /** Keyboard shortcut, e.g. `mod+j`. */
   shortcut?: string
   model?: string
-  limits?: { maxTurnSeconds?: number; maxToolCallsPerTurn?: number }
-  features?: { writes?: boolean; pendingActions?: boolean; writeMode?: boolean; autoConfirm?: boolean }
+  limits?: {
+    maxTurnSeconds?: number
+    maxToolCallsPerTurn?: number
+    /** Largest file the assistant reads, in bytes (checked before uploading). */
+    maxAttachmentBytes?: number
+    /** What the assistant reads, as human-readable names (for example "PDF", "Images"). */
+    attachmentTypes?: string[]
+  }
+  features?: {
+    writes?: boolean
+    pendingActions?: boolean
+    writeMode?: boolean
+    autoConfirm?: boolean
+    /** The assistant reads attached files (text, PDF, images, data files); absent on older servers. */
+    attachments?: boolean
+  }
   /** The user's own preferences. */
   preferences?: { defaultWriteMode?: boolean; autoConfirmLowRisk?: boolean }
   /** The assistant's persona (admin-configured profile); text only, it never changes access. */
@@ -82,6 +96,10 @@ export interface AssistantPageContext {
 export interface AssistantAttachment {
   uploadRef: string
   fileName?: string
+  /** Shown on the chip only; never sent with a turn. */
+  sizeBytes?: number
+  /** Shown on the chip only; never sent with a turn. */
+  contentType?: string
 }
 
 /** Outcome of one tool call. */

@@ -32,8 +32,7 @@ import { Archive, ArchiveRestore, Check, Eye, MoreHorizontal, PanelLeft, Pencil,
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantAttachment, AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate, AssistantMessage } from '@/types/assistant'
-import { uploadFile } from '@/lib/api/uploads'
+import type { AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate, AssistantMessage } from '@/types/assistant'
 import {
   deleteAssistantConversation,
   getAssistantConversation,
@@ -54,6 +53,7 @@ import { ConversationRail, conversationTitle } from './ConversationRail'
 import { markConversationRead } from './mark-read'
 import { useRailActions } from './use-rail-actions'
 import { useAssistantEngine, type AssistantEngine } from './use-assistant-engine'
+import { useAssistantAttachments } from './use-assistant-attachments'
 import { useStreamAnnouncer } from './use-stream-announcer'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 import { InlineFailure } from '@/components/feedback/InlineFailure'
@@ -169,30 +169,9 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const [dismissedRoute, setDismissedRoute] = useState<string | null>(null)
   const [pageInfo, setPageInfo] = useState(() => readPageInfo(metaData))
   const [prefill, setPrefill] = useState<{ id: number; text: string } | null>(null)
-  const [attachments, setAttachments] = useState<AssistantAttachment[]>([])
-  const [attaching, setAttaching] = useState(false)
-  // attaching is offered where saved bulk load profiles are (the bulk-load tools use the files)
-  const canAttach = Boolean(metaData?.processes?.storeSavedBulkLoadProfile)
-
-  // attachments belong to one conversation
-  useEffect(() => setAttachments([]), [activeConversationId])
-
-  /**
-   * Uploads a picked file (POST /uploads, as the user) and attaches its ref.
-   *
-   * @param file - The file.
-   */
-  const attach = async (file: File) => {
-    setAttaching(true)
-    try {
-      const uploaded = await uploadFile(file)
-      setAttachments((current) => [...current.filter((a) => a.uploadRef !== uploaded.ref), { uploadRef: uploaded.ref, fileName: uploaded.fileName }].slice(-5))
-    } catch (error) {
-      toast.error(`Could not attach ${file.name}: ${getErrorMessage(error)}`)
-    } finally {
-      setAttaching(false)
-    }
-  }
+  // attaching is offered when the server reads attachments, else where saved bulk load profiles are
+  const files = useAssistantAttachments(assistant.config, Boolean(metaData?.processes?.storeSavedBulkLoadProfile), activeConversationId)
+  const clearAttachments = files.clear
   const listId = useId()
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -252,6 +231,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   useEffect(() => {
     if (!pendingRequest) return
     consumeRequest(pendingRequest.id)
+    clearAttachments()
     setActiveConversationId(null)
     setRailOpen(false)
     if (pendingRequest.mode === 'prefill') {
@@ -260,7 +240,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     }
     const context = pendingRequest.context === undefined ? readPageInfo(metaData)?.context ?? null : pendingRequest.context
     void engine.send(pendingRequest.prompt, null, context, concurrency)
-  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine, concurrency])
+  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine, concurrency, clearAttachments])
 
   // Keep the newest message in view while the user has not scrolled up
   useLayoutEffect(() => {
@@ -294,7 +274,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const send = (text: string) => {
     const info = readPageInfo(metaData)
     const pageContext = info && dismissedRoute !== info.context.route ? info.context : null
-    const context = attachments.length ? { ...(pageContext ?? {}), attachments } : pageContext
+    const attachments = files.forTurn()
+    const context = attachments ? { ...(pageContext ?? {}), attachments } : pageContext
     stickToBottom.current = true
     void engine.send(text, activeConversationId, context, concurrency)
   }
@@ -443,6 +424,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           type="button"
           className={iconButton}
           onClick={() => {
+            clearAttachments()
             setActiveConversationId(null)
             setRailOpen(false)
             requestAnimationFrame(() => composerRef.current?.focus())
@@ -462,7 +444,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
         return (
           <div key={id} className="flex items-center gap-2 border-b border-border px-3 py-2 text-xs" data-qqq-id="assistant-background-run">
             <span className="min-w-0 flex-1">Answering in {conversationTitle(other)} - <AssistantElapsed startedAt={runs[0].startedAt} /></span>
-            <button type="button" className={textButton} onClick={() => { setActiveConversationId(Number(id)); setRailOpen(false) }} data-qqq-id="assistant-background-open">Open</button>
+            <button type="button" className={textButton} onClick={() => { clearAttachments(); setActiveConversationId(Number(id)); setRailOpen(false) }} data-qqq-id="assistant-background-open">Open</button>
             <button type="button" className={textButton} onClick={() => engine.cancel(Number(id))} data-qqq-id="assistant-background-stop">Stop</button>
           </div>
         )
@@ -483,6 +465,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               manageHref={manageHref}
               onManage={() => { if (!wide) assistant.setOpen(false) }}
               onSelect={(id) => {
+                if (id !== activeConversationId) clearAttachments()
                 setActiveConversationId(id)
                 if (!engine.runs[id]) void queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(id) })
                 if (!wide) setRailOpen(false)
@@ -536,7 +519,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                   scope="assistant-message"
                   reportContext={{ conversationId: activeConversationId, messageId: message.id, turnId: message.turnId }}
                   resetKeys={[message]}
-                  fallbackRender={({ report, error }) => <InlineFailure message="This message couldn't be displayed." report={report} error={error} qqqId="assistant-message-error" />}
+                  fallbackRender={({ report, error }) => <InlineFailure message="This message could not be shown." report={report} error={error} qqqId="assistant-message-error" />}
                 >
                   <AssistantMessageView
                     message={message}
@@ -548,23 +531,32 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                 </ErrorBoundary>
               ))}
             </div>
-            <AssistantComposer
-              ref={composerRef}
-              pageInfo={pageInfo}
-              contextDismissed={contextDismissed}
-              onDismissContext={() => setDismissedRoute(pageInfo?.context.route ?? null)}
-              onRefreshContext={() => setPageInfo(readPageInfo(metaData))}
-              concurrency={concurrency}
-              streaming={Boolean(run)}
-              stopping={Boolean(run) && engine.runs[activeConversationId as number]?.every((entry) => entry.status === 'cancelling')}
-              onSend={send}
-              onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
-              prefill={prefill}
-              attachments={attachments}
-              onAttach={canAttach ? (file) => void attach(file) : undefined}
-              onRemoveAttachment={(uploadRef) => setAttachments((current) => current.filter((a) => a.uploadRef !== uploadRef))}
-              attaching={attaching}
-            />
+            <ErrorBoundary
+              scope="assistant-composer"
+              reportContext={{ conversationId: activeConversationId }}
+              fallbackRender={({ report, error, reset }) => <InlineFailure message="The message box could not be shown." report={report} error={error} onRetry={reset} qqqId="assistant-composer-error" className="m-3" />}
+            >
+              <AssistantComposer
+                ref={composerRef}
+                pageInfo={pageInfo}
+                contextDismissed={contextDismissed}
+                onDismissContext={() => setDismissedRoute(pageInfo?.context.route ?? null)}
+                onRefreshContext={() => setPageInfo(readPageInfo(metaData))}
+                concurrency={concurrency}
+                streaming={Boolean(run)}
+                stopping={Boolean(run) && engine.runs[activeConversationId as number]?.every((entry) => entry.status === 'cancelling')}
+                onSend={send}
+                onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
+                prefill={prefill}
+                attachments={files.attachments}
+                onAttach={files.policy.enabled ? (file) => void files.attach(file) : undefined}
+                onRemoveAttachment={files.remove}
+                attaching={files.attaching}
+                attachPolicy={files.policy}
+                attachError={files.error}
+                onDismissAttachError={files.dismissError}
+              />
+            </ErrorBoundary>
           </div>
         )}
       </div>

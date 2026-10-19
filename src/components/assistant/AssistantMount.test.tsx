@@ -17,14 +17,14 @@
 // A crashing assistant panel is replaced by a small card; the page around it keeps working
 
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resetClientErrorsForTesting, setClientErrorSink } from '@/lib/errors/client-errors'
-import { AssistantContext, type AssistantController } from './assistant-context'
-import { AssistantMount } from './AssistantMount'
+import { AssistantContext, assistantKeys, type AssistantController } from './assistant-context'
+import { AssistantMount, setAssistantPanelLoaderForTesting } from './AssistantMount'
 
 const panel = vi.hoisted(() => ({ broken: true }))
 vi.mock('./AssistantPanel', () => ({
@@ -34,9 +34,8 @@ vi.mock('./AssistantPanel', () => ({
   },
 }))
 
-function renderMount(setOpen = vi.fn()) {
+function renderMount(setOpen = vi.fn(), client = new QueryClient()) {
   const controller = { enabled: true, open: true, setOpen, activeConversationId: 4 } as unknown as AssistantController
-  const client = new QueryClient()
   return render(
     <QueryClientProvider client={client}>
       <AssistantContext.Provider value={controller}>
@@ -50,6 +49,7 @@ function renderMount(setOpen = vi.fn()) {
 describe('AssistantMount', () => {
   afterEach(() => {
     resetClientErrorsForTesting()
+    setAssistantPanelLoaderForTesting(null)
     vi.restoreAllMocks()
     panel.broken = true
   })
@@ -77,5 +77,39 @@ describe('AssistantMount', () => {
     renderMount(setOpen)
     await userEvent.click(await screen.findByRole('button', { name: 'Close assistant' }))
     expect(setOpen).toHaveBeenCalledWith(false)
+  })
+
+  it('loads the panel again on Retry after its code failed to load (a chunk missing after a deploy)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    panel.broken = false
+    const real = () => import('./AssistantPanel')
+    let attempts = 0
+    setAssistantPanelLoaderForTesting(() => {
+      attempts++
+      return attempts === 1 ? Promise.reject(new Error('Failed to fetch dynamically imported module')) : real()
+    })
+    renderMount()
+    expect(await screen.findByText('The assistant hit a problem')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('panel')).toBeInTheDocument()
+    expect(attempts).toBe(2)
+  })
+
+  it('recovers by itself once an assistant request succeeds again', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const client = new QueryClient()
+    const list = vi.fn().mockResolvedValue([])
+    // the header badge's list query, as the shell registers it
+    await client.prefetchQuery({ queryKey: assistantKeys.conversations(), queryFn: list })
+    renderMount(vi.fn(), client)
+    expect(await screen.findByText('The assistant hit a problem')).toBeInTheDocument()
+
+    // the next poll succeeds (the mount's own backoff check, a focus refetch or the badge)
+    panel.broken = false
+    await act(async () => {
+      await client.refetchQueries({ queryKey: assistantKeys.conversations(), type: 'all' })
+    })
+    expect(await screen.findByText('panel')).toBeInTheDocument()
+    expect(screen.queryByText('The assistant hit a problem')).toBeNull()
   })
 })

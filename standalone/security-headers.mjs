@@ -64,7 +64,7 @@ export const CONTENT_SECURITY_POLICY = 'Content-Security-Policy'
 
 const DIRECTIVE_NAME = /^[a-z][a-z0-9-]*$/
 const SOURCE_TOKEN = /^[^\s;,]+$/
-const SCRIPT_ELEMENT = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi
+const SCRIPT_ELEMENT = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi
 const SRC_ATTRIBUTE = /(^|\s)src\s*=/i
 
 /**
