@@ -41,6 +41,7 @@ import { internalAppHref } from '@/lib/utils/assistant-links'
 import { cn } from '@/lib/utils/cn'
 import { MyAvatar } from '@/components/ui/UserAvatar'
 import { AssistantRunStatus } from './AssistantRunStatus'
+import { partsOf } from './message-reducer'
 import type { AssistantRun } from './use-assistant-engine'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AssistantPresentation, type AssistantPresentationActions } from './AssistantPresentation'
@@ -106,7 +107,7 @@ function ToolStep({ part, finished = false }: { part: AssistantToolPart; finishe
           scope="assistant-render"
           reportContext={{ renderType: part.render.type === 'unknown' ? part.render.originalType : part.render.type }}
           resetKeys={[part.render]}
-          fallbackRender={({ report, error, reset }) => <InlineFailure message="This result couldn't be displayed." report={report} error={error} onRetry={reset} qqqId="assistant-render-error" />}
+          fallbackRender={({ report, error, reset }) => <InlineFailure message="This result could not be shown." report={report} error={error} onRetry={reset} qqqId="assistant-render-error" />}
         >
           <AssistantRenderView render={part.render} />
         </ErrorBoundary>
@@ -184,20 +185,34 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
  * @returns The rendered part, or null.
  */
 function PartView({ part, onSend, sending, finished, messageId }: { part: AssistantPart; finished?: boolean; messageId?: number } & AssistantPresentationActions) {
-  const render = (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type]
+  if (!part || typeof part !== 'object') return <InlineFailure message="This part could not be shown." qqqId="assistant-part-error" />
+  const render = typeof part.type === 'string' ? (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type] : undefined
   if (!render) return null
   // One part that fails to render (for example, a malformed tool payload) must
   // not take down the reply - or the page - around it. A new payload (streaming) renders again.
+  // The renderer runs inside the boundary (as a component), so an error in it stays here too.
   return (
     <ErrorBoundary
       scope="assistant-part"
       reportContext={{ messageId, partType: part.type }}
       resetKeys={[part]}
-      fallbackRender={({ report, error }) => <InlineFailure message="This part couldn't be displayed." report={report} error={error} qqqId="assistant-part-error" />}
+      fallbackRender={({ report, error }) => <InlineFailure message="This part could not be shown." report={report} error={error} qqqId="assistant-part-error" />}
     >
-      {render({ part, onSend, sending, finished })}
+      <RenderPart render={render} part={part} onSend={onSend} sending={sending} finished={finished} />
     </ErrorBoundary>
   )
+}
+
+/**
+ * Calls a part renderer during its own render, inside the part's error boundary.
+ *
+ * @param props - Component properties.
+ * @param props.render - The renderer.
+ * @param props.part - The part.
+ * @returns What the renderer returns.
+ */
+function RenderPart({ render, part, onSend, sending, finished }: { render: PartRenderer<AssistantPart>; part: AssistantPart; finished?: boolean } & AssistantPresentationActions) {
+  return <>{render({ part, onSend, sending, finished })}</>
 }
 
 /**
@@ -274,7 +289,7 @@ function FeedbackButtons({ messageId }: { messageId: number }) {
  */
 export function AssistantMessageView({ message, onSend, sending, run, onRetry, onStop }: { message: AssistantMessage; run?: AssistantRun; onRetry?: () => void; onStop?: () => void } & AssistantPresentationActions) {
   if (message.role === 'USER') {
-    const text = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
+    const text = partsOf(message).map((part) => (part?.type === 'text' && typeof part.text === 'string' ? part.text : '')).join('')
     return (
       <article className="flex items-end justify-end gap-2" aria-label="You" data-qqq-id="assistant-message" data-role="user">
         <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-muted px-3 py-2 text-sm text-foreground">{text}</p>
@@ -285,21 +300,22 @@ export function AssistantMessageView({ message, onSend, sending, run, onRetry, o
   if (message.role === 'SYSTEM_NOTICE') {
     return (
       <article className="space-y-1" aria-label="Notice" data-qqq-id="assistant-message" data-role="notice">
-        {message.parts.map((part, index) => <PartView key={index} part={part} messageId={message.id} />)}
+        {partsOf(message).map((part, index) => <PartView key={index} part={part} messageId={message.id} />)}
       </article>
     )
   }
   const streaming = message.status === 'STREAMING'
+  const parts = partsOf(message)
   return (
     <article className="min-w-0 space-y-2" aria-label="Assistant" data-qqq-id="assistant-message" data-role="assistant" data-status={message.status}>
-      {message.parts.length > 0 && (
+      {parts.length > 0 && (
         <div className="space-y-2" aria-busy={streaming}>
-          {message.parts.map((part, index) => <PartView key={part.type === 'tool' && part.toolCallId ? part.toolCallId : index} part={part} messageId={message.id} onSend={onSend} sending={sending || streaming} finished={!streaming} />)}
+          {parts.map((part, index) => <PartView key={part?.type === 'tool' && part.toolCallId ? part.toolCallId : index} part={part} messageId={message.id} onSend={onSend} sending={sending || streaming} finished={!streaming} />)}
         </div>
       )}
       {(run || streaming) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {run ? <AssistantRunStatus run={run} /> : message.parts.length === 0 && (
+          {run ? <AssistantRunStatus run={run} /> : parts.length === 0 && (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-thinking">
               <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
               Working on it...
@@ -316,7 +332,7 @@ export function AssistantMessageView({ message, onSend, sending, run, onRetry, o
       {message.status === 'CANCELLED' && <p className="text-xs text-muted-foreground">Stopped.</p>}
       {message.status === 'ERROR' && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-qqq-id="assistant-reply-failed">
-          {!message.parts.some((part) => part.type === 'notice' && part.level === 'error') && (
+          {!parts.some((part) => part?.type === 'notice' && part.level === 'error') && (
             <p className="text-xs text-destructive" role="alert">The reply did not finish.</p>
           )}
           {onRetry && (

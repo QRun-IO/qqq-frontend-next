@@ -80,7 +80,7 @@ describe('AssistantMessageView', () => {
     expect(screen.getByText('Still readable.')).toBeInTheDocument()
     // the tool step (its label) stays; only its result is replaced
     expect(screen.getByText('Counted')).toBeInTheDocument()
-    expect(screen.getByText("This result couldn't be displayed.")).toBeInTheDocument()
+    expect(screen.getByText("This result could not be shown.")).toBeInTheDocument()
     consoleError.mockRestore()
   })
 
@@ -97,7 +97,7 @@ describe('AssistantMessageView', () => {
     } as unknown as AssistantMessage
     render(<AssistantMessageView message={message} onSend={vi.fn()} sending={false} />)
     expect(screen.getByText('After the bad parts.')).toBeInTheDocument()
-    expect(screen.getByText("This part couldn't be displayed.")).toBeInTheDocument()
+    expect(screen.getByText("This part could not be shown.")).toBeInTheDocument()
     expect(screen.getByText('Unsupported result (map)')).toBeInTheDocument()
     expect(screen.getByText('Unsupported content (approval)')).toBeInTheDocument()
     consoleError.mockRestore()

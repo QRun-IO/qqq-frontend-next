@@ -125,7 +125,7 @@ test.describe('Fail soft: assistant', () => {
 
     // the rest of the reply renders around the failed result
     await expect(panel.locator('[data-qqq-id="assistant-markdown"]').first()).toContainText(ANSWER)
-    await expect(panel.locator('[data-qqq-id="assistant-render-error"]')).toContainText("This result couldn't be displayed.")
+    await expect(panel.locator('[data-qqq-id="assistant-render-error"]')).toContainText("This result could not be shown.")
     await expect(panel.getByText('People: no rows match')).toBeVisible()
     await expect(panel.getByText('Unsupported result (map)')).toBeVisible()
     await expect(page.locator('[data-qqq-id="page-error"]')).toHaveCount(0)
