@@ -20,6 +20,7 @@
  */
 
 import type { QHelpContent } from '@/types'
+import { htmlPlainText } from './sanitize-html'
 
 /** Roles of the record view screen, most specific first. */
 export const VIEW_SCREEN_HELP_ROLES = ['VIEW_SCREEN', 'READ_SCREENS', 'ALL_SCREENS'] as const
@@ -129,8 +130,6 @@ export function helpSummary(entry: QHelpContent): string {
  */
 export function helpPlainText(entry: QHelpContent): string {
   const source = entry.contentAsHtml || entry.content || entry.summary || ''
-  return source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  return htmlPlainText(source).replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
     .replace(/\s+/g, ' ').trim()
 }
