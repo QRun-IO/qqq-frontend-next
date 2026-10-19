@@ -238,7 +238,7 @@ function mockAssistant(options: { config?: Record<string, unknown>; list?: Assis
  */
 async function openRail(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
-  await user.click(await screen.findByRole('button', { name: 'Show conversations' }))
+  await user.click(await screen.findByRole('button', { name: 'Conversation history' }))
   await screen.findByRole('button', { name: UNREAD_ROW })
 }
 
@@ -347,7 +347,7 @@ describe('conversation list in the panel', () => {
     const user = userEvent.setup()
     renderShell()
     await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
-    const toggle = await screen.findByRole('button', { name: 'Show conversations' })
+    const toggle = await screen.findByRole('button', { name: 'Conversation history' })
     await waitFor(() => expect(toggle.querySelector('[data-qqq-id="assistant-rail-toggle-dot"]')).not.toBeNull())
     expect(toggle).toHaveAccessibleDescription('Other conversations are working or have unread replies')
   })
@@ -357,7 +357,7 @@ describe('conversation list in the panel', () => {
     const user = userEvent.setup()
     renderShell()
     await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
-    const toggle = await screen.findByRole('button', { name: 'Show conversations' })
+    const toggle = await screen.findByRole('button', { name: 'Conversation history' })
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(toggle.querySelector('[data-qqq-id="assistant-rail-toggle-dot"]')).toBeNull()
   })
@@ -404,7 +404,7 @@ describe('unread correctness', () => {
     const user = userEvent.setup()
     renderShell()
     await user.click(await screen.findByRole('button', { name: /^Ask the assistant/ }))
-    await user.click(await screen.findByRole('button', { name: 'Show conversations' }))
+    await user.click(await screen.findByRole('button', { name: 'Conversation history' }))
     await user.click(await screen.findByRole('button', { name: 'Quiet one' }))
     const composer = await screen.findByRole('textbox', { name: 'Message the assistant' })
     await user.type(composer, 'Hello{Enter}')
@@ -420,7 +420,7 @@ describe('unread correctness', () => {
     const user = userEvent.setup()
     renderShell()
     await user.click(await screen.findByRole('button', { name: /^Ask the assistant, 2 unread/ }))
-    await user.click(await screen.findByRole('button', { name: 'Show conversations' }))
+    await user.click(await screen.findByRole('button', { name: 'Conversation history' }))
     await user.click(await screen.findByRole('button', { name: UNREAD_ROW }))
     await waitFor(() => expect(traffic.patches).toContainEqual({ id: '2', body: { read: true } }))
   })

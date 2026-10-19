@@ -650,7 +650,7 @@ describe('answer lifecycle and recovery', () => {
     const user = userEvent.setup()
     renderShell()
     await openComposer(user)
-    await user.click(screen.getByRole('button', { name: 'Show conversations' }))
+    await user.click(screen.getByRole('button', { name: 'Conversation history' }))
     await user.click(await screen.findByRole('button', { name: 'Saved conversation' }))
     await user.click(await screen.findByRole('button', { name: 'Stop the reply' }))
     expect(await screen.findByText('Finished on another pod', { selector: MESSAGE_TEXT })).toBeInTheDocument()
@@ -753,5 +753,74 @@ describe('multiple run controls', () => {
       stream.close()
     })
     await waitFor(() => expect(screen.queryByText('Writing...')).not.toBeInTheDocument())
+  })
+})
+
+describe('panel header chrome and starter prompts', () => {
+  const LONG = 'Which of my open orders have been waiting on a customer reply for more than two weeks, and what was the last thing we said to them?'
+
+  it('labels the history, new and close buttons with an icon, aria-label and keyboard-focus tooltip', async () => {
+    mockAssistant()
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    const history = within(panel).getByRole('button', { name: 'Conversation history' })
+    expect(history).toHaveAttribute('aria-expanded', 'false')
+    expect(history.querySelector('svg')).toHaveClass('lucide-history')
+    expect(within(panel).getByRole('button', { name: 'New conversation' })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Close assistant' })).toBeInTheDocument()
+
+    // keyboard focus alone (no hover) opens the tooltip
+    act(() => history.focus())
+    expect(await screen.findByRole('tooltip', {}, { timeout: 3000 })).toHaveTextContent('Conversation history')
+    await user.click(history)
+    expect(within(panel).getByRole('button', { name: 'Hide conversation history' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('wraps long starter prompts inside the chip and stacks them, with no truncation', async () => {
+    mockAssistant({ enabled: true, profile: { starterPrompts: [LONG, 'Short one', LONG + ' Again?'] } })
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    const list = await screen.findByRole('list', { name: 'Suggested questions' })
+    const chips = within(list).getAllByRole('button')
+    expect(chips).toHaveLength(3)
+    for (const chip of chips) {
+      expect(chip).toHaveClass('whitespace-normal', 'break-words', 'w-full')
+      expect(chip.className).not.toMatch(/truncate|whitespace-nowrap|overflow-hidden/)
+      expect(chip.parentElement).toHaveClass('w-full', 'min-w-0', '@md:w-auto')
+    }
+    expect(chips[0]).toHaveTextContent(LONG)
+  })
+
+  it.each([[0], [1], [2], [3]])('renders %i starter prompts without an empty list', async (count) => {
+    mockAssistant({ enabled: true, profile: { starterPrompts: Array.from({ length: count }, (_, index) => `Question ${index + 1}`) } })
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    await screen.findByText('Ask about your data')
+    const list = screen.queryByRole('list', { name: 'Suggested questions' })
+    if (count === 0) expect(list).not.toBeInTheDocument()
+    else expect(within(list as HTMLElement).getAllByRole('button')).toHaveLength(count)
+  })
+
+  it('has no axe violations: empty state, rail open, and with a conversation', async () => {
+    mockAssistant({ enabled: true, profile: { starterPrompts: [LONG, 'Short one'] } })
+    server.use(http.get(`${BASE}/conversations`, () => HttpResponse.json({ conversations: [{ ...CONVERSATION, title: 'Saved conversation' }] })))
+    const user = userEvent.setup()
+    renderShell()
+    await openComposer(user)
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    expect(await axe(panel)).toHaveNoViolations()
+
+    await user.click(within(panel).getByRole('button', { name: 'Conversation history' }))
+    await screen.findByRole('button', { name: 'Saved conversation' })
+    expect(await axe(panel)).toHaveNoViolations()
+
+    persisted.messages = storedTurn('Find records', [{ type: 'text', text: 'Here they are.' }])
+    await user.click(screen.getByRole('button', { name: 'Saved conversation' }))
+    expect(await screen.findByText('Here they are.', { selector: MESSAGE_TEXT })).toBeInTheDocument()
+    expect(await axe(panel)).toHaveNoViolations()
   })
 })
