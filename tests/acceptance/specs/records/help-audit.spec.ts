@@ -135,6 +135,10 @@ test.describe('without process permission', () => {
 
   test('[REC-043] audit history reads the audit table when the audit process is not permitted @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
+    const denied = await backend.api.post('/qqq/v1/processes/GetAuditsForRecord/init', {
+      multipart: { values: JSON.stringify({ tableName: 'recordLab', recordId: '2' }) },
+    })
+    expect(denied.status()).toBe(403)
     const updated = await backend.api.put('/data/recordLab/2', { multipart: { hint: 'First hint' } })
     expect(updated.status()).toBe(200)
     expect(await sqlCount(backend, 'select count(*) as n from audit where record_id = 2')).toBe(1)
