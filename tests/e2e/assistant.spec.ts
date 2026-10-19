@@ -93,9 +93,10 @@ interface AssistantMock {
  * @param options.reply - The SSE body of a turn.
  * @param options.hold - Whether `/turns/9/events` waits for {@link AssistantMock.releaseEvents}.
  * @param options.stored - The messages stored once the turn ends (default {@link STORED}).
+ * @param options.config - Fields added to the /config response (attachment features and limits).
  * @returns The recorded traffic.
  */
-async function mockAssistant(page: Page, options: { reply?: string; hold?: boolean; stored?: unknown[] } = {}): Promise<AssistantMock> {
+async function mockAssistant(page: Page, options: { reply?: string; hold?: boolean; stored?: unknown[]; config?: Record<string, unknown> } = {}): Promise<AssistantMock> {
   const mock: AssistantMock = { turns: [], cancels: 0 }
   let stored: unknown[] = []
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
@@ -106,7 +107,7 @@ async function mockAssistant(page: Page, options: { reply?: string; hold?: boole
     const request = route.request()
     const path = new URL(request.url()).pathname.replace('/qqq/v1/assistant', '')
     const method = request.method()
-    if (path === '/config') return json(route, { enabled: true, shortcut: 'mod+j', model: 'claude-sonnet-5-5', features: { writes: false } })
+    if (path === '/config') return json(route, { enabled: true, shortcut: 'mod+j', model: 'claude-sonnet-5-5', features: { writes: false }, ...options.config })
     if (path === '/conversations' && method === 'GET') return json(route, { conversations: stored.length ? [CONVERSATION] : [] })
     if (path === '/conversations' && method === 'POST') return json(route, { ...CONVERSATION, title: null }, 201)
     if (path === '/conversations/4' && method === 'GET') return json(route, { conversation: CONVERSATION, messages: stored })
@@ -382,3 +383,115 @@ for (const [name, viewport] of Object.entries({ tablet: VIEWPORTS.tablet, phone:
     })
   })
 }
+
+/** A server that reads attachments: text, PDF, images and data files up to 1 MB. */
+const READS_ATTACHMENTS = {
+  features: { writes: false, attachments: true },
+  limits: { maxAttachmentBytes: 1024 * 1024, attachmentTypes: ['Text', 'Markdown', 'PDF', 'Images', 'CSV', 'Excel', 'JSON'] },
+}
+
+/** A count the init script below makes crash while rendering (a part that cannot be shown). */
+const CRASHING_COUNT = 424242
+
+/** A reply whose first result fails to render, then a failed bulk-load step and text: the soft error state. */
+const SOFT_FAILURE_REPLY = sse(
+  ['message.start', { seq: 1, turnId: 9, conversationId: 4, userMessageId: 10, messageId: 11 }],
+  ['tool.result', { seq: 2, messageId: 11, toolCallId: 't1', name: 'count_records', outcome: 'OK', summary: 'Counted People', render: { type: 'count', tableName: 'person', tableLabel: 'People', count: CRASHING_COUNT, openHref: '/app/person' } }],
+  ['tool.result', { seq: 3, messageId: 11, toolCallId: 't2', name: 'bulk_load_attach', outcome: 'INVALID_INPUT', summary: 'Unrecognized file extension - expecting .csv or .xlsx' }],
+  ['text.delta', { seq: 4, messageId: 11, text: 'I read the notes and the screenshot. The spreadsheet could not be loaded.' }],
+  ['message.end', { seq: 5, messageId: 11, status: 'COMPLETE' }],
+)
+
+/** The soft-failure reply as stored once the turn ends. */
+const SOFT_FAILURE_STORED = [
+  { id: 10, role: 'USER', status: 'COMPLETE', turnId: 9, createDate: '2026-10-12T00:00:00Z', parts: [{ type: 'text', text: 'Can we post this as a blog?' }] },
+  {
+    id: 11, role: 'ASSISTANT', status: 'COMPLETE', turnId: 9, createDate: '2026-10-12T00:00:00Z', parts: [
+      { type: 'tool', toolCallId: 't1', name: 'count_records', outcome: 'OK', summary: 'Counted People', render: { type: 'count', tableName: 'person', tableLabel: 'People', count: CRASHING_COUNT, openHref: '/app/person' } },
+      { type: 'tool', toolCallId: 't2', name: 'bulk_load_attach', outcome: 'INVALID_INPUT', summary: 'Unrecognized file extension - expecting .csv or .xlsx' },
+      { type: 'text', text: 'I read the notes and the screenshot. The spreadsheet could not be loaded.' },
+    ],
+  },
+]
+
+test.describe('Assistant panel: attachments', () => {
+  test('attaches readable files with name, size and type, checks the size first, and keeps failures soft', async ({ page }) => {
+    test.setTimeout(240_000)
+    await page.addInitScript((sentinel) => {
+      const original = Number.prototype.toLocaleString
+      Number.prototype.toLocaleString = function patched(this: number, ...args: Parameters<typeof original>) {
+        if (Number(this) === sentinel) throw new TypeError('Cannot read properties of undefined')
+        return original.apply(this, args)
+      }
+    }, CRASHING_COUNT)
+    await setupApiMocks(page)
+    const mock = await mockAssistant(page, { config: READS_ATTACHMENTS, reply: SOFT_FAILURE_REPLY, stored: SOFT_FAILURE_STORED })
+    const uploads: string[] = []
+    let ref = 0
+    await page.route('**/qqq/v1/uploads', async (route) => {
+      const body = route.request().postDataBuffer()?.toString('latin1') ?? ''
+      const name = /filename="([^"]+)"/.exec(body)?.[1] ?? 'file'
+      uploads.push(name)
+      if (name === 'unreadable.bin') {
+        return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'This file type cannot be read.' }) })
+      }
+      const type = /Content-Type: ([^\r\n]+)/i.exec(body.slice(body.indexOf('filename=')))?.[1] ?? 'application/octet-stream'
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ref: `up_${++ref}`, fileName: name, sizeBytes: body.length, contentType: type, expiresAt: '2026-10-17T00:00:00Z' }) })
+    })
+
+    for (const width of [390, 768, 1024, 1440, 1920, 3200]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/app/person')
+      await waitForAppReady(page)
+      await page.locator('body').click()
+      await page.keyboard.press('Control+j')
+      const panel = page.locator('[data-qqq-id="assistant-panel"]')
+      await expect(panel).toBeVisible()
+
+      await expect(panel.locator('[data-qqq-id="assistant-attach"]')).toHaveAttribute('title', 'Attach a file')
+      const input = panel.locator('[data-qqq-id="assistant-attach-input"]')
+      expect(await input.getAttribute('accept')).toContain('.pdf')
+
+      const before = uploads.length
+      await input.setInputFiles({ name: 'meeting-notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n'.repeat(400)) })
+      await expect(panel.locator('[data-qqq-id="assistant-attachment-chip"]')).toHaveCount(1)
+      await input.setInputFiles({ name: 'storefront.png', mimeType: 'image/png', buffer: Buffer.alloc(180_000, 1) })
+      await expect(panel.locator('[data-qqq-id="assistant-attachment-chip"]')).toHaveCount(2)
+      await input.setInputFiles({ name: 'q3-orders.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.alloc(52_000, 1) })
+      const chips = panel.locator('[data-qqq-id="assistant-attachment-chip"]')
+      await expect(chips).toHaveCount(3)
+      await expect(chips.nth(1)).toHaveAttribute('data-kind', 'image')
+
+      // too large: said before uploading, nothing sent
+      await input.setInputFiles({ name: 'annual-report.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(2 * 1024 * 1024, 1) })
+      await expect(panel.locator('[data-qqq-id="assistant-attach-error"]')).toHaveText('annual-report.pdf is 2 MB. The assistant reads files up to 1 MB.')
+      expect(uploads.length - before).toBe(3)
+      if (width === 1440) await checkA11y(page)
+      if (SCREENSHOT_DIR) await page.screenshot({ path: `${SCREENSHOT_DIR}/composer-${width}.png` })
+
+      // the server refuses a file: inline and soft
+      await input.setInputFiles({ name: 'unreadable.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(64, 1) })
+      await expect(panel.locator('[data-qqq-id="assistant-attach-error"]')).toContainText('Could not attach unreadable.bin')
+
+      // a reply with a part that cannot be shown keeps the conversation working
+      await ask(page, 'Can we post this as a blog?')
+      await expect(panel.locator('[data-qqq-id="assistant-markdown"]').last()).toContainText('The spreadsheet could not be loaded.')
+      await expect(panel.locator('[data-qqq-id="assistant-render-error"]')).toContainText('This result could not be shown.')
+      await expect(panel.getByText('Unrecognized file extension - expecting .csv or .xlsx')).toBeVisible()
+      await expect(page.locator('[data-qqq-id="assistant-panel-error"]')).toHaveCount(0)
+      await expect(page.locator('[data-qqq-id="page-error"]')).toHaveCount(0)
+      await expect(page.locator('[data-qqq-id="assistant-composer"]')).toBeEnabled()
+      const sent = mock.turns.at(-1) as { pageContext?: { attachments?: unknown[] } }
+      expect(sent.pageContext?.attachments).toEqual([
+        { uploadRef: `up_${ref - 2}`, fileName: 'meeting-notes.md' },
+        { uploadRef: `up_${ref - 1}`, fileName: 'storefront.png' },
+        { uploadRef: `up_${ref}`, fileName: 'q3-orders.xlsx' },
+      ])
+      expect((await scrollContainers(page)).document.horizontal).toBe(false)
+      if (SCREENSHOT_DIR) await page.screenshot({ path: `${SCREENSHOT_DIR}/soft-error-${width}.png` })
+      // Docked open state persists across reloads; leave each viewport with the panel closed.
+      await panel.locator('[data-qqq-id="assistant-close"]').click()
+      await expect(panel).toHaveCount(0)
+    }
+  })
+})

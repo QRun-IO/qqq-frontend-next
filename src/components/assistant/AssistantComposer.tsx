@@ -22,10 +22,11 @@
 'use client'
 
 import React, { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { FileText, Loader2, MapPin, Paperclip, SendHorizontal, Square, X } from 'lucide-react'
+import { AlertTriangle, File as FileIcon, FileImage, FileJson, FileSpreadsheet, FileText, Loader2, MapPin, Paperclip, SendHorizontal, Square, X } from 'lucide-react'
 
 import type { AssistantAttachment } from '@/types/assistant'
 import type { AssistantPageInfo } from '@/lib/utils/assistant-links'
+import { attachmentKind, BULK_LOAD_ACCEPT, formatBytes, type AttachmentKind } from '@/lib/utils/assistant-attachments'
 
 /** Props of {@link AssistantComposer}. */
 interface AssistantComposerProps {
@@ -69,10 +70,31 @@ interface AssistantComposerProps {
   onRemoveAttachment?: (uploadRef: string) => void
   /** Whether an upload is in progress. */
   attaching?: boolean
+  /** The file picker hint, tooltip and limits (defaults: CSV or Excel for a bulk load). */
+  attachPolicy?: { accept: string; title: string; maxBytes?: number; types?: string[] }
+  /** A problem with the last file (too large, upload failed), shown inline. */
+  attachError?: string | null
+  /** Clears {@link AssistantComposerProps.attachError}. */
+  onDismissAttachError?: () => void
 }
 
-/** File types the attach button offers (bulk load files). */
-const ATTACH_ACCEPT = '.csv,.tsv,.txt,.xlsx'
+/** Chip icon per attachment kind. */
+const KIND_ICON: Record<AttachmentKind, typeof FileText> = {
+  image: FileImage,
+  spreadsheet: FileSpreadsheet,
+  json: FileJson,
+  pdf: FileText,
+  text: FileText,
+  file: FileIcon,
+}
+
+/** What a chip says about its type, for screen readers. */
+const KIND_LABEL: Record<AttachmentKind, string> = {
+  image: 'image', spreadsheet: 'data file', json: 'JSON file', pdf: 'PDF', text: 'text file', file: 'file',
+}
+
+/** Default attach policy: the bulk-load files of servers that do not read attachments. */
+const BULK_LOAD_POLICY = { accept: BULK_LOAD_ACCEPT, title: 'Attach a file (CSV or Excel) for a bulk load' }
 
 /** Tallest the textarea grows before it scrolls, in pixels. */
 const MAX_TEXTAREA_HEIGHT = 160
@@ -85,7 +107,7 @@ const MAX_TEXTAREA_HEIGHT = 160
  * @returns The composer form.
  */
 function AssistantComposerInner(
-  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, concurrency = 'supersede', onSend, onStop, prefill, attachments = [], onAttach, onRemoveAttachment, attaching = false }: AssistantComposerProps,
+  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, concurrency = 'supersede', onSend, onStop, prefill, attachments = [], onAttach, onRemoveAttachment, attaching = false, attachPolicy = BULK_LOAD_POLICY, attachError = null, onDismissAttachError }: AssistantComposerProps,
   ref: React.ForwardedRef<HTMLTextAreaElement>
 ) {
   const [text, setText] = useState('')
@@ -93,6 +115,11 @@ function AssistantComposerInner(
   const hintId = useId()
   const localRef = useRef<HTMLTextAreaElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const attachHintId = useId()
+  const attachHint = [
+    attachPolicy.types?.length ? `Reads ${attachPolicy.types.join(', ')}` : '',
+    attachPolicy.maxBytes ? `up to ${formatBytes(attachPolicy.maxBytes)} per file` : '',
+  ].filter(Boolean).join(', ')
 
   // A deep link pre-fills the box; the user reviews and sends it
   useEffect(() => {
@@ -149,23 +176,30 @@ function AssistantComposerInner(
       )}
       {(attachments.length > 0 || attaching) && (
         <ul className="mb-2 flex min-w-0 flex-wrap gap-1.5" aria-label="Attached files" data-qqq-id="assistant-attachments">
-          {attachments.map((attachment) => (
-            <li key={attachment.uploadRef} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted py-0.5 pl-2 pr-0.5 text-xs text-muted-foreground" data-qqq-id="assistant-attachment-chip">
-              <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">{attachment.fileName ?? 'Attached file'}</span>
-              {onRemoveAttachment && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveAttachment(attachment.uploadRef)}
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-8 pointer-coarse:w-8"
-                  aria-label={`Remove ${attachment.fileName ?? 'the attached file'}`}
-                  data-qqq-id="assistant-attachment-remove"
-                >
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </button>
-              )}
-            </li>
-          ))}
+          {attachments.map((attachment) => {
+            const kind = attachmentKind(attachment.fileName, attachment.contentType)
+            const Icon = KIND_ICON[kind]
+            const size = typeof attachment.sizeBytes === 'number' ? formatBytes(attachment.sizeBytes) : ''
+            return (
+              <li key={attachment.uploadRef} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted py-0.5 pl-2 pr-0.5 text-xs text-muted-foreground" data-qqq-id="assistant-attachment-chip" data-kind={kind}>
+                <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span className="truncate text-foreground">{attachment.fileName || 'Attached file'}</span>
+                <span className="sr-only">, {KIND_LABEL[kind]}</span>
+                {size && <span className="shrink-0 tabular-nums" data-qqq-id="assistant-attachment-size">{size}</span>}
+                {onRemoveAttachment && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAttachment(attachment.uploadRef)}
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-8 pointer-coarse:w-8"
+                    aria-label={`Remove ${attachment.fileName || 'the attached file'}`}
+                    data-qqq-id="assistant-attachment-remove"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                )}
+              </li>
+            )
+          })}
           {attaching && (
             <li className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-2 text-xs text-muted-foreground" role="status" data-qqq-id="assistant-attaching">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -174,13 +208,30 @@ function AssistantComposerInner(
           )}
         </ul>
       )}
+      {attachError && (
+        <div className="mb-2 flex min-w-0 items-start gap-1.5 rounded-md border border-destructive/40 px-2 py-1.5 text-xs text-destructive" role="alert" data-qqq-id="assistant-attach-error">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 break-words">{attachError}</span>
+          {onDismissAttachError && (
+            <button
+              type="button"
+              onClick={onDismissAttachError}
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-8 pointer-coarse:w-8"
+              aria-label="Dismiss"
+              data-qqq-id="assistant-attach-error-dismiss"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-end gap-2 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
         {onAttach && (
           <>
             <input
               ref={fileRef}
               type="file"
-              accept={ATTACH_ACCEPT}
+              accept={attachPolicy.accept}
               className="sr-only"
               tabIndex={-1}
               aria-hidden="true"
@@ -197,11 +248,13 @@ function AssistantComposerInner(
               disabled={attaching}
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
               aria-label="Attach a file"
-              title="Attach a file (CSV or Excel) for a bulk load"
+              aria-describedby={attachHint ? attachHintId : undefined}
+              title={attachPolicy.title}
               data-qqq-id="assistant-attach"
             >
               <Paperclip className="h-4 w-4" aria-hidden="true" />
             </button>
+            {attachHint && <span id={attachHintId} className="sr-only">{attachHint}</span>}
           </>
         )}
         <label htmlFor={inputId} className="sr-only">Message the assistant</label>
