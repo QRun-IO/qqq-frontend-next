@@ -293,7 +293,7 @@ export function ChildRecordExportButton({ widgetMetaData, data, compact = false 
     onClick={() => downloadText(widgetExportFileName(label), childRecordsCsv(columns, records))}
     disabled={records.length === 0}
     title={title}
-    aria-label={compact ? `Export ${label}` : title.replace('\n', ' ')}
+    aria-label={compact ? `Export ${label}` : title.replace(/\n/g, ' ')}
     className={cn('inline-flex items-center gap-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50', compact ? 'p-1' : 'px-2 py-1 text-sm')}
     data-qqq-id={`child-record-export-${widgetMetaData.name}`}
   >

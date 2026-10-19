@@ -67,4 +67,10 @@ describe('helpPlainText', () => {
     expect(helpPlainText({ contentAsHtml: '<p>A</p><p>B &amp; C</p>' })).toBe('A B & C')
     expect(helpPlainText({ summary: 'Only a summary.' })).toBe('Only a summary.')
   })
+
+  it('removes nested or split tags and decodes &amp; last', () => {
+    expect(helpPlainText({ contentAsHtml: 'a<scr<script>x</script>ipt>b</script >c' })).toBe('ac')
+    expect(helpPlainText({ contentAsHtml: '<<b>i>x' })).toBe('i>x')
+    expect(helpPlainText({ contentAsHtml: '&amp;lt;b&amp;gt;' })).toBe('&lt;b&gt;')
+  })
 })

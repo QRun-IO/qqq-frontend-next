@@ -129,8 +129,26 @@ export function helpSummary(entry: QHelpContent): string {
  */
 export function helpPlainText(entry: QHelpContent): string {
   const source = entry.contentAsHtml || entry.content || entry.summary || ''
-  return source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  const withoutBlocks = replaceUntilStable(source, (s) => s
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ''))
+  const withoutTags = replaceUntilStable(withoutBlocks.replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' '), (s) => s.replace(/<[^>]*>/g, ''))
+  return withoutTags.replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Applies a replacement repeatedly until the text stops changing, so removing one tag cannot
+ * leave behind (or assemble) another one, e.g. `<scr<script>ipt>`.
+ * @param text - Input text.
+ * @param step - One replacement pass.
+ * @returns The stable result.
+ */
+function replaceUntilStable(text: string, step: (s: string) => string): string {
+  let previous = text
+  for (;;) {
+    const next = step(previous)
+    if (next === previous) return next
+    previous = next
+  }
 }
