@@ -67,4 +67,11 @@ describe('helpPlainText', () => {
     expect(helpPlainText({ contentAsHtml: '<p>A</p><p>B &amp; C</p>' })).toBe('A B & C')
     expect(helpPlainText({ summary: 'Only a summary.' })).toBe('Only a summary.')
   })
+
+  it('uses HTML parser semantics for malformed tags and decodes entities once', () => {
+    // Literal angle brackets remain plain text; callers render text, never HTML.
+    expect(helpPlainText({ contentAsHtml: 'a<scr<script>x</script>ipt>b</script >c' })).toBe('axipt>bc')
+    expect(helpPlainText({ contentAsHtml: '<<b>i>x' })).toBe('<i>x')
+    expect(helpPlainText({ contentAsHtml: '&amp;lt;b&amp;gt;' })).toBe('&lt;b&gt;')
+  })
 })

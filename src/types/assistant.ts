@@ -29,12 +29,28 @@ export interface AssistantConfig {
   /** Keyboard shortcut, e.g. `mod+j`. */
   shortcut?: string
   model?: string
-  limits?: { maxTurnSeconds?: number; maxToolCallsPerTurn?: number }
-  features?: { writes?: boolean; pendingActions?: boolean; writeMode?: boolean; autoConfirm?: boolean }
+  limits?: {
+    maxTurnSeconds?: number
+    maxToolCallsPerTurn?: number
+    /** Largest file the assistant reads, in bytes (checked before uploading). */
+    maxAttachmentBytes?: number
+    /** What the assistant reads, as human-readable names (for example "PDF", "Images"). */
+    attachmentTypes?: string[]
+  }
+  features?: {
+    writes?: boolean
+    pendingActions?: boolean
+    writeMode?: boolean
+    autoConfirm?: boolean
+    /** The assistant reads attached files (text, PDF, images, data files); absent on older servers. */
+    attachments?: boolean
+  }
   /** The user's own preferences. */
   preferences?: { defaultWriteMode?: boolean; autoConfirmLowRisk?: boolean }
   /** The assistant's persona (admin-configured profile); text only, it never changes access. */
   profile?: AssistantProfile
+  /** Name of the table that lists the user's conversations; present only when the user may open it. */
+  conversationsTable?: string
 }
 
 /** How the assistant presents itself. */
@@ -57,6 +73,8 @@ export interface AssistantConversation {
   pinned: boolean
   lastMessageAt: string | null
   unreadCount: number
+  /** A reply is being written now (absent on servers that do not report it). */
+  running?: boolean
   createDate: string
   /** Write mode (Read-only when false or absent): the assistant's write tools exist only in Write mode. */
   writeMode?: boolean
@@ -78,6 +96,10 @@ export interface AssistantPageContext {
 export interface AssistantAttachment {
   uploadRef: string
   fileName?: string
+  /** Shown on the chip only; never sent with a turn. */
+  sizeBytes?: number
+  /** Shown on the chip only; never sent with a turn. */
+  contentType?: string
 }
 
 /** Outcome of one tool call. */
@@ -314,6 +336,8 @@ export interface AssistantConversationUpdate {
   pinned?: boolean
   status?: AssistantConversationStatus
   writeMode?: boolean
+  /** `true` marks the conversation read (its unread count becomes 0). */
+  read?: boolean
 }
 
 /** Body of `POST /assistant/messages/{id}/feedback`. */

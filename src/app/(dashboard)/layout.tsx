@@ -23,7 +23,7 @@
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
 import { SecuredDataProvider, SecuredDataBannerSlot } from '@/components/secured-data/SecuredDataProvider'
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { useQuery } from '@tanstack/react-query'
@@ -33,6 +33,7 @@ import { useQContext, QContextProvider } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
+import { ApplicationLoading } from '@/components/layout/ApplicationLoading'
 import { applyBrandingTheme } from '@/lib/theme/apply-branding'
 import { skipToFirstZone } from '@/lib/utils/skip-link'
 import { readMaterialTheme } from '@/lib/theme/material-theme'
@@ -108,6 +109,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     data: metaData,
     isLoading: metaLoading,
     error: metaError,
+    refetch: reloadMetaData,
   } = useQuery({
     queryKey: queryKeys.metadataAll(),
     queryFn: loadMetaData,
@@ -146,8 +148,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathToLabelMap, setPathToLabelMap])
 
-  // Sync branding to QContext and inject theme
-  useEffect(() => {
+  // Install branding before the first branded shell is painted.
+  useLayoutEffect(() => {
     if (metaData?.branding) {
       setBranding(metaData.branding)
       // accent colors (validated, MED-3) and the favicon
@@ -170,7 +172,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // customCss; removed again when the dashboard unmounts (sign-out)
   const { theme, setTheme } = useTheme()
   const applicationTheme = useMemo(() => readMaterialTheme(metaData), [metaData])
-  useEffect(() => { setTheme(applicationTheme) }, [applicationTheme, setTheme])
+  useLayoutEffect(() => { setTheme(applicationTheme) }, [applicationTheme, setTheme])
   useEffect(() => () => setTheme(null), [setTheme])
 
   // Analytics (QRun-IO/qqq#730): off unless configured; one page view per screen
@@ -258,18 +260,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [handleGlobalKeyDown])
 
-  // Show loading state while auth initializes
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
-          role="status"
-          aria-label="Loading"
-        />
-      </div>
-    )
-  }
+  // Use the same neutral screen through authentication and metadata loading.
+  if (authLoading) return <ApplicationLoading />
 
   // Auth loaded but not authenticated — redirect handled above
   if (!isAuthenticated) {
@@ -281,14 +273,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-destructive">Failed to load application metadata.</p>
+          <p role="alert" className="text-destructive">Unable to load your workspace.</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {metaError instanceof Error ? metaError.message : 'Unknown error'}
           </p>
+          <button type="button" className="mt-4 rounded-md border px-4 py-2" onClick={() => { void reloadMetaData() }}>Try again</button>
         </div>
       </div>
     )
   }
+
+  if (!metaData) return <ApplicationLoading />
 
   // One scroll container: the shell is exactly the viewport and only <main> scrolls. Both are
   // positioned (`relative`) so they contain absolutely positioned descendants (`sr-only` text,

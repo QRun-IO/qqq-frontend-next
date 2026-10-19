@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from 'vitest'
-import { sanitizeHtml } from './sanitize-html'
+import { describe, expect, it, vi } from 'vitest'
+import { htmlPlainText, sanitizeHtml } from './sanitize-html'
 
 /**
  * Parses sanitized HTML for structural assertions.
@@ -89,5 +89,26 @@ describe('sanitizeHtml (QRun-IO/qqq#696)', () => {
     expect(sanitizeHtml('')).toBe('')
     expect(sanitizeHtml(null)).toBe('')
     expect(sanitizeHtml(undefined)).toBe('')
+  })
+})
+
+describe('htmlPlainText', () => {
+  it('discards executable elements and preserves block boundaries and literal entities', () => {
+    expect(htmlPlainText('<p>A &amp; B</p><script>alert(1)</script ><style>body{display:none}</style ><div>C<br>D</div>').replace(/\s+/g, ' ').trim()).toBe('A & B C D')
+    expect(htmlPlainText('&amp;lt;b&amp;gt; &lt;em&gt; &#65;')).toBe('&lt;b&gt; <em> A')
+    expect(htmlPlainText('safe<script>unfinished')).toBe('safe')
+  })
+
+  it('never attaches parsed elements to the live page', () => {
+    const before = document.body.innerHTML
+    expect(htmlPlainText('<img src="/private.png" onerror="alert(1)"><b>Label</b>')).toBe('Label')
+    expect(document.body.innerHTML).toBe(before)
+  })
+
+  it('returns empty without a browser, like the shared sanitizer', () => {
+    vi.stubGlobal('window', undefined)
+    try { expect(htmlPlainText('<b>Label</b>')).toBe('') }
+    finally { vi.unstubAllGlobals() }
+    expect(htmlPlainText('')).toBe('')
   })
 })

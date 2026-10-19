@@ -18,6 +18,7 @@
  * @file Pure helpers for widget export (CSV), dropdown selection storage and grid sizing.
  */
 
+import { htmlPlainText } from '@/lib/utils/sanitize-html'
 import type { QHelpContent, QWidgetDropdown, QWidgetHelpContent, QWidgetMetaData } from '@/types'
 
 import { WIDGET_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
@@ -408,5 +409,5 @@ export function widgetHelpKey(widgetName: string, slot: string): string {
  */
 export function plainText(value: unknown): string {
   if (value === null || value === undefined) return ''
-  return String(value).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim()
+  return htmlPlainText(String(value)).trim()
 }

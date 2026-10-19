@@ -651,7 +651,7 @@ describe('answer lifecycle and recovery', () => {
     renderShell()
     await openComposer(user)
     await user.click(screen.getByRole('button', { name: 'Conversation history' }))
-    await user.click(await screen.findByRole('option', { name: /Saved conversation/ }))
+    await user.click(await screen.findByRole('button', { name: 'Saved conversation' }))
     await user.click(await screen.findByRole('button', { name: 'Stop the reply' }))
     expect(await screen.findByText('Finished on another pod', { selector: MESSAGE_TEXT })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop the reply' })).not.toBeInTheDocument())
@@ -815,11 +815,11 @@ describe('panel header chrome and starter prompts', () => {
     expect(await axe(panel)).toHaveNoViolations()
 
     await user.click(within(panel).getByRole('button', { name: 'Conversation history' }))
-    await screen.findByRole('option', { name: /Saved conversation/ })
+    await screen.findByRole('button', { name: 'Saved conversation' })
     expect(await axe(panel)).toHaveNoViolations()
 
     persisted.messages = storedTurn('Find records', [{ type: 'text', text: 'Here they are.' }])
-    await user.click(screen.getByRole('option', { name: /Saved conversation/ }))
+    await user.click(screen.getByRole('button', { name: 'Saved conversation' }))
     expect(await screen.findByText('Here they are.', { selector: MESSAGE_TEXT })).toBeInTheDocument()
     expect(await axe(panel)).toHaveNoViolations()
   })

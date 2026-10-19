@@ -79,7 +79,7 @@ for (const viewport of VIEWPORTS) {
 
     // history rail open
     await panel.locator('[data-qqq-id="assistant-rail-toggle"]').click()
-    await expect(panel.getByRole('option', { name: /Active people/ })).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Active people', exact: true })).toBeVisible()
     await panel.locator('[data-qqq-id="assistant-rail-toggle"]').focus()
     await page.waitForTimeout(600)
     if (SCREENSHOT_DIR) await page.screenshot({ path: `${SCREENSHOT_DIR}/history-${viewport.name}.png` })

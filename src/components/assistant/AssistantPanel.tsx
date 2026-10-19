@@ -32,8 +32,7 @@ import { Archive, ArchiveRestore, Check, Eye, History, MoreHorizontal, Pencil, P
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantAttachment, AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate, AssistantMessage } from '@/types/assistant'
-import { uploadFile } from '@/lib/api/uploads'
+import type { AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate, AssistantMessage } from '@/types/assistant'
 import {
   deleteAssistantConversation,
   getAssistantConversation,
@@ -52,7 +51,10 @@ import { AssistantComposer } from './AssistantComposer'
 import { HeaderTip } from './AssistantHeaderTip'
 import { AssistantMessageView } from './AssistantMessageView'
 import { ConversationRail, conversationTitle } from './ConversationRail'
+import { markConversationRead } from './mark-read'
+import { useRailActions } from './use-rail-actions'
 import { useAssistantEngine, type AssistantEngine } from './use-assistant-engine'
+import { useAssistantAttachments } from './use-assistant-attachments'
 import { useStreamAnnouncer } from './use-stream-announcer'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 import { InlineFailure } from '@/components/feedback/InlineFailure'
@@ -163,33 +165,14 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const [railStatus, setRailStatus] = useState<AssistantConversationStatus>('ACTIVE')
   const [renaming, setRenaming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** The rail row whose delete is being confirmed; the open conversation when null. */
+  const [rowDelete, setRowDelete] = useState<AssistantConversation | null>(null)
   const [dismissedRoute, setDismissedRoute] = useState<string | null>(null)
   const [pageInfo, setPageInfo] = useState(() => readPageInfo(metaData))
   const [prefill, setPrefill] = useState<{ id: number; text: string } | null>(null)
-  const [attachments, setAttachments] = useState<AssistantAttachment[]>([])
-  const [attaching, setAttaching] = useState(false)
-  // attaching is offered where saved bulk load profiles are (the bulk-load tools use the files)
-  const canAttach = Boolean(metaData?.processes?.storeSavedBulkLoadProfile)
-
-  // attachments belong to one conversation
-  useEffect(() => setAttachments([]), [activeConversationId])
-
-  /**
-   * Uploads a picked file (POST /uploads, as the user) and attaches its ref.
-   *
-   * @param file - The file.
-   */
-  const attach = async (file: File) => {
-    setAttaching(true)
-    try {
-      const uploaded = await uploadFile(file)
-      setAttachments((current) => [...current.filter((a) => a.uploadRef !== uploaded.ref), { uploadRef: uploaded.ref, fileName: uploaded.fileName }].slice(-5))
-    } catch (error) {
-      toast.error(`Could not attach ${file.name}: ${getErrorMessage(error)}`)
-    } finally {
-      setAttaching(false)
-    }
-  }
+  // attaching is offered when the server reads attachments, else where saved bulk load profiles are
+  const files = useAssistantAttachments(assistant.config, Boolean(metaData?.processes?.storeSavedBulkLoadProfile), activeConversationId)
+  const clearAttachments = files.clear
   const listId = useId()
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -215,12 +198,28 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     ?? conversationsQuery.data?.find((item) => item.id === activeConversationId)
   const announcement = useStreamAnnouncer(messages)
 
-  // Opening a conversation reads it: the badge drops its unread replies
+  // Opening a conversation reads it: the badge drops its unread replies, here and on the server
   useEffect(() => {
     if (activeConversationId === null || !assistant.open) return
-    queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(), (list) =>
-      list?.map((item) => (item.id === activeConversationId && item.unreadCount ? { ...item, unreadCount: 0 } : item)))
+    const unread = queryClient.getQueriesData<AssistantConversation[]>({ queryKey: [...assistantKeys.all(), 'conversations'] })
+      .some(([, list]) => list?.some((item) => item.id === activeConversationId && item.unreadCount > 0))
+    if (unread) markConversationRead(queryClient, activeConversationId)
   }, [activeConversationId, assistant.open, queryClient, messages.length])
+
+  // Anything else working or unread in the active list, for the History toggle's dot
+  const activeList = useQuery({
+    queryKey: assistantKeys.conversations(),
+    queryFn: () => listAssistantConversations(),
+    staleTime: 1000 * 60,
+  }).data
+  const othersBusy = (activeList ?? []).some((item) => item.id !== activeConversationId && (item.running === true || item.unreadCount > 0))
+    || Object.keys(engine.runs).some((id) => Number(id) !== activeConversationId)
+  const railConversations = useMemo(() => conversationsQuery.data?.map((item) => (
+    item.running || !engine.runs[item.id] ? item : { ...item, running: true }
+  )), [conversationsQuery.data, engine.runs])
+  const railActions = useRailActions({ activeConversationId, setActiveConversationId })
+  const manageTable = assistant.config?.conversationsTable
+  const manageHref = manageTable && metaData?.tables?.[manageTable] ? `/app/${encodeURIComponent(manageTable)}` : null
 
   // A reply still streaming on the server (another tab, a reload): follow it
   useEffect(() => {
@@ -233,6 +232,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   useEffect(() => {
     if (!pendingRequest) return
     consumeRequest(pendingRequest.id)
+    clearAttachments()
     setActiveConversationId(null)
     setRailOpen(false)
     if (pendingRequest.mode === 'prefill') {
@@ -241,7 +241,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     }
     const context = pendingRequest.context === undefined ? readPageInfo(metaData)?.context ?? null : pendingRequest.context
     void engine.send(pendingRequest.prompt, null, context, concurrency)
-  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine, concurrency])
+  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine, concurrency, clearAttachments])
 
   // Keep the newest message in view while the user has not scrolled up
   useLayoutEffect(() => {
@@ -275,7 +275,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const send = (text: string) => {
     const info = readPageInfo(metaData)
     const pageContext = info && dismissedRoute !== info.context.route ? info.context : null
-    const context = attachments.length ? { ...(pageContext ?? {}), attachments } : pageContext
+    const attachments = files.forTurn()
+    const context = attachments ? { ...(pageContext ?? {}), attachments } : pageContext
     stickToBottom.current = true
     void engine.send(text, activeConversationId, context, concurrency)
   }
@@ -297,18 +298,11 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     }
   }
 
-  /** Deletes the active conversation. */
+  /** Deletes the conversation being confirmed (a rail row, or the open one). */
   const deleteConversation = async () => {
-    if (activeConversationId === null) return
-    const id = activeConversationId
-    try {
-      await deleteAssistantConversation(id)
-      setActiveConversationId(null)
-      queryClient.removeQueries({ queryKey: assistantKeys.conversation(id) })
-      await queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(), 'conversations'] })
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not delete the conversation.'))
-    }
+    const target = rowDelete ?? conversation
+    if (!target) return
+    await railActions.remove(target)
   }
 
   const showMessages = wide || !railOpen
@@ -325,14 +319,21 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
         <HeaderTip label={railOpen ? 'Hide conversation history' : 'Conversation history'}>
         <button
           type="button"
-          className={iconButton}
+          className={cn(iconButton, 'relative')}
           onClick={() => setRailOpen((value) => !value)}
           aria-expanded={railOpen}
           aria-controls={listId}
           aria-label={railOpen ? 'Hide conversation history' : 'Conversation history'}
+          aria-describedby={othersBusy ? `${listId}-busy` : undefined}
           data-qqq-id="assistant-rail-toggle"
         >
           <History className="h-4 w-4" aria-hidden="true" />
+          {othersBusy && (
+            <>
+              <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary" aria-hidden="true" data-qqq-id="assistant-rail-toggle-dot" />
+              <span id={`${listId}-busy`} className="sr-only">Other conversations are working or have unread replies</span>
+            </>
+          )}
         </button>
         </HeaderTip>
         {renaming && conversation ? (
@@ -427,6 +428,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           type="button"
           className={iconButton}
           onClick={() => {
+            clearAttachments()
             setActiveConversationId(null)
             setRailOpen(false)
             requestAnimationFrame(() => composerRef.current?.focus())
@@ -449,7 +451,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
         return (
           <div key={id} className="flex items-center gap-2 border-b border-border px-3 py-2 text-xs" data-qqq-id="assistant-background-run">
             <span className="min-w-0 flex-1">Answering in {conversationTitle(other)} - <AssistantElapsed startedAt={runs[0].startedAt} /></span>
-            <button type="button" className={textButton} onClick={() => { setActiveConversationId(Number(id)); setRailOpen(false) }} data-qqq-id="assistant-background-open">Open</button>
+            <button type="button" className={textButton} onClick={() => { clearAttachments(); setActiveConversationId(Number(id)); setRailOpen(false) }} data-qqq-id="assistant-background-open">Open</button>
             <button type="button" className={textButton} onClick={() => engine.cancel(Number(id))} data-qqq-id="assistant-background-stop">Stop</button>
           </div>
         )
@@ -460,12 +462,17 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           <div id={listId} className={cn('flex min-h-0', wide ? 'w-52 shrink-0 border-r border-border' : 'min-w-0 flex-1')}>
             <ConversationRail
               className="min-w-0 flex-1"
-              conversations={conversationsQuery.data}
+              conversations={railConversations}
               loading={conversationsQuery.isLoading}
               activeId={activeConversationId}
               status={railStatus}
               onStatusChange={setRailStatus}
+              onArchive={(item) => void railActions.archive(item)}
+              onDelete={(item) => { setRowDelete(item); setConfirmDelete(true) }}
+              manageHref={manageHref}
+              onManage={() => { if (!wide) assistant.setOpen(false) }}
               onSelect={(id) => {
+                if (id !== activeConversationId) clearAttachments()
                 setActiveConversationId(id)
                 if (!engine.runs[id]) void queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(id) })
                 if (!wide) setRailOpen(false)
@@ -519,7 +526,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                   scope="assistant-message"
                   reportContext={{ conversationId: activeConversationId, messageId: message.id, turnId: message.turnId }}
                   resetKeys={[message]}
-                  fallbackRender={({ report, error }) => <InlineFailure message="This message couldn't be displayed." report={report} error={error} qqqId="assistant-message-error" />}
+                  fallbackRender={({ report, error }) => <InlineFailure message="This message could not be shown." report={report} error={error} qqqId="assistant-message-error" />}
                 >
                   <AssistantMessageView
                     message={message}
@@ -531,34 +538,43 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                 </ErrorBoundary>
               ))}
             </div>
-            <AssistantComposer
-              ref={composerRef}
-              pageInfo={pageInfo}
-              contextDismissed={contextDismissed}
-              onDismissContext={() => setDismissedRoute(pageInfo?.context.route ?? null)}
-              onRefreshContext={() => setPageInfo(readPageInfo(metaData))}
-              concurrency={concurrency}
-              streaming={Boolean(run)}
-              stopping={Boolean(run) && engine.runs[activeConversationId as number]?.every((entry) => entry.status === 'cancelling')}
-              onSend={send}
-              onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
-              prefill={prefill}
-              attachments={attachments}
-              onAttach={canAttach ? (file) => void attach(file) : undefined}
-              onRemoveAttachment={(uploadRef) => setAttachments((current) => current.filter((a) => a.uploadRef !== uploadRef))}
-              attaching={attaching}
-            />
+            <ErrorBoundary
+              scope="assistant-composer"
+              reportContext={{ conversationId: activeConversationId }}
+              fallbackRender={({ report, error, reset }) => <InlineFailure message="The message box could not be shown." report={report} error={error} onRetry={reset} qqqId="assistant-composer-error" className="m-3" />}
+            >
+              <AssistantComposer
+                ref={composerRef}
+                pageInfo={pageInfo}
+                contextDismissed={contextDismissed}
+                onDismissContext={() => setDismissedRoute(pageInfo?.context.route ?? null)}
+                onRefreshContext={() => setPageInfo(readPageInfo(metaData))}
+                concurrency={concurrency}
+                streaming={Boolean(run)}
+                stopping={Boolean(run) && engine.runs[activeConversationId as number]?.every((entry) => entry.status === 'cancelling')}
+                onSend={send}
+                onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
+                prefill={prefill}
+                attachments={files.attachments}
+                onAttach={files.policy.enabled ? (file) => void files.attach(file) : undefined}
+                onRemoveAttachment={files.remove}
+                attaching={files.attaching}
+                attachPolicy={files.policy}
+                attachError={files.error}
+                onDismissAttachError={files.dismissError}
+              />
+            </ErrorBoundary>
           </div>
         )}
       </div>
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-qqq-id="assistant-announcer">{announcement}</div>
 
-      <AlertDialog.Root open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialog.Root open={confirmDelete} onOpenChange={(open) => { setConfirmDelete(open); if (!open) setRowDelete(null) }}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-[2200] bg-black/40" />
           <AlertDialog.Content className="fixed left-1/2 top-1/2 z-[2201] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-lg focus:outline-none" data-qqq-id="assistant-delete-dialog">
             <AlertDialog.Title className="text-base font-semibold text-foreground">Delete this conversation?</AlertDialog.Title>
-            <AlertDialog.Description className="mt-1 text-sm text-muted-foreground">{conversationTitle(conversation)} and its messages are deleted. This cannot be undone.</AlertDialog.Description>
+            <AlertDialog.Description className="mt-1 text-sm text-muted-foreground">{conversationTitle(rowDelete ?? conversation)} and its messages are deleted. This cannot be undone.</AlertDialog.Description>
             <div className="mt-4 flex justify-end gap-2">
               <AlertDialog.Cancel className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">Cancel</AlertDialog.Cancel>
               <AlertDialog.Action

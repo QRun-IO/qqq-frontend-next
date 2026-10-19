@@ -202,7 +202,13 @@ export function buildClientErrorReport(error: unknown, context: ClientErrorConte
  * @returns The report that was built.
  */
 export function reportClientError(error: unknown, context: ClientErrorContext): ClientErrorReport {
-  const report = buildClientErrorReport(error, context)
+  let report: ClientErrorReport
+  try {
+    report = buildClientErrorReport(error, context)
+  } catch {
+    // an error value that cannot be read (a throwing getter) still gets a minimal report
+    report = { scope: String(context.scope || 'unknown').slice(0, LIMITS.scope), message: 'Unknown error', occurredAt: new Date().toISOString() }
+  }
   try {
     console.error(`[qqq] ${report.scope} failed${report.requestId ? ` (request ${report.requestId})` : ''}: ${report.message}`, error)
     const key = `${report.scope}|${report.message}`

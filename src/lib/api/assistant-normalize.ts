@@ -27,6 +27,7 @@
 import { z } from 'zod'
 
 import type {
+  AssistantConversation,
   AssistantConversationDetail,
   AssistantMessage,
   AssistantPart,
@@ -234,6 +235,23 @@ export function normalizeAssistantMessage(raw: unknown): AssistantMessage | null
     createDate: text.parse(message.createDate),
     parts: Array.isArray(message.parts) ? message.parts.map(normalizeAssistantPart) : [],
   }
+}
+
+/**
+ * Repairs one conversation of the list: `unreadCount` is a non-negative number and `running` a
+ * boolean when present (older servers send neither: unread defaults to 0 and running stays absent).
+ *
+ * @param raw - One list item.
+ * @returns The conversation, or null when it has no numeric id.
+ */
+export function normalizeConversationSummary(raw: unknown): AssistantConversation | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, unknown>
+  if (typeof item.id !== 'number') return null
+  const unread = typeof item.unreadCount === 'number' && item.unreadCount > 0 ? item.unreadCount : 0
+  const conversation = { ...(item as unknown as AssistantConversation), unreadCount: unread }
+  if (typeof item.running !== 'boolean') delete conversation.running
+  return conversation
 }
 
 /**

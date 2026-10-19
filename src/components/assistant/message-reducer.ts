@@ -133,7 +133,21 @@ export function endReply(messages: AssistantMessage[], assistantId: number, stat
  * @returns The concatenated text.
  */
 export function messageText(message: AssistantMessage): string {
-  return message.parts.map((part) => part.type === 'text' ? part.text : part.type === 'presentation' ? `\n${part.summary}\n` : '').join('')
+  return partsOf(message).map((part) => {
+    if (part?.type === 'text') return typeof part.text === 'string' ? part.text : ''
+    if (part?.type === 'presentation') return typeof part.summary === 'string' ? `\n${part.summary}\n` : ''
+    return ''
+  }).join('')
+}
+
+/**
+ * A message's parts, or none when a malformed message has no list.
+ *
+ * @param message - A message.
+ * @returns Its parts.
+ */
+export function partsOf(message: AssistantMessage): AssistantPart[] {
+  return Array.isArray(message.parts) ? message.parts : []
 }
 
 /**
@@ -145,10 +159,11 @@ export function messageText(message: AssistantMessage): string {
  * @returns The new messages, or the same array when the id is absent.
  */
 function updateMessage(messages: AssistantMessage[], id: number, update: (message: AssistantMessage) => AssistantMessage): AssistantMessage[] {
-  const index = messages.findIndex((message) => message.id === id)
+  const index = messages.findIndex((message) => message?.id === id)
   if (index === -1) return messages
   const next = [...messages]
-  next[index] = update(messages[index])
+  // a message without a part list (malformed) is repaired rather than failing the event
+  next[index] = update({ ...messages[index], parts: partsOf(messages[index]) })
   return next
 }
 
@@ -161,6 +176,7 @@ function updateMessage(messages: AssistantMessage[], id: number, update: (messag
  * @returns The new messages.
  */
 function appendPart(messages: AssistantMessage[], id: number, part: AssistantPart): AssistantMessage[] {
+  if (!part || typeof part !== 'object' || typeof part.type !== 'string') return messages
   return updateMessage(messages, id, (message) => ({ ...message, parts: [...message.parts, part] }))
 }
 
