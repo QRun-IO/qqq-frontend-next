@@ -39,7 +39,7 @@ export function HeaderTip({ label, children }: { label: string; children: React.
       <Tooltip.Root>
         <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content sideOffset={4} className="z-[200] rounded bg-popover px-2 py-1 text-xs text-popover-foreground shadow" data-qqq-id="assistant-tooltip">
+          <Tooltip.Content sideOffset={4} className="z-[var(--qqq-z-tooltip,3000)] rounded bg-popover px-2 py-1 text-xs text-popover-foreground shadow" data-qqq-id="assistant-tooltip">
             {label}
           </Tooltip.Content>
         </Tooltip.Portal>
