@@ -21,7 +21,7 @@
 
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -50,25 +50,35 @@ interface RailActionsOptions {
  */
 export function useRailActions({ activeConversationId, setActiveConversationId }: RailActionsOptions) {
   const queryClient = useQueryClient()
+  const activeId = useRef(activeConversationId)
+  activeId.current = activeConversationId
 
   const run = useCallback(async (conversation: AssistantConversation, request: () => Promise<unknown>, failure: string) => {
     const listsKey = [...assistantKeys.all(), 'conversations']
     await queryClient.cancelQueries({ queryKey: listsKey })
     const snapshots = queryClient.getQueriesData<AssistantConversation[]>({ queryKey: listsKey })
     queryClient.setQueriesData<AssistantConversation[]>({ queryKey: listsKey }, (list) => list?.filter((item) => item.id !== conversation.id))
-    const wasActive = activeConversationId === conversation.id
-    if (wasActive) setActiveConversationId(null)
     try {
       await request()
+      if (activeId.current === conversation.id) setActiveConversationId(null)
       queryClient.removeQueries({ queryKey: assistantKeys.conversation(conversation.id) })
     } catch (error) {
-      snapshots.forEach(([key, data]) => queryClient.setQueryData(key, data))
-      if (wasActive) setActiveConversationId(conversation.id)
+      // Restore only this row: another action or refetch may have changed the rest of a list.
+      snapshots.forEach(([key, data]) => {
+        const index = data?.findIndex((item) => item.id === conversation.id) ?? -1
+        if (index < 0 || !data) return
+        queryClient.setQueryData<AssistantConversation[]>(key, (current) => {
+          if (!current || current.some((item) => item.id === conversation.id)) return current
+          const restored = [...current]
+          restored.splice(Math.min(index, restored.length), 0, data[index])
+          return restored
+        })
+      })
       toast.error(`${failure} "${conversationTitle(conversation)}": ${getErrorMessage(error, 'try again.')}`)
     } finally {
       void queryClient.invalidateQueries({ queryKey: listsKey })
     }
-  }, [queryClient, activeConversationId, setActiveConversationId])
+  }, [queryClient, setActiveConversationId])
 
   /** Archives a conversation, or restores an archived one. */
   const archive = useCallback((conversation: AssistantConversation) => {
