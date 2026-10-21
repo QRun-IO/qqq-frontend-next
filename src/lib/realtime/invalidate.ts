@@ -41,6 +41,11 @@ export function invalidateRealtime(client: QueryClient, { event, data }: Realtim
   }
   if (event === 'task.changed') invalidate(queryKeys.collaborationMyWork())
   if (typeof data.table !== 'string') return
+  if (event === 'presence.invalidated') {
+    // Hints contain no viewer state; reread through the authenticated presence API.
+    invalidate(queryKeys.collaborationResource(data.table, String(data.pk ?? ''), 'presence'))
+    return
+  }
   if (event === 'record.changed' || event === 'record.deleted' || event === 'table.changed')
     invalidate(queryKeys.tableRecords(data.table))
   if (data.pk === undefined || data.pk === null) return

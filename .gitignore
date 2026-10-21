@@ -10,6 +10,8 @@
 
 # next.js
 /.next/
+/.next-collaboration/
+/.next-presence-live/
 /out/
 
 # production

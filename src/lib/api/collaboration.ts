@@ -649,28 +649,47 @@ export async function listTimeline(record: CollaborationRecord, cursor?: string,
  * @returns Current merged viewers.
  */
 export const renewPresence = (input: PresenceRequest) =>
-  apiClient.post<PresenceSnapshot>(`${BASE}/presence`, input)
+  apiClient.post<PresenceSnapshot>(`${BASE}/presence/leases/renew`, input)
+/** Reserves an invisible lease for activation by a visible surface.
+ * @param target - Authorized table or record.
+ * @returns Server-issued connection handle.
+ */
+export const openPresenceLease = (target: { table: string; pk?: string }) =>
+  apiClient.post<{ connectionId: string }>(`${BASE}/presence/leases`, target)
 /** Leaves a target.
  * @param input - Lease identity.
  * @returns Acknowledgement.
  */
 export const leavePresence = (input: PresenceTarget) =>
   apiClient.delete(`${BASE}/presence`, { data: input })
+
+/** Acknowledges only the caller's currently visible unread mentions.
+ * @returns Mutation acknowledgement.
+ */
+export const markMentionsRead = () => apiClient.post(`${BASE}/my-work/mentions/read`, {})
+
 /** Reads current viewers.
  * @param target - Target identity.
  * @returns Snapshot.
  */
 export const getPresence = (target: { table: string; pk?: string }) =>
   apiClient.get<PresenceSnapshot>(`${BASE}/presence`, { params: target })
-/** Sends the last heartbeat on pagehide. Beacon only supports POST; DELETE remains the
- * unmount cleanup, and the server's 45-second TTL handles a closed document.
+/** Sends a best-effort departure that survives page teardown; expiry covers network loss.
  * @param input - Last presence lease.
  */
 export function beaconPresence(input: PresenceRequest) {
-  navigator.sendBeacon?.(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'}${BASE}/presence`,
-    new Blob([JSON.stringify(input)], { type: 'application/json' })
-  )
+  void fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'}${BASE}/presence`, {
+    method: 'DELETE',
+    credentials: 'include',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json', 'X-QQQ-Client': 'next-ui' },
+    body: JSON.stringify({
+      connectionId: input.connectionId,
+      table: input.table,
+      pk: input.pk,
+      sequence: input.sequence,
+    }),
+  }).catch(() => undefined)
 }
 /** Reads directory candidates.
  * @param q - Search text.

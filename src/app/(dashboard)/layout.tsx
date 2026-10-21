@@ -180,10 +180,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Sync user ID to QContext
   useEffect(() => {
-    if (user?.email) {
-      setUserId(user.email)
-    }
-  }, [user?.email, setUserId])
+    setUserId(user?.id ?? user?.email)
+  }, [user?.id, user?.email, setUserId])
 
   // Redirect to login if not authenticated
   useEffect(() => {
