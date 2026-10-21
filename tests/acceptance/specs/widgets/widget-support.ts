@@ -67,11 +67,6 @@ export async function isPhoneLayout(page: Page): Promise<boolean> {
   return page.evaluate(() => matchMedia('(max-width: 767.98px)').matches)
 }
 
-/** Whether the page shows the desktop dashboard grid (Tailwind's `lg` breakpoint, 1024 px). */
-export async function isLargeLayout(page: Page): Promise<boolean> {
-  return page.evaluate(() => matchMedia('(min-width: 1024px)').matches)
-}
-
 /**
  * Opens a record view and shows every section: on a phone the sections are an accordion with
  * only the first one open, so widgets in the others render once their section is expanded.

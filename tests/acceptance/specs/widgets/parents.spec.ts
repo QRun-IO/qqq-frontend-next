@@ -9,7 +9,7 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
-import { expectLoaded, isLargeLayout, widget, widgetBody } from './widget-support'
+import { expectLoaded, widget, widgetBody } from './widget-support'
 
 /** Records every widget data request the page makes. */
 function widgetRequests(page: Page): string[] {
@@ -37,13 +37,14 @@ test.describe('as administrator', () => {
     await expect(parent.locator('[data-qqq-id="widget-label-accChildA"]')).toHaveText('Child A')
     const a = await parent.locator('[data-qqq-id="widget-accChildA"]').boundingBox()
     const b = await parent.locator('[data-qqq-id="widget-accChildB"]').boundingBox()
-    if (await isLargeLayout(page)) {
+    const full = await parent.boundingBox()
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
+    if (full!.width >= 40 * rem) {
       // children sit side by side (gridColumns 6 of 12)
       expect(Math.round(a!.y)).toBe(Math.round(b!.y))
       expect(b!.x).toBeGreaterThan(a!.x)
     } else {
-      // below the large breakpoint the grid is one column: each child spans the parent, stacked
-      const full = await parent.boundingBox()
+      // Below the two-column container breakpoint each child spans the parent, stacked.
       expect(Math.round(a!.width)).toBe(Math.round(full!.width))
       expect(Math.round(b!.width)).toBe(Math.round(full!.width))
       expect(Math.round(b!.x)).toBe(Math.round(a!.x))
