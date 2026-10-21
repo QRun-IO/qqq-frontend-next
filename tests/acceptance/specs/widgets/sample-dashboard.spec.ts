@@ -9,7 +9,7 @@
 import { readChartLabelBoxes, type ChartLabelBox } from '../../support/chart-label-geometry'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady } from '../../support/touch'
-import { chartTable, expectLoaded, isLargeLayout, widget, widgetPayload } from './widget-support'
+import { chartTable, expectLoaded, widget, widgetPayload } from './widget-support'
 
 const DASHBOARD = '/app/SampleWidgetsDashboard'
 
@@ -33,10 +33,15 @@ test.describe('sample widgets dashboard', () => {
     const third = await page.locator('[data-qqq-id="widget-grid-item-SampleMultiStatisticsWidget"]').boundingBox()
     // gridColumns 12 spans the grid
     expect(Math.round(composite!.width)).toBe(Math.round(full!.width))
-    if (await isLargeLayout(page)) {
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
+    if (full!.width >= 60 * rem) {
       // gridColumns 4 takes a third of it (less the gaps)
       expect(third!.width / full!.width).toBeGreaterThan(0.3)
       expect(third!.width / full!.width).toBeLessThan(0.34)
+    } else if (full!.width >= 40 * rem) {
+      // Tablet-sized containers use two columns, preserving room for each widget.
+      expect(third!.width / full!.width).toBeGreaterThan(0.48)
+      expect(third!.width / full!.width).toBeLessThan(0.5)
     } else {
       // on phones and tablets every widget takes the full width, one per row, in declared order
       const boxes = await items.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON() as DOMRect))
