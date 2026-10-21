@@ -474,6 +474,10 @@ test('[WID-073] create a report from a query, switch tables, save, reopen and re
   const stored = (await sqlRows(backend, `select table_name, columns_json from saved_report where id = ${Number(id)}`))[0]
   expect(stored.table_name).toBe('audit')
   expect(JSON.parse(stored.columns_json).columns.some((column: { name: string }) => ['__check__', 'code', 'shelf', 'name'].includes(column.name))).toBe(false)
+  // Reopen a fully loaded report; reloading during preview reads interrupts WebKit's XHRs.
+  await expectLoaded(page, 'reportSetupWidget')
+  await expect(byId(page, 'filter-preview-refresh-reportSetupWidget')).toBeEnabled()
+  await expect(page.locator('[data-widget-type][aria-busy="true"]').filter({ visible: true })).toHaveCount(0)
   await page.reload()
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['Id'])
   await recordAction(page, 'Render Report')
