@@ -123,6 +123,10 @@ test.describe('command palette and search', () => {
       await expect(pageLinks.filter({ hasText: /^Pet/ })).toHaveText([/^Pet(?! )/, /^Pet Species/, /^Pet Note/])
       for (const text of await pageLinks.allTextContents()) expect(text).toMatch(/pet/i)
     }
+    // Help results load above Pages and can move the link during a pointer gesture.
+    // Wait for the actual result, including after reload, before testing navigation.
+    await expect(page.locator('[data-qqq-id="help-search-results"] [data-qqq-id="help-result-table:petNote;slot:help"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="help-search-results"]').getByRole('status')).toHaveCount(0)
     await page.getByRole('region', { name: 'Pages' }).getByRole('link', { name: /^Pet Note/ }).click()
     await expect(page).toHaveURL(/\/app\/petNote\/?$/)
     expect(searchStatuses.length).toBeGreaterThan(0)
