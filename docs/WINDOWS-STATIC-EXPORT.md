@@ -17,4 +17,4 @@ Verification on Windows Node24.22.0:
 - Complete pnpm build:export command exits0 with the integrated integrity check.
 - Script syntax and git diff checks pass.
 
-Linux export parity and the original browser acceptance run remain to be verified by the new PR CI. The existing RC37 acceptance result belongs to its earlier unpatched head and is not claimed for this change.
+Linux export parity passed at4f9eb7e0: acceptance build job120105016937 ran the complete export and verified all78 public segment paths and bytes. Browser acceptance remains in progress. Both dashboard-image jobs exposed a missing Docker COPY for the patch directory before dependency installation; the follow-up adds that dependency-layer input. The corrected Linux Docker frontend stage builds successfully locally, including frozen dependency installation and the standalone production build; both architecture jobs still require remote revalidation. The existing RC37 acceptance result belongs to its earlier unpatched head and is not claimed for this change.

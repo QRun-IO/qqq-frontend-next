@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 COPY . .
 ENV QQQ_BACKEND_URL=http://host.docker.internal:8000
