@@ -24,11 +24,11 @@ jobs:
   ci:
     if: (github.event_name == 'pull_request' && !contains(fromJSON('["labeled","unlabeled"]'),
       github.event.action)) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    uses: QRun-IO/qqq-orb/.github/workflows/next-ci.yml@a5477b95cdc7b9d5a37118d3f625826ddf20e252
+    uses: QRun-IO/qqq-orb/.github/workflows/next-ci.yml@3d3d0c60f4df6b01b0a502d0e62c395c92e4a09c
   acceptance:
     if: github.event_name != 'pull_request' || !contains(fromJSON('["labeled","unlabeled"]'),
       github.event.action) || github.event.label.name == 'full-acceptance'
-    uses: QRun-IO/qqq-orb/.github/workflows/next-acceptance.yml@a5477b95cdc7b9d5a37118d3f625826ddf20e252
+    uses: QRun-IO/qqq-orb/.github/workflows/next-acceptance.yml@3d3d0c60f4df6b01b0a502d0e62c395c92e4a09c
     with:
       # Keep PR, main and tag acceptance on the core paired with this lease protocol.
       qqq_ref: ${{ inputs.qqq_ref || '33464d37e815e61dc0a08bd5b2eb249718dfe1b5' }}
@@ -39,4 +39,4 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: QRun-IO/qqq-orb/.github/workflows/next-dashboard-image.yml@a5477b95cdc7b9d5a37118d3f625826ddf20e252
+    uses: QRun-IO/qqq-orb/.github/workflows/next-dashboard-image.yml@3d3d0c60f4df6b01b0a502d0e62c395c92e4a09c
