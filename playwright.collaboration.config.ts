@@ -34,7 +34,7 @@ export default defineConfig({
   webServer: {
     command: `pnpm dev --port ${port}`,
     url: baseURL,
-    env: { NEXT_PUBLIC_MOCK_API: 'true' },
+    env: { NEXT_PUBLIC_MOCK_API: 'true', QQQ_NEXT_DIST_DIR: '.next-collaboration' },
     reuseExistingServer: false,
     timeout: 120_000,
   },

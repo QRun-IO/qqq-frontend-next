@@ -597,6 +597,7 @@ export interface PresenceViewer {
 }
 /** Presence target and client lease identity. */
 export interface PresenceTarget {
+  sequence?: number
   connectionId: string
   table: string
   pk?: string

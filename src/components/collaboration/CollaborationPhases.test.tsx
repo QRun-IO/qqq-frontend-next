@@ -49,11 +49,9 @@ vi.mock('@/lib/hooks/use-metadata', () => ({
 }))
 vi.mock('@/lib/api/tables', () => ({
   getRecord: vi.fn(),
-  queryRecords: vi
-    .fn()
-    .mockResolvedValue({
-      records: [{ tableName: 'person', values: { id: 1 }, recordLabel: 'Alice' }],
-    }),
+  queryRecords: vi.fn().mockResolvedValue({
+    records: [{ tableName: 'person', values: { id: 1 }, recordLabel: 'Alice' }],
+  }),
 }))
 vi.mock('@/lib/api/collaboration', () => ({
   searchPeople: vi.fn(),
@@ -66,6 +64,7 @@ vi.mock('@/lib/api/collaboration', () => ({
   createTask: vi.fn(),
   patchTask: vi.fn(),
   getMyWork: vi.fn(),
+  markMentionsRead: vi.fn().mockResolvedValue({ success: true }),
   listMyTasks: vi.fn(),
 }))
 const record = { table: 'person', pk: '1' }
@@ -302,6 +301,16 @@ it('renders My work with overdue task, assigned table and unread mentions links'
   )
   expect(screen.getByText(/Overdue:/)).toBeVisible()
   expect(screen.getByRole('link', { name: '3 unread mentions' })).toBeVisible()
+  vi.mocked(api.getMyWork).mockResolvedValue({
+    openTaskCount: 1,
+    tasks: [],
+    assignedRecordsByTable: { person: 1 },
+    unreadMentionCount: 0,
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Mark all mentions read' }))
+  await waitFor(() => expect(api.markMentionsRead).toHaveBeenCalledTimes(1))
+  expect(await screen.findByRole('link', { name: '0 unread mentions' })).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Mark all mentions read' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: /People \(1\)|Person \(1\)/ })).toHaveAttribute(
     'href',
     expect.stringContaining('CurrentUser')

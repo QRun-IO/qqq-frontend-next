@@ -24,6 +24,8 @@ import { useCollaborationPresence } from '@/lib/hooks/use-collaboration-presence
 import { useRealtimeChannel } from '@/lib/hooks/use-realtime-channel'
 import { getRecordFeatures, putAssignment } from '@/lib/api/collaboration'
 import { queryKeys } from '@/lib/query-client'
+import { updateRecord } from '@/lib/api/tables'
+import { recordVersion } from '@/lib/utils/record-version'
 import { pluralize } from '@/lib/utils/string-utils'
 import { PresenceAvatars } from './PresenceAvatars'
 import { CollaborationDialog, collaborationButton } from './CollaborationDialog'
@@ -66,7 +68,23 @@ export function RecordCollaborationHeader({
     enabled: available && !!features,
   })
   const assignment = useMutation({
-    mutationFn: () => putAssignment(target, { [role]: selected[0] ?? null }),
+    mutationFn: async () => {
+      const nativeField =
+        role === 'ownerUserId'
+          ? features?.ownership?.ownerFieldName
+          : features?.ownership?.assigneeFieldName
+      if (nativeField) {
+        await updateRecord(
+          table.name,
+          pk,
+          { [nativeField]: selected[0] ?? null },
+          undefined,
+          recordVersion(table, record)
+        )
+      } else {
+        await putAssignment(target, { [role]: selected[0] ?? null })
+      }
+    },
     onSuccess: () => {
       setAssign(false)
       void cache.invalidateQueries({ queryKey: queryKeys.collaborationRecord(table.name, pk) })
@@ -89,6 +107,7 @@ export function RecordCollaborationHeader({
       data-qqq-id="record-collaboration-header"
     >
       {presence.viewers.length > 0 && <PresenceAvatars viewers={presence.viewers} />}
+      {presence.unavailable && <span role="status">Presence temporarily unavailable</span>}
       {(owner != null || assignee != null) && (
         <dl className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {owner != null && (
@@ -151,11 +170,11 @@ export function RecordCollaborationHeader({
           <PeoplePicker record={target} selected={selected} onChange={setSelected} requireRead />
           <button
             className={collaborationButton}
-            disabled={assignment.isPending || !selected.length}
+            disabled={assignment.isPending}
             onClick={() => assignment.mutate()}
             data-qqq-id="assignment-save"
           >
-            Assign
+            {selected.length ? 'Assign' : 'Clear assignment'}
           </button>
           {assignment.isError && <p role="alert">{assignment.error.message}</p>}
         </CollaborationDialog>
@@ -176,7 +195,11 @@ export function TablePresence({ table, available }: { table: QTableMetaData; ava
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm" data-qqq-id="table-presence">
       <PresenceAvatars viewers={presence.viewers} />
-      <span>{pluralize(presence.viewers.length, 'person', 'people')} viewing</span>
+      <span role={presence.unavailable ? 'status' : undefined}>
+        {presence.unavailable
+          ? 'Presence temporarily unavailable'
+          : `${pluralize(presence.viewers.length, 'person', 'people')} viewing`}
+      </span>
     </div>
   )
 }

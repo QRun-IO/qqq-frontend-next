@@ -334,7 +334,6 @@ export function CommandMenu({ open, onClose, navTargets, metaData, helpOnly: ope
 
             {searchEnabled && <>
               {!search && <Command.Item value="help:search" data-qqq-id="command-search-help" className={ITEM_CLASS} onSelect={() => { setHelpOnly(true); dialogRef.current?.querySelector('input')?.focus() }}>Search help…</Command.Item>}
-              <HelpSearchResults search={search} palette onSelect={onClose} />
             </>}
             {!helpOnly && screen && visibleActions.length > 0 && (
               <Command.Group heading={<GroupHeading>{screen.table.label} Actions</GroupHeading>} data-qqq-id="command-group-actions">
@@ -442,6 +441,8 @@ export function CommandMenu({ open, onClose, navTargets, metaData, helpOnly: ope
                 </Command.Item>
               </Command.Group>
             )}
+            {/* Async help results must not move navigation targets during a click. */}
+            {searchEnabled && <HelpSearchResults search={search} palette onSelect={onClose} />}
           </Command.List>
 
           {/* Footer hint */}

@@ -511,7 +511,6 @@ export function SearchPage() {
         <div className={cn(showSplit && 'grid grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] items-start gap-6')}>
         {/* delegated click: remembers the search when a result link is followed; ↑/↓ move between results */}
         <div className="min-w-0 space-y-5" onClick={rememberOnOpen} onKeyDown={handleResultsKeyDown}>
-          <HelpSearchResults search={term} />
           {view !== 'pages' && !singleTable && pages.length > 0 && (
             <PagesSection pages={pages.slice(0, OVERVIEW_PAGES)} term={term} moreHref={pages.length > OVERVIEW_PAGES ? filterHref({ view: 'pages' }) : undefined} total={pages.length} />
           )}
@@ -595,6 +594,8 @@ export function SearchPage() {
               </ul>
             </section>
           )}
+          {/* Keep delayed help below already-clickable page and record results. */}
+          <HelpSearchResults search={term} />
         </div>
         {showSplit && previewed && (
           <aside

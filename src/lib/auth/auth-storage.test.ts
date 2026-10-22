@@ -43,6 +43,16 @@ afterEach(() => {
 })
 
 describe('auth-storage', () => {
+  it('preserves the canonical identity independently of the display email', () => {
+    const user = userFromSessionValues({
+      user: { id: 'alice', name: 'Alice', email: 'alice@example.test' },
+    })
+    expect(user).toEqual({ id: 'alice', name: 'Alice', email: 'alice@example.test' })
+    storeUser(user!)
+    expect(getStoredUser()?.id).toBe('alice')
+    expect(userFromSessionValues({ user: { id: 'service-user' } })?.id).toBe('service-user')
+  })
+
   it.each([null, 'true', 'false'])('preserves appearance preference %s on logout', (preference) => {
     if (preference !== null) localStorage.setItem('qqq-dark-mode', preference)
     clearUserClientData()
@@ -50,14 +60,22 @@ describe('auth-storage', () => {
   })
 
   it('reads the displayed user from manageSession values (QRun-IO/qqq#332)', () => {
-    expect(userFromSessionValues({ user: { name: 'Alice (sample)', email: 'sample:alice' } })).toEqual({ name: 'Alice (sample)', email: 'sample:alice' })
+    expect(
+      userFromSessionValues({ user: { name: 'Alice (sample)', email: 'sample:alice' } })
+    ).toEqual({ name: 'Alice (sample)', email: 'sample:alice' })
     expect(userFromSessionValues({ user: { name: '', email: 7 } })).toBeNull()
     expect(userFromSessionValues(undefined)).toBeNull()
   })
 
   it('shows a TABLE_BASED username as the identity line (QRun-IO/qqq#700)', () => {
-    expect(userFromSessionValues({ user: { name: 'Tess Table', username: 'tess.table' } })).toEqual({ name: 'Tess Table', email: 'tess.table' })
-    expect(userFromSessionValues({ user: { name: 'Tess Table', email: 'tess@example.test', username: 'tess.table' } })).toEqual({ name: 'Tess Table', email: 'tess@example.test' })
+    expect(userFromSessionValues({ user: { name: 'Tess Table', username: 'tess.table' } })).toEqual(
+      { name: 'Tess Table', email: 'tess.table' }
+    )
+    expect(
+      userFromSessionValues({
+        user: { name: 'Tess Table', email: 'tess@example.test', username: 'tess.table' },
+      })
+    ).toEqual({ name: 'Tess Table', email: 'tess@example.test' })
   })
 
   it('persists and validates the stored user', () => {
@@ -70,7 +88,10 @@ describe('auth-storage', () => {
   })
 
   it('keeps the full session values for analytics identity until sign-out (QRun-IO/qqq#730)', () => {
-    const values = { user: { name: 'Alice (sample)', email: 'sample:alice' }, analyticsValues: { user_id: 'u-1' } }
+    const values = {
+      user: { name: 'Alice (sample)', email: 'sample:alice' },
+      analyticsValues: { user_id: 'u-1' },
+    }
     storeSessionValues(values)
     expect(getStoredSessionValues()).toEqual(values)
     storeSessionValues(undefined)
@@ -109,15 +130,19 @@ describe('auth-storage', () => {
     expect(localStorage.getItem('accessToken')).toBeNull()
   })
 
-  it('clears every table\'s remembered filters and saved-view selection without resetting machine preferences (QRun-IO/qqq#1006)', () => {
+  it("clears every table's remembered filters and saved-view selection without resetting machine preferences (QRun-IO/qqq#1006)", () => {
     for (const table of ['person', 'pet']) {
       writeStoredQueryView(table, {
-        queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+        queryFilter: {
+          criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }],
+        },
         viewIdentity: 'empty',
       })
       writeCurrentSavedViewId(table, 7)
       expect(readStoredQueryView(table)).toMatchObject({
-        queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+        queryFilter: {
+          criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }],
+        },
       })
       expect(readCurrentSavedViewId(table)).toBe(7)
     }
@@ -136,20 +161,25 @@ describe('auth-storage', () => {
       expect(readStoredQueryView(table)).toBeNull()
       expect(readCurrentSavedViewId(table)).toBeNull()
     }
-    for (const [key, value] of Object.entries(preferences)) expect(localStorage.getItem(key)).toBe(value)
+    for (const [key, value] of Object.entries(preferences))
+      expect(localStorage.getItem(key)).toBe(value)
   })
 
   it('keeps remembered query state for the same identity and clears it before another identity claims the browser (QRun-IO/qqq#1006)', () => {
     claimClientData({ name: 'Alice', email: 'alice@example.test' })
     writeStoredQueryView('person', {
-      queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+      queryFilter: {
+        criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }],
+      },
       viewIdentity: 'savedView:7',
     })
     writeCurrentSavedViewId('person', 7)
 
     claimClientData({ name: 'Alice', email: 'alice@example.test' })
     expect(readStoredQueryView('person')).toMatchObject({
-      queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+      queryFilter: {
+        criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }],
+      },
       viewIdentity: 'savedView:7',
     })
     expect(readCurrentSavedViewId('person')).toBe(7)
@@ -160,9 +190,12 @@ describe('auth-storage', () => {
     expect(localStorage.getItem('qqq.clientDataOwner')).toBe('bob@example.test')
   })
 
-  it('clears the previous user\'s data when someone else signs in in this browser (QRun-IO/qqq#696)', () => {
+  it("clears the previous user's data when someone else signs in in this browser (QRun-IO/qqq#696)", () => {
     claimClientData({ name: 'Alice', email: 'alice@example.com' })
-    localStorage.setItem('qqq-recent-records', JSON.stringify([{ path: '/app/pet/1', recordLabel: 'Alice private' }]))
+    localStorage.setItem(
+      'qqq-recent-records',
+      JSON.stringify([{ path: '/app/pet/1', recordLabel: 'Alice private' }])
+    )
     storeUser({ name: 'Alice', email: 'alice@example.com' })
 
     claimClientData({ name: 'Alice', email: 'alice@example.com' })
