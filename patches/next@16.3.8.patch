@@ -1,0 +1,26 @@
+diff --git a/dist/esm/export/index.js b/dist/esm/export/index.js
+index 6c35f4f47f704caea869a4f89721e0fc71f7f458..e6cb137651229c7f4e1d8c355391c0d96903e998 100644
+--- a/dist/esm/export/index.js
++++ b/dist/esm/export/index.js
+@@ -717,7 +717,7 @@ async function exportAppImpl(dir, options, span, staticWorker) {
+                 const segmentsDirDest = join(outDir, unnormalizedRoute);
+                 const segmentPaths = await collectSegmentPaths(segmentsDir);
+                 await Promise.all(segmentPaths.map(async (segmentFileSrc)=>{
+-                    const segmentPath = '/' + segmentFileSrc.slice(0, -RSC_SEGMENT_SUFFIX.length);
++                    const segmentPath = '/' + segmentFileSrc.slice(0, -RSC_SEGMENT_SUFFIX.length).split(sep).join('/');
+                     const segmentFilename = convertSegmentPathToStaticExportFilename(segmentPath);
+                     const segmentFileDest = join(segmentsDirDest, segmentFilename);
+                     await fs.mkdir(dirname(segmentFileDest), {
+diff --git a/dist/export/index.js b/dist/export/index.js
+index a19941bec99b5c5673834872eaf8a95deb584a34..0a02e470ea21c8c29a08f01b70d7584040678b1b 100644
+--- a/dist/export/index.js
++++ b/dist/export/index.js
+@@ -785,7 +785,7 @@ async function exportAppImpl(dir, options, span, staticWorker) {
+                 const segmentsDirDest = (0, _path.join)(outDir, unnormalizedRoute);
+                 const segmentPaths = await collectSegmentPaths(segmentsDir);
+                 await Promise.all(segmentPaths.map(async (segmentFileSrc)=>{
+-                    const segmentPath = '/' + segmentFileSrc.slice(0, -_constants.RSC_SEGMENT_SUFFIX.length);
++                    const segmentPath = '/' + segmentFileSrc.slice(0, -_constants.RSC_SEGMENT_SUFFIX.length).split(_path.sep).join('/');
+                     const segmentFilename = (0, _segmentvalueencoding.convertSegmentPathToStaticExportFilename)(segmentPath);
+                     const segmentFileDest = (0, _path.join)(segmentsDirDest, segmentFilename);
+                     await _fs.promises.mkdir((0, _path.dirname)(segmentFileDest), {

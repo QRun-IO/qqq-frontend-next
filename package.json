@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "build:export": "QQQ_NEXT_OUTPUT=export NEXT_PUBLIC_MOCK_API=false next build",
+    "build:export": "node scripts/build-export.mjs",
     "build:jar": "pnpm build:export && mvn -B -q clean package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",
@@ -122,6 +122,9 @@
     },
     "ignoredOptionalDependencies": [
       "electron"
-    ]
+    ],
+    "patchedDependencies": {
+      "next@16.3.8": "patches/next@16.3.8.patch"
+    }
   }
 }
