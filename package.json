@@ -76,9 +76,9 @@
     "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.4",
     "@playwright/test": "1.64.0-alpha-2026-10-01",
-    "@storybook/addon-docs": "10.6.0",
-    "@storybook/nextjs-vite": "10.6.0",
-    "@storybook/react": "10.6.0",
+    "@storybook/addon-docs": "10.6.2",
+    "@storybook/nextjs-vite": "10.6.2",
+    "@storybook/react": "10.6.2",
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -89,8 +89,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "@vitest/coverage-v8": "^4.1.11",
-    "@vitest/ui": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/ui": "^4.1.12",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.3",
     "eslint-config-next": "16.3.6",
@@ -101,11 +101,11 @@
     "msw": "^2.12.10",
     "postcss": "^8.5.28",
     "prettier": "^3.8.1",
-    "storybook": "10.6.0",
+    "storybook": "10.6.2",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vite": "7.3.7",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "msw": {
     "workerDirectory": [
