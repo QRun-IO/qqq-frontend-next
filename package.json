@@ -70,7 +70,7 @@
     "sonner": "^2.0.7",
     "sql-formatter": "15.6.6",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
