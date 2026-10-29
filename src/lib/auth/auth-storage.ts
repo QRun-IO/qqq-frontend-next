@@ -31,6 +31,7 @@ const SESSION_HINT_KEY = 'qqq.sessionHint'
 
 /** The displayed identity of the signed-in user. */
 export interface StoredUser {
+  id?: string
   name?: string
   email?: string
 }
@@ -102,16 +103,24 @@ export function setSessionHint(present: boolean): void {
  * @param values - The session values for the frontend.
  * @returns The user when it has a name or email.
  */
-export function userFromSessionValues(values: Record<string, unknown> | undefined): StoredUser | null {
+export function userFromSessionValues(
+  values: Record<string, unknown> | undefined
+): StoredUser | null {
   const user = values?.user
   if (!user || typeof user !== 'object') return null
-  const { name, email, username } = user as Record<string, unknown>
-  const identity = typeof email === 'string' && email ? email : typeof username === 'string' && username ? username : undefined
+  const { id, name, email, username } = user as Record<string, unknown>
+  const identity =
+    typeof email === 'string' && email
+      ? email
+      : typeof username === 'string' && username
+        ? username
+        : undefined
   const result: StoredUser = {
+    ...(typeof id === 'string' && id ? { id } : {}),
     name: typeof name === 'string' && name ? name : undefined,
     email: identity,
   }
-  return result.name || result.email ? result : null
+  return result.id || result.name || result.email ? result : null
 }
 
 /**
@@ -162,7 +171,9 @@ export function storeSessionValues(values: Record<string, unknown> | undefined):
 export function getStoredSessionValues(): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(storage('local')?.getItem(SESSION_VALUES_KEY) ?? 'null') as unknown
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
   } catch {
     return null
   }
@@ -179,7 +190,9 @@ export function recordReauthAttempt(now = Date.now()): boolean {
   const session = storage('session')
   let attempts: number[] = []
   try {
-    attempts = (JSON.parse(session?.getItem(REAUTH_KEY) ?? '[]') as number[]).filter((time) => now - time < 60_000)
+    attempts = (JSON.parse(session?.getItem(REAUTH_KEY) ?? '[]') as number[]).filter(
+      (time) => now - time < 60_000
+    )
   } catch {
     attempts = []
   }

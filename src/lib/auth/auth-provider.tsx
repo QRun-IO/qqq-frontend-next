@@ -185,11 +185,17 @@ function signInErrorMessage(error: unknown): string {
  * The identity to display for a session.
  *
  * @param response - The manageSession response.
- * @param fallback - Identity to use when the session carries none.
+ * @param fallback - Display identity when the session carries no display fields.
  * @returns The user.
  */
 function sessionUser(response: SessionResponse, fallback: AuthUser | null): AuthUser {
-  return userFromSessionValues(response.values) ?? fallback ?? {}
+  const session = userFromSessionValues(response.values)
+  if (!session) return fallback ?? {}
+  if (session.name || session.email) return session
+  // An ID-only backend identity must retain its authoritative ID without dropping
+  // the provider's display profile. Never reuse a profile for a different user ID.
+  if (session.id && fallback?.id && session.id !== fallback.id) return session
+  return { ...session, name: fallback?.name, email: fallback?.email }
 }
 
 /**

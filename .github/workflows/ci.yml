@@ -24,11 +24,11 @@ jobs:
   ci:
     if: (github.event_name == 'pull_request' && !contains(fromJSON('["labeled","unlabeled"]'),
       github.event.action)) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    uses: QRun-IO/qqq-orb/.github/workflows/next-ci.yml@0f33ddadf88b9a1b940b8883782fe2000ee1d2bd
+    uses: QRun-IO/qqq-orb/.github/workflows/next-ci.yml@eeb76914ad49fcdb2197529481de55d1e35a008a
   acceptance:
     if: github.event_name != 'pull_request' || !contains(fromJSON('["labeled","unlabeled"]'),
       github.event.action) || github.event.label.name == 'full-acceptance'
-    uses: QRun-IO/qqq-orb/.github/workflows/next-acceptance.yml@0f33ddadf88b9a1b940b8883782fe2000ee1d2bd
+    uses: QRun-IO/qqq-orb/.github/workflows/next-acceptance.yml@eeb76914ad49fcdb2197529481de55d1e35a008a
     with:
       qqq_ref: ${{ inputs.qqq_ref || '' }}
   dashboard-image:
@@ -38,4 +38,4 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: QRun-IO/qqq-orb/.github/workflows/next-dashboard-image.yml@0f33ddadf88b9a1b940b8883782fe2000ee1d2bd
+    uses: QRun-IO/qqq-orb/.github/workflows/next-dashboard-image.yml@eeb76914ad49fcdb2197529481de55d1e35a008a

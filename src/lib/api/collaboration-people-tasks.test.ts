@@ -46,14 +46,16 @@ it('searches the directory with a bounded page and normalizes each person', asyn
   expect(result.items[1].userId).toBeNull()
 })
 
-it('sends the last presence lease as a JSON beacon, and tolerates browsers without one', () => {
-  const sendBeacon = vi.fn()
-  Object.defineProperty(navigator, 'sendBeacon', { value: sendBeacon, configurable: true })
-  beaconPresence({ table: 'person', pk: '1', mode: 'VIEWING' } as never)
-  expect(sendBeacon).toHaveBeenCalledWith('/qqq/v1/qbit/collaboration/presence', expect.any(Blob))
-  expect((sendBeacon.mock.calls[0][1] as Blob).type).toBe('application/json')
-  Object.defineProperty(navigator, 'sendBeacon', { value: undefined, configurable: true })
-  expect(() => beaconPresence({ table: 'person', pk: '1', mode: 'VIEWING' } as never)).not.toThrow()
+it('sends an ordered DELETE that survives page teardown and tolerates network failure', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response())
+  beaconPresence({ connectionId: 'tab', table: 'person', pk: '1', mode: 'VIEWING', sequence: 4 })
+  expect(fetch).toHaveBeenCalledWith('/qqq/v1/qbit/collaboration/presence', expect.objectContaining({
+    method: 'DELETE', credentials: 'include', keepalive: true,
+    body: JSON.stringify({ connectionId: 'tab', table: 'person', pk: '1', sequence: 4 }),
+  }))
+  fetch.mockRejectedValue(new Error('offline'))
+  expect(() => beaconPresence({ connectionId: 'tab', table: 'person', mode: 'VIEWING', sequence: 5 })).not.toThrow()
+  await Promise.resolve()
 })
 
 it('reads open personal tasks and rejects a task without an identifier', async () => {
