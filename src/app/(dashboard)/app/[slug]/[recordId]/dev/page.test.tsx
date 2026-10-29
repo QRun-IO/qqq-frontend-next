@@ -19,7 +19,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QInstance } from '@/types'
 import { QContextProvider, useQContext } from '@/lib/context/q-context'
@@ -113,6 +113,10 @@ function renderPage() {
 }
 
 describe('RecordDeveloperViewPage', () => {
+  // Transform the real lazy module before DOM waits begin. Cold Vitest transforms
+  // on Windows can otherwise consume the first test's entire five-second wait.
+  beforeAll(async () => { await import('@/components/developer/RecordDeveloperView') })
+
   beforeEach(() => {
     vi.mocked(getRecord).mockResolvedValue(record)
     vi.mocked(getRecordDeveloperData).mockResolvedValue({

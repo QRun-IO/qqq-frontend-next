@@ -7,6 +7,7 @@
 
 /** @file Exercises the real variant lifecycle with only process and filesystem boundaries replaced. */
 import { EventEmitter } from 'node:events'
+import path from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
@@ -39,7 +40,7 @@ vi.mock('node:child_process', () => {
 // Existing stale export and build files cannot determine the browser's selected server.
 vi.mock('node:fs', async (original) => {
   const fs = {
-    ...await original<typeof import('node:fs')>(), existsSync: (file: string) => file.endsWith('next-dashboard/index.html') ? state.hasExport : true, mkdirSync: () => {}, rmSync: () => {},
+    ...await original<typeof import('node:fs')>(), existsSync: (file: string) => file.endsWith(path.join('next-dashboard', 'index.html')) ? state.hasExport : true, mkdirSync: () => {}, rmSync: () => {},
     readdirSync: () => ['Fixture.java'],
     readFileSync: (file: string) => file.endsWith('routes-manifest.json')
       ? JSON.stringify({ rewrites: { beforeFiles: [], afterFiles: ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession', 'apis.json', 'api', 'qa'].map((prefix) => ({ source: `/${prefix}/:path*`, destination: `http://127.0.0.1:${state.wrongTarget ? '18765' : '18775'}/${prefix}/:path*` })), fallback: [] } })

@@ -6,3 +6,5 @@ playwright-report
 coverage
 .env*
 *.log
+
+.pnpm-store
