@@ -1,4 +1,4 @@
-FROM registry-1.docker.io/library/node:22-bookworm-slim AS frontend
+FROM registry-1.docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS frontend
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
@@ -9,8 +9,12 @@ ENV QQQ_BACKEND_URL=http://host.docker.internal:8000
 ENV NEXT_PUBLIC_MOCK_API=false
 RUN pnpm build
 
-FROM registry-1.docker.io/library/node:22-bookworm-slim AS runtime
+FROM registry-1.docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runtime
 LABEL org.opencontainers.image.source="https://github.com/QRun-IO/qqq-frontend-next"
+# Standalone production starts node directly; package managers are build-only.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+       /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=frontend --chown=node:node /app/.next/standalone ./
