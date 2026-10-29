@@ -49,8 +49,14 @@ it('keeps the variant build, static assets and entrypoint after the main build d
   expect(readFileSync(path.join(staged, 'public/icon.svg'), 'utf8')).toBe('<svg/>')
   expect(readFileSync(path.join(staged, 'qqq-server.mjs'), 'utf8')).toBe('container entrypoint')
   expect(readFileSync(path.join(staged, 'branding-assets.mjs'), 'utf8')).toBe('declared branding aliases')
-  expect(readlinkSync(path.join(staged, 'node_modules/example'))).toBe('.pnpm/example')
+  expect(path.normalize(readlinkSync(path.join(staged, 'node_modules/example')))).toBe(path.join('.pnpm', 'example'))
   expect(readFileSync(path.join(staged, 'node_modules/example/index.js'), 'utf8')).toBe('independent dependency')
+})
+
+// Windows permissions are ACL-based; Node's mode bits do not represent this policy.
+it.skipIf(process.platform === 'win32')('restricts staged Unix file and directory permissions', () => {
+  const { source, staged } = fixture()
+  stageStandalone(staged, backend, source)
   expect(statSync(path.join(staged, 'server.js')).mode & 0o777).toBe(0o600)
   expect(statSync(path.join(staged, '.next/static')).mode & 0o777).toBe(0o700)
 })
