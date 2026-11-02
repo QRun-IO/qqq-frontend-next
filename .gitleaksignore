@@ -1,0 +1,5 @@
+
+
+# Reviewed findings committed before the Gitea migration; exact historical fingerprints only.
+0969231c95f876bb0a41529e8c6c4621a0257aee:src/lib/qa-capture/sanitizers.test.ts:jwt:33
+23a855297de0f84b564b20d782e01180a68b5257:tests/acceptance/specs/security/restrictions.spec.ts:generic-api-key:248
