@@ -97,6 +97,18 @@ it('does not request or save bytes after cancellation', async () => {
   expect(get).not.toHaveBeenCalled()
 })
 
+it('stops an oversized transfer before requesting a completion receipt', async () => {
+  get.mockImplementationOnce(async (_path, options) => {
+    options?.onDownloadProgress?.({ loaded: 20 * 1024 * 1024, bytes: 20 * 1024 * 1024, lengthComputable: false })
+    expect(options?.signal?.aborted).toBe(false)
+    options?.onDownloadProgress?.({ loaded: 20 * 1024 * 1024 + 1, bytes: 1, lengthComputable: false })
+    expect(options?.signal?.aborted).toBe(true)
+    throw new DOMException('Transfer exceeds limit', 'AbortError')
+  })
+  await expect(fetchTrackedAttachment(url)).rejects.toThrow('Transfer exceeds limit')
+  expect(get).toHaveBeenCalledTimes(1)
+})
+
 it('propagates caller cancellation into the receipt request', async () => {
   const lifetime = new AbortController()
   get.mockResolvedValueOnce(new Blob(['ORIGINAL']))

@@ -5,8 +5,10 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { useAttachmentPreview } from './use-attachment-preview'
 import { useAttachmentUrl } from './use-collaboration-record'
 import { fetchTrackedAttachment, safeAttachmentPreviewBlob } from '@/lib/api/attachment-download'
+import { loadSignedPdfPreviewBlob } from '@/lib/api/pdf-preview'
 vi.mock('./use-collaboration-record', () => ({ useAttachmentUrl: vi.fn() }))
 vi.mock('@/lib/api/attachment-download', () => ({ fetchTrackedAttachment: vi.fn(), safeAttachmentPreviewBlob: vi.fn() }))
+vi.mock('@/lib/api/pdf-preview', () => ({ loadSignedPdfPreviewBlob: vi.fn() }))
 const create = vi.fn(() => 'blob:verified')
 const revoke = vi.fn()
 beforeEach(() => {
@@ -42,6 +44,18 @@ it('preserves ordinary signed previews without making an authenticated arbitrary
   const hook = renderHook(() => useAttachmentPreview(12, true))
   expect(hook.result.current.data?.url).toBe('https://storage/signed')
   expect(fetchTrackedAttachment).not.toHaveBeenCalled()
+})
+
+it('prepares an ordinary signed PDF locally and releases it when the preview closes', async () => {
+  vi.mocked(useAttachmentUrl).mockReturnValue({ data: { url: 'https://storage/signed' }, isError: false } as ReturnType<typeof useAttachmentUrl>)
+  vi.mocked(loadSignedPdfPreviewBlob).mockResolvedValue(new Blob(['%PDF-1.7\n'], { type: 'application/pdf' }))
+  const hook = renderHook(() => useAttachmentPreview(12, true, true))
+  expect(hook.result.current.data).toBeUndefined()
+  await waitFor(() => expect(hook.result.current.data?.url).toBe('blob:verified'))
+  expect(fetchTrackedAttachment).not.toHaveBeenCalled()
+  expect(loadSignedPdfPreviewBlob).toHaveBeenCalledWith('https://storage/signed', expect.any(AbortSignal))
+  hook.unmount()
+  expect(revoke).toHaveBeenCalledWith('blob:verified')
 })
 
 

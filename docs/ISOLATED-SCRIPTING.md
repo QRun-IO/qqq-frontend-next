@@ -16,7 +16,7 @@ The alias package also exports tsc and would shadow the existing compiler under 
 
 ## Authorization and uncertainty
 
-Server permissions and worker availability control lifecycle actions, with backend checks authoritative. Core/RDBMS must use the reviewed isolated-record-files local artifact; other QQQ modules stayRC20. Project creation and publication use typed core authority; isolated revision/file content and ownership are immutable. Real native HTTP lifecycle succeeds with protocol-only fixture worker; no production provider is implied.
+Server permissions and worker availability control lifecycle actions, with backend checks authoritative. Use the matching Core `4.1.0-SNAPSHOT` dependency set described in [current integration status](QBIT-RELEASE-STATUS.md); the old mixed private-artifact/RC20 setup is superseded. Project creation and publication use typed core authority; isolated revision/file content and ownership are immutable. Real native HTTP lifecycle succeeds with protocol-only fixture worker; no production provider is implied.
 
 Stop waiting or network timeout makes mutation outcome uncertain and prevents another mutation. History refresh does not prove completion; inspect history/reopen. Creation uncertainty directs the user to Scripts before retrying. Abort does not undo committed work. GitHub import needs a server-installed managed access provider and full immutable commit.
 
@@ -25,3 +25,5 @@ Stop waiting or network timeout makes mutation outcome uncertain and prevents an
 2026-10-30: **114 focused tests across12 files**, existing build-compiler typecheck and changed-file ESLint passed. Real Playwright Chromium worker check exercises strict diagnostics, multi-file completion/hover/definition/format, rejects remote types and proves source does not execute or fetch. Final optimized production build with typecheck, static generation and standalone packaging passed at 21:36, including the creation panel (parent run20209, editor-build-verification.log). Native server tests separately cover create/save/build/context-test/publish and permission/association/legacy denials. No live browser-to-deployed-worker end-to-end or production sandbox qualification claim.
 
 Run pnpm scripting:worker:check after generating the worker; this environment uses PLAYWRIGHT_BROWSERS_PATH=C:/Users/james/AppData/Local/ms-playwright. The harness serves only a local trusted page/worker with connect-src none and closes browser/server on completion.
+
+Current integration verification (2026-11-04): the real Chromium offline-worker check passes strict diagnostics, multi-file completion/hover/definition and formatting, with no source execution or external requests. Typecheck, lint and production worker packaging pass on the canonical integration branch. See [current status](QBIT-RELEASE-STATUS.md) for the final full-suite evidence. This frontend result does not qualify the server's untrusted-code runtime.

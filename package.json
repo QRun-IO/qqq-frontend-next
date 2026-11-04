@@ -8,7 +8,7 @@
     "scripting:worker:check": "node scripts/build-scripting-worker.mjs && node scripts/check-scripting-worker.mjs",
     "dev": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && next dev --turbopack",
     "build": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && next build",
-    "build:export": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && QQQ_NEXT_OUTPUT=export NEXT_PUBLIC_MOCK_API=false next build",
+    "build:export": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/build-export.mjs",
     "build:jar": "pnpm build:export && mvn -B -q clean package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",

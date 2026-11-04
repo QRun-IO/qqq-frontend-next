@@ -16,7 +16,7 @@
 
 import { Blob as NodeBlob } from 'node:buffer'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { loadPdfPreviewBytes, pdfPreviewSource, PDF_BYTE_LIMIT } from './pdf-preview'
+import { loadPdfPreviewBytes, loadSignedPdfPreviewBlob, pdfPreviewSource, PDF_BYTE_LIMIT } from './pdf-preview'
 const mock = vi.hoisted(() => ({ get: vi.fn(), base: '/qqq/v1' }))
 vi.mock('./client', () => ({ default: { get: mock.get, getInstance: () => ({ defaults: { baseURL: mock.base } }) } }))
 beforeEach(() => { vi.clearAllMocks(); mock.base = '/qqq/v1'; vi.stubGlobal('Blob', NodeBlob) })
@@ -58,10 +58,83 @@ it('allows only the exact separately hosted configured API origin for native fil
   expect(mock.get).toHaveBeenCalledTimes(1)
 })
 
+it('cancels an in-flight native PDF request when its dialog closes', async () => {
+  const lifetime = new AbortController()
+  let requestSignal: AbortSignal | undefined
+  mock.get.mockImplementationOnce((_url, options) => new Promise((_resolve, reject) => {
+    requestSignal = options.signal
+    requestSignal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true })
+  }))
+  const result = loadPdfPreviewBytes('/qqq/v1/table/a/1/file/a.pdf', lifetime.signal)
+  const rejected = expect(result).rejects.toThrow('Cancelled')
+  lifetime.abort()
+  await rejected
+  expect(requestSignal?.aborted).toBe(true)
+})
+
+it('aborts an oversized PDF while receiving it, before parsing the body', async () => {
+  mock.get.mockImplementationOnce(async (_url, options) => {
+    options.onDownloadProgress({ loaded: PDF_BYTE_LIMIT })
+    expect(options.signal.aborted).toBe(false)
+    options.onDownloadProgress({ loaded: PDF_BYTE_LIMIT + 1 })
+    expect(options.signal.aborted).toBe(true)
+    options.signal.throwIfAborted()
+  })
+  await expect(loadPdfPreviewBytes('/qqq/v1/table/a/1/file/a.pdf', new AbortController().signal)).rejects.toThrow()
+})
+
 it('rejects other table operations and encoded route delimiters before authenticated I/O', async () => {
   for (const suffix of ['a/query', 'a/1', 'a/1/file', 'a/1/file/a.pdf/extra', 'a/1/file/a%2fb.pdf', 'a/1/file/a%5cb.pdf', 'a/1/file/a%00.pdf']) {
     await expect(loadPdfPreviewBytes('/qqq/v1/table/' + suffix, new AbortController().signal)).rejects.toThrow('trusted file preview source')
   }
   expect(mock.get).not.toHaveBeenCalled()
   expect(pdfPreviewSource('/qqq/v1/table/a/1/file/packing%20slip.pdf?inline=true').pathname).toBe('/qqq/v1/table/a/1/file/packing%20slip.pdf')
+})
+
+it('reads a server-issued signed PDF without credentials or redirects and checks its actual bytes', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response('%PDF-1.7\nfixture'))
+  vi.stubGlobal('fetch', fetcher)
+  const blob = await loadSignedPdfPreviewBlob('https://storage.example/file?signature=test', new AbortController().signal)
+  expect(await blob.text()).toBe('%PDF-1.7\nfixture')
+  expect(blob.type).toBe('application/pdf')
+  expect(fetcher).toHaveBeenCalledWith(new URL('https://storage.example/file?signature=test'), expect.objectContaining({
+    credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer',
+  }))
+  expect(mock.get).not.toHaveBeenCalled()
+  fetcher.mockResolvedValueOnce(new Response('<html>not a PDF</html>', { headers: { 'Content-Type': 'application/pdf' } }))
+  await expect(loadSignedPdfPreviewBlob('/signed/file', new AbortController().signal)).rejects.toThrow('not a supported PDF')
+})
+
+it('refuses unsafe signed URLs, cancelled work and unsuccessful storage responses', async () => {
+  const fetcher = vi.fn()
+  vi.stubGlobal('fetch', fetcher)
+  for (const source of ['javascript:alert(1)', 'https://user:pass@storage.example/file', '/file#fragment']) {
+    await expect(loadSignedPdfPreviewBlob(source, new AbortController().signal)).rejects.toThrow('Invalid storage preview URL')
+  }
+  const cancelled = new AbortController(); cancelled.abort()
+  await expect(loadSignedPdfPreviewBlob('/signed/file', cancelled.signal)).rejects.toThrow()
+  expect(fetcher).not.toHaveBeenCalled()
+  fetcher.mockResolvedValueOnce(new Response('Unavailable', { status: 403 }))
+  await expect(loadSignedPdfPreviewBlob('/signed/file', new AbortController().signal)).rejects.toThrow('could not be read')
+})
+
+it('cancels oversized signed PDF streams before accumulating their full bodies', async () => {
+  const cancel = vi.fn().mockRejectedValue(new Error('Stream already closed'))
+  const body = new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(PDF_BYTE_LIMIT + 1)) }, cancel })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)))
+  await expect(loadSignedPdfPreviewBlob('/signed/file', new AbortController().signal)).rejects.toThrow('20 MiB')
+  expect(cancel).toHaveBeenCalledTimes(1)
+  expect(body.locked).toBe(false)
+})
+
+it('times out signed storage requests instead of retaining an unbounded pending preview', async () => {
+  vi.useFakeTimers()
+  try {
+    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('Timed out', 'AbortError')), { once: true })
+    })))
+    const rejected = expect(loadSignedPdfPreviewBlob('/signed/file', new AbortController().signal)).rejects.toThrow('Timed out')
+    await vi.advanceTimersByTimeAsync(30_000)
+    await rejected
+  } finally { vi.useRealTimers() }
 })

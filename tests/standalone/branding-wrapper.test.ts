@@ -111,7 +111,7 @@ it('applies public backend policy inputs to an actual HTML response with no oper
   expect(await response.text()).toBe('<html><script>self.boot = true</script></html>')
   const policy = response.headers.get('content-security-policy') ?? ''
   expect(policy).toContain("script-src 'self' https://cdn.example 'sha256-")
-  expect(policy).toContain("connect-src 'self' https://analytics.example")
+  expect(policy).toContain("connect-src 'self' blob: https://analytics.example")
   expect(policy).toContain("frame-src 'self' https://*.quicksight.aws.amazon.com")
   expect(policy).toContain("object-src 'none'")
   expect(response.headers.get('x-frame-options')).toBe('DENY')

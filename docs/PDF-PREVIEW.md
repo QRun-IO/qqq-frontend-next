@@ -8,7 +8,7 @@ the existing owner authorization callback.
 Retained attachment previews reach it only after the tracked-download helper verifies
 server receipt, byte length and SHA-256, and assigns `application/pdf` from the fixed
 PDF signature. The generic renderer accepts local same-origin blob URLs or native
-file endpoints at the exact configured API origin and base path. It never forwards API
+file endpoints at the exact configured API origin and base path. Both dashboard hosts must permit `blob:` in CSP `connect-src` so the verified local bytes can be read; the current Javalin and standalone defaults include it. It never forwards API
 credentials to arbitrary external URLs. Uploaded MIME labels alone are insufficient.
 
 The renderer supplies bytes (not a document URL) to an explicitly created parser
@@ -40,22 +40,8 @@ The prior advisory affected versions through 4.1.392 and was fixed in 4.2.67. Th
 not pretend an obsolete option supplies isolation. It uses the pinned current release,
 no PDF scripting manager, and the application's restrictive script CSP.
 
-Verification: 30 focused PDF/input/lightbox tests passed; TypeScript and changed-source
-ESLint passed. Browser acceptance is staged in `tests/e2e/file-preview.spec.ts` using a
-deterministic two-page PDF containing an OpenAction, asserting canvas pixels/page
-navigation and no frame/document dialog. The actual combined production/browser run
-is still pending; unit mocks are not proof of real PDF rendering or parser isolation.
+## Current verification (2026-11-04)
 
-Combined production build43196 passed (terminal0), recorded in
-`combined-pdf-order-hook-build.log`. It includes PDF worker packaging, ordering,
-tracked preview integration and hook controls. Browser run remains the next gate.
+The production export and local Maven JAR include the pinned worker. Twelve Chromium browser scenarios pass against that packaged UI, including actual PDF worker/canvas pixels, page navigation, no executed PDF OpenAction, separate retained preview/download receipts, refusal of incomplete receipts, and ordered-file submission. Real Core/Collaboration API sessions separately pass ordinary signed-PDF canvas preview, page controls and PDF download.
 
-First real Chromium run passed all four preview/order tests in7.0 seconds
-(root pdf-order-browser-verification.log), including real PDF worker pixels, page2,
-no executed OpenAction, and keyboard ordering with exact submission. A subsequent
-independent review prompted streamed-text bounds and exact configured API origin
-support; those changes pass30 focused tests/lint/TypeScript and await the final
-combined production/browser rerun. This distinguishes the tested browser snapshot
-from the newer resource-limiting source.
-
-Latest follow-up: page resources request PDF.js cleanup after render plus bounded text work settles, including cancelled work; cleanup is never called to discard resources during an active render. Focused PDF/input/receipt/preview-lifetime24 tests and scoped lint passed2026-10-31 00:15:49. Parent owns final production/browser rerun after this source snapshot. Record-file transfer coordinates now mint a fresh correlation UUID per preview/save invocation after strict native-origin/path validation; each body has its own current-authorized durable attempt and derived receipt.
+Signed attachment PDFs are read with credentials omitted and redirects refused, bounded to 20 MiB and 30 seconds, and checked by byte signature before a local preview URL is exposed. Their storage origin needs host CSP/CORS configuration. Tracked deliveries retain the receipt/hash path. Cancellation and streaming-limit tests cover both paths. See [current status](QBIT-RELEASE-STATUS.md) for the full suite and [release requirements](QBIT-KNOWN-ISSUES.md) for remaining deployment qualifications.

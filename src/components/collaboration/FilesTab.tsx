@@ -65,7 +65,7 @@ function AttachmentRow({ file, record }: { file: Attachment; record: Collaborati
   const [downloading, setDownloading] = useState(false)
   const kind = kindFor(file.contentType)
   const canEdit = Object.prototype.hasOwnProperty.call(file, 'canEdit') ? file.canEdit === true : file.canDelete === true
-  const url = useAttachmentPreview(file.id, kind === 'image' || preview)
+  const url = useAttachmentPreview(file.id, kind === 'image' || preview, kind === 'pdf')
   const download = async () => {
     setError('')
     setDownloading(true)

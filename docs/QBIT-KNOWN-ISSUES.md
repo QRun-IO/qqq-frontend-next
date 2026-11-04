@@ -1,10 +1,10 @@
-# QBit integration known issues
+# QBit integration known issues and release requirements
 
-Updated: 2026-11-04. Unresolved at closeout.
+Updated: 2026-11-04.
 
-- Requires the compatible Core, Scripting, Record Files and Document Generation APIs; a complete public backend/frontend cohort has not been demonstrated.
-- Document/file acceptance through the UI and live UIUX API contract checking remain outstanding. Scanner manual acceptance is not evidence for these document UI flows.
-- The existing build:export command uses a POSIX environment prefix and fails under Windows cmd. The equivalent existing sequence succeeded from bash; the command was not changed during this integration.
-- Canonical Next 16.4.1 and Zod 3 were preserved. Newer dependency patches in the private client branch were not automatically imported; normal dependency/security review remains needed before release.
-- Website-specific sequential-workflow features, unrelated presence/auth changes and a Zod 4 migration were intentionally excluded. Preserve the limited application scope during any future reconciliation.
-- Generated PDF/TypeScript worker assets must be built before exporting. No UI JAR, release tag, deployment or final artifact version was produced by this checkpoint.
+- The Core, Collaboration and Next UI changes are verified source branches and local snapshots, not a published dependency set. Public Core RC.21 / Collaboration RC.6 lack the required retention contracts. Merge and publication through the existing release process remain separate from local verification.
+- The frontend checks include real Core/Collaboration sessions and file storage, plus browser protocol fixtures for retained receipts. They do not establish end-to-end document generation/printing or deployed untrusted-script execution. Those QBits and workers retain their own qualification requirements.
+- External signed PDF storage needs CORS for the dashboard origin and its origin in CSP `connect-src`. Application credentials are never sent to those URLs. Hosts replacing dashboard CSP must retain `blob:` in `connect-src` for verified local previews.
+- Lint reports six existing warnings in unchanged files. The unit suite has one existing skipped test. Canonical Next 16.4.1 and Zod 3 are preserved; dependency patch upgrades remain a separate release review.
+- The local artifact is `qqq-frontend-next:1.0.0-SNAPSHOT`, built with an explicit Maven revision override. It includes generated PDF and TypeScript workers. Do not publish this branch under the immutable RC.36 baseline version still present in the release-managed files.
+- The full application acceptance matrix across all browsers and deployment-specific storage/printer/scanner behavior is not claimed by the scoped QBit integration checks.

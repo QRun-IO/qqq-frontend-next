@@ -21,6 +21,47 @@ export const PDF_BYTE_LIMIT = 20 * 1024 * 1024
 export const PDF_PAGE_LIMIT = 1000
 export const PDF_PIXEL_LIMIT = 8_000_000
 
+/** Read a server-issued storage preview without forwarding application credentials.
+ * @param supplied - Signed storage URL returned by the authorized attachment API.
+ * @param signal - Preview lifetime.
+ * @returns Bounded, signature-checked PDF bytes for a local canvas preview.
+ */
+export async function loadSignedPdfPreviewBlob(supplied: string, signal: AbortSignal): Promise<Blob> {
+  const url = new URL(supplied, window.location.origin)
+  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.hash
+    || /[\\\u0000-\u0020]/.test(supplied)) throw new Error('Invalid storage preview URL.')
+  const timeout = new AbortController()
+  const timer = setTimeout(() => timeout.abort(), 30_000)
+  const lifetime = AbortSignal.any([signal, timeout.signal])
+  try {
+    lifetime.throwIfAborted()
+    const response = await fetch(url, { signal: lifetime, credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer' })
+    if (!response.ok || !response.body) throw new Error('PDF preview could not be read.')
+    const reader = response.body.getReader()
+    const chunks: Uint8Array<ArrayBuffer>[] = []
+    let size = 0
+    try {
+      while (true) {
+        const chunk = await reader.read()
+        lifetime.throwIfAborted()
+        if (chunk.done) break
+        size += chunk.value.byteLength
+        if (size > PDF_BYTE_LIMIT) throw new Error('PDF preview exceeds 20 MiB.')
+        chunks.push(new Uint8Array(chunk.value))
+      }
+    } finally {
+      await reader.cancel().catch(() => {})
+      reader.releaseLock()
+    }
+    const blob = new Blob(chunks, { type: 'application/pdf' })
+    const header = new Uint8Array(await blob.slice(0, 8).arrayBuffer())
+    if (!/^%PDF-[12]\.[0-9]/.test(String.fromCharCode(...header))) throw new Error('The file is not a supported PDF.')
+    return blob
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** Validate a local blob or exact configured backend file path before any I/O.
  * @param supplied - The preview URL.
  * @returns Validated URL with no cross-origin credential forwarding.
