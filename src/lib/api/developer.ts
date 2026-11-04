@@ -46,6 +46,17 @@ const SCRIPT_PROCESS_TIMEOUT_MILLIS = 60_000
 /** Delay between status polls when a script process went async. */
 const STATUS_POLL_MILLIS = 1_000
 
+/** Maximum time the client waits for a script test, including its initial request. */
+export const DEFAULT_SCRIPT_TEST_WAIT_MILLIS = 5 * 60_000
+
+/** Observation limits; stopping observation does not cancel server execution. */
+export interface ScriptTestWaitOptions {
+  /** Aborted when the test panel closes or the user stops waiting. */
+  signal?: AbortSignal
+  /** Positive finite deadline duration, at most 30 minutes. Defaults to five minutes. */
+  timeoutMillis?: number
+}
+
 /** One application API that exposes a table, from `GET /table/{tableName}/apis`. */
 export interface ApiInstance {
   /** API name (the selection key). */
@@ -432,18 +443,44 @@ export async function getAssociatedScriptLogs(
  * Waits for a script process to finish, following an async job when it went async.
  * @param processName - Process that was started.
  * @param response - The init response.
+ * @param signal - Optional cancellation for the waiting delay and status requests.
  * @returns The completed process values.
  */
-async function completedValues(processName: string, response: ProcessResponse): Promise<Record<string, unknown>> {
+async function completedValues(processName: string, response: ProcessResponse, signal?: AbortSignal): Promise<Record<string, unknown>> {
   let current = response
   const jobUUID = current.type === 'JOB_STARTED' ? current.jobUUID : undefined
   while ((current.type === 'JOB_STARTED' || current.type === 'RUNNING') && jobUUID) {
-    await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MILLIS))
-    current = await processStatus(processName, current.processUUID, jobUUID)
+    await pollDelay(signal)
+    signal?.throwIfAborted()
+    current = signal
+      ? await processStatus(processName, current.processUUID, jobUUID, undefined, signal)
+      : await processStatus(processName, current.processUUID, jobUUID)
   }
+  signal?.throwIfAborted()
   if (current.type === 'ERROR') throw new Error(getErrorMessage(current, `${processName} failed.`))
   if (current.type !== 'COMPLETE') throw new Error('Unexpected server response.')
   return current.values
+}
+
+/**
+ * Waits between status requests, releasing its timer and listener on cancellation.
+ * @param signal - The observation signal.
+ * @returns A cancellable polling delay.
+ */
+function pollDelay(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return }
+    const aborted = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', aborted)
+      reject(signal?.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', aborted)
+      resolve()
+    }, STATUS_POLL_MILLIS)
+    signal?.addEventListener('abort', aborted, { once: true })
+  })
 }
 
 /**
@@ -509,15 +546,45 @@ function exceptionMessageChain(exception: unknown): string | undefined {
  * Runs a script's test with the given code and inputs (`testScript` process).
  *
  * @param request - Script, file contents and tester input values.
+ * @param options - Cancellation and maximum client waiting duration.
  * @returns The tester's output object, the logged lines, and the exception message chain when the script failed.
  */
-export async function testScript(request: TestScriptRequest): Promise<TestScriptResult> {
+export async function testScript(request: TestScriptRequest, options: ScriptTestWaitOptions = {}): Promise<TestScriptResult> {
+  const timeoutMillis = options.timeoutMillis ?? DEFAULT_SCRIPT_TEST_WAIT_MILLIS
+  if (!Number.isFinite(timeoutMillis) || timeoutMillis <= 0 || timeoutMillis > 30 * 60_000) {
+    throw new Error('Script test wait duration must be positive and at most 30 minutes.')
+  }
+  const controller = new AbortController()
+  const abort = () => controller.abort(options.signal?.reason ?? new DOMException('Stopped waiting. The server test may still be running.', 'AbortError'))
+  if (options.signal?.aborted) abort()
+  else options.signal?.addEventListener('abort', abort, { once: true })
+  const timer = setTimeout(() => controller.abort(new Error('Stopped waiting for the script test after the time limit. The server test may still be running.')), timeoutMillis)
+  try {
+    return await observedScriptTest(request, controller.signal)
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason
+    throw error
+  } finally {
+    clearTimeout(timer)
+    options.signal?.removeEventListener('abort', abort)
+  }
+}
+
+/**
+ * Executes the test while its caller owns the observation lifetime.
+ * @param request - Script sources and test inputs.
+ * @param signal - Combined cancellation/deadline signal.
+ * @returns The test output, if it completed before observation stopped.
+ */
+async function observedScriptTest(request: TestScriptRequest, signal: AbortSignal): Promise<TestScriptResult> {
+  signal.throwIfAborted()
   const processName = 'testScript'
   const response = await processInit(processName, {
     values: { ...request.inputValues, ...apiValues(request), ...scriptFileValues(request.scriptId, request.files) },
     stepTimeoutMillis: SCRIPT_PROCESS_TIMEOUT_MILLIS,
-  })
-  const values = await completedValues(processName, response)
+  }, signal)
+  signal.throwIfAborted()
+  const values = await completedValues(processName, response, signal)
   return {
     outputObject: isObject(values.outputObject) ? values.outputObject : {},
     logLines: recordList(values.scriptLogLines).map((line) => ({

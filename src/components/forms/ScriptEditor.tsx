@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils/cn'
 import { CodeEditor } from '@/components/scripts/CodeEditor'
 
 /** Languages the editor badge names. */
-export type ScriptEditorLanguage = 'javascript' | 'groovy' | 'java' | 'python' | 'sql' | 'json' | 'velocity' | 'html' | 'text'
+export type ScriptEditorLanguage = 'javascript' | 'typescript' | 'groovy' | 'java' | 'python' | 'sql' | 'json' | 'velocity' | 'html' | 'text'
 
 /**
  * Props for the {@link ScriptEditor} component.
@@ -71,6 +71,7 @@ export interface ScriptEditorProps {
 /** Human-readable display names for each supported language. */
 const LANGUAGE_LABELS: Record<ScriptEditorLanguage, string> = {
   javascript: 'JavaScript',
+  typescript: 'TypeScript',
   groovy: 'Groovy',
   java: 'Java',
   python: 'Python',
@@ -90,6 +91,7 @@ const LANGUAGE_LABELS: Record<ScriptEditorLanguage, string> = {
 export function scriptEditorLanguage(mode: string | null | undefined): ScriptEditorLanguage {
   const normalized = (mode ?? '').trim().toLowerCase()
   if (normalized === 'js') return 'javascript'
+  if (normalized === 'ts') return 'typescript'
   if (normalized === 'xml') return 'html'
   return normalized in LANGUAGE_LABELS ? normalized as ScriptEditorLanguage : 'text'
 }

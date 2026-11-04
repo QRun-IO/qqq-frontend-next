@@ -47,6 +47,7 @@ import { HighlightedCode } from '@/components/scripts/HighlightedCode'
 import { SeededWidget } from '@/components/widgets/ConnectedWidget'
 import { DateTimeText } from '@/components/ui/DateTimeText'
 import { FileThumbnail } from '@/components/preview/FileThumbnail'
+import { DeliveredFileActions } from '@/components/preview/DeliveredFileActions'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -159,6 +160,13 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
     )
   }
 
+  const deliveryAdornment = findAdornment(field, 'FILE_DOWNLOAD')
+  if (deliveryAdornment?.values?.deliveryModeField !== undefined) {
+    const delivery = fileDownload(field, record)
+    if (!delivery) return <EmptyValue fieldName={field.name} className={className} />
+    if (delivery.delivery === 'AUTHENTICATED_FETCH') return <DeliveredFileActions key={delivery.url} url={delivery.url} fileName={delivery.fileName}
+      allowPreview={!!findAdornment(field, 'FILE_PREVIEW')} dataQqqId={dataQqqId} />
+  }
   const preview = filePreview(field, record, storedRecordVariantJson(tableMetaData ?? allTables?.[record.tableName]))
   if (preview) {
     return <FileThumbnail field={field} record={record} item={preview} size={thumbnailSize} showName={thumbnailSize !== undefined}

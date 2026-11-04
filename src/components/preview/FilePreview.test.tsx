@@ -15,7 +15,7 @@
  */
 
 import React from 'react'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
@@ -28,6 +28,8 @@ import { FilePreviewGallery } from './FilePreviewGallery'
 import { FileThumbnail } from './FileThumbnail'
 import { FilePreviewLightbox } from './FilePreviewLightbox'
 import type { FilePreviewItem } from '@/lib/utils/file-preview'
+
+vi.mock('./PdfPreview', () => ({ PdfPreview: ({ url }: { url: string }) => <div data-qqq-id="file-preview-pdf" data-source={url} /> }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
@@ -139,7 +141,9 @@ describe('FilePreviewGallery', () => {
     await user.keyboard('{ArrowRight}')
     expect(within(dialog).getByRole('heading', { name: 'two.pdf' })).toBeInTheDocument()
     expect(dialog).toHaveAttribute('data-preview-kind', 'pdf')
-    expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toHaveAttribute('src', '/qqq/v1/table/media/2/blob/two.pdf')
+    await waitFor(() => expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toHaveAttribute('data-source', '/qqq/v1/table/media/2/blob/two.pdf'))
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(document.querySelector('[data-qqq-id="file-preview-open"]')).toBeNull()
 
     await user.keyboard('{End}')
     expect(within(dialog).getByText('3 of 3')).toBeInTheDocument()
@@ -182,6 +186,21 @@ describe('FilePreviewGallery', () => {
 })
 
 describe('FilePreviewLightbox', () => {
+  it('uses the authorized callback and never falls back to its preview URL on failure', async () => {
+    let reject!: (reason: Error) => void
+    const download = vi.fn(() => new Promise<void>((_resolve, rejectPromise) => { reject = rejectPromise }))
+    const file = item()
+    render(<FilePreviewLightbox items={[file]} index={0} onIndexChange={() => undefined} onClose={() => undefined} onDownload={download} />)
+    const button = screen.getByRole('button', { name: 'Download a.png' })
+    fireEvent.click(button)
+    expect(download).toHaveBeenCalledWith(file)
+    expect(button).toBeDisabled()
+    expect(button).not.toHaveAttribute('href')
+    await act(async () => reject(new Error('Audit unavailable')))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not authorize this download')
+    await waitFor(() => expect(button).not.toBeDisabled())
+    expect(button).not.toHaveAttribute('href')
+  })
   function show(items: FilePreviewItem[], index = 0) {
     const onIndexChange = vi.fn()
     const onClose = vi.fn()
@@ -248,13 +267,13 @@ describe('FilePreviewLightbox', () => {
   it('does not frame a PDF from another origin', () => {
     show([item({ kind: 'pdf', mimeType: 'application/pdf', fileName: 'c.pdf', url: 'https://elsewhere.example/c.pdf' })])
     expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toBeNull()
-    expect(screen.getByText(/opens in a new tab instead/)).toBeInTheDocument()
+    expect(screen.getByText(/trusted file preview source/)).toBeInTheDocument()
   })
 
   it('frames only backend file paths, not other pages of this origin', () => {
     show([item({ kind: 'pdf', mimeType: 'application/pdf', fileName: 'd.pdf', url: '/app/media/1' })])
     expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toBeNull()
-    expect(screen.getByText(/not a file served by the application/)).toBeInTheDocument()
+    expect(screen.getByText(/trusted file preview source/)).toBeInTheDocument()
   })
 
   it('plays video and audio, falling back when the player cannot load them', () => {

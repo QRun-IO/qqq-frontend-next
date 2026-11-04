@@ -567,8 +567,11 @@ function RecordViewContent({
   )
   const viewId = `record-view-${tableMetaData.name}`
   // the record's FILE_PREVIEW values, in section order, form the preview gallery of the page
-  const previewFields = [...new Set((tableMetaData.sections ?? []).flatMap((section) => section.fieldNames ?? []))]
-    .map((name) => tableMetaData.fields[name]).filter((field): field is QFieldMetaData => Boolean(field))
+  const previewFields = [...new Set(orderedSections.flatMap((section) => section.fieldNames ?? []))]
+    .map((name) => recordSectionField(tableMetaData, allTables, name))
+    .filter((field): field is QFieldMetaData => Boolean(field && !field.isHidden))
+    // Delivery-aware fields use their own verified transfer controls, never a raw gallery URL.
+    .filter((field) => !field.adornments?.some((adornment) => adornment.type === 'FILE_DOWNLOAD' && adornment.values?.deliveryModeField !== undefined))
   const materialViewId = `record-view-${sanitizeQqqId(tableMetaData.name)}`
 
   return (

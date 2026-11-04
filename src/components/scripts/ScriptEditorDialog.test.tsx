@@ -211,7 +211,7 @@ describe('ScriptEditorDialog', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Submit' }))
     await waitFor(() => expect(testScript).toHaveBeenCalledWith(expect.objectContaining({
       scriptId: 7, inputValues: { who: 'Ada' }, files: expect.objectContaining({ 'main.js': 'unsaved();' }),
-    })))
+    }), { signal: expect.any(AbortSignal) }))
     expect(await within(dialog).findByText('ran')).toBeInTheDocument()
     expect(storeScriptRevision).not.toHaveBeenCalled()
   })

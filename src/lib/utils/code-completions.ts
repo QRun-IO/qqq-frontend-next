@@ -39,16 +39,17 @@ const API_COMPLETIONS: CodeCompletion[] = [
  * @param caret - Collapsed selection offset.
  * @param language - Current file language.
  * @param explicit - Ctrl+Space allows an empty prefix.
+ * @param helpers - Runtime-specific helpers; omitted for the existing trusted script API.
  * @returns Replacement range and suggestions, or null when there is no match.
  */
-export function findCodeCompletions(source: string, caret: number, language: CodeLanguage, explicit = false): CodeCompletionMatch | null {
+export function findCodeCompletions(source: string, caret: number, language: CodeLanguage, explicit = false, helpers: readonly CodeCompletion[] = API_COMPLETIONS): CodeCompletionMatch | null {
   if (source.length > MAX_HIGHLIGHT_LENGTH) return null
   let start = caret
   while (start > 0 && /[\w$.]/.test(source[start - 1])) start--
   const prefix = source.slice(start, caret)
   if (!explicit && (!prefix || (!prefix.includes('.') && prefix.length < 2))) return null
   const end = caret + (source.slice(caret).match(/^[\w$.]*/)?.[0].length ?? 0)
-  const candidates: CodeCompletion[] = language === 'javascript' || language === 'java' ? [...API_COMPLETIONS] : []
+  const candidates: CodeCompletion[] = ['javascript', 'typescript', 'java'].includes(language) ? [...helpers] : []
   candidates.push(...codeKeywords(language).map(text => ({ text, description: 'Keyword' })))
   const otherText = source.slice(0, start) + ' ' + source.slice(end)
   candidates.push(...[...new Set(otherText.match(/[$A-Za-z_][$\w]*(?:\.[$A-Za-z_][$\w]*)*/g) ?? [])]

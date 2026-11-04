@@ -31,7 +31,7 @@ function colored(code: string, language: CodeLanguage): string[] {
 describe('languageFor', () => {
   it('maps Ace modes, CODE_EDITOR language modes and script file types', () => {
     const cases: [string | undefined, CodeLanguage][] = [
-      ['javascript', 'javascript'], ['JS', 'javascript'], ['groovy', 'java'], ['java', 'java'], ['python', 'python'],
+      ['javascript', 'javascript'], ['JS', 'javascript'], ['typescript', 'typescript'], ['ts', 'typescript'], ['groovy', 'java'], ['java', 'java'], ['python', 'python'],
       ['json', 'json'], ['SQL', 'sql'], ['velocity', 'velocity'], ['html', 'html'], ['xml', 'html'],
       ['text', 'text'], ['markdown', 'text'], [undefined, 'text'], ['', 'text'],
     ]
@@ -43,6 +43,7 @@ describe('tokenize', () => {
   const samples: [CodeLanguage, string][] = [
     ['javascript', "// greet\nconst name = input.name ?? 'World';\nreturn `Hello ${name}` + 42; /* done */"],
     ['java', 'public int count = 3; // three'],
+    ['typescript', 'interface Order { readonly id: number; } type Result = unknown;'],
     ['python', "def greet(name):\n    return f'Hi {name}'  # hi\nNone"],
     ['json', '{"enabled": true, "limit": 3, "name": "x", "list": [null, -1.5e3]}'],
     ['sql', "SELECT id, name FROM person WHERE name = 'O''Brien' -- people\nAND id > 10"],

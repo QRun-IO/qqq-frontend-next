@@ -73,6 +73,7 @@ export function visibleRecordViewSections(table: QTableMetaData, allTables?: Rec
  */
 export function recordSectionField(table: QTableMetaData, allTables: Record<string, QTableMetaData> | undefined, name: string): QFieldMetaData | undefined {
   if (table.fields[name]) return table.fields[name]
+  if (table.virtualFields?.[name]) return table.virtualFields[name]
   const dot = name.indexOf('.')
   if (dot < 1 || !allTables) return undefined
   const joinName = name.slice(0, dot)

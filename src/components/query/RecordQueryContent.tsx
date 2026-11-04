@@ -22,6 +22,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { authorizationFilteredPagination, paginationSourceTables } from '@/lib/utils/query-pagination'
 import { useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
@@ -51,6 +53,8 @@ export interface RecordQueryContentProps {
   tableName: string
   /** Full table metadata from the QQQ backend. */
   tableMetaData: QTableMetaData
+  /** Current authorized metadata, used only for source navigation hints. */
+  allTables?: Record<string, QTableMetaData>
   /** Currently active view mode (grid or card). */
   viewMode: ViewMode
   /** Number of active filter criteria (used by the empty-state clear action). */
@@ -139,6 +143,7 @@ export interface RecordQueryContentProps {
 export function RecordQueryContent({
   tableName,
   tableMetaData,
+  allTables = {},
   viewMode,
   activeFilterCount,
   records,
@@ -174,11 +179,25 @@ export function RecordQueryContent({
 }: RecordQueryContentProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const pagePolicy = authorizationFilteredPagination(tableMetaData)
+  const sourceTables = paginationSourceTables(allTables)
   // Material's grid alert can be closed; a new error shows again
   const [dismissedError, setDismissedError] = useState<Error | null>(null)
 
   return (
     <>
+      {pagePolicy && (
+        <div className="rounded border border-border p-3 text-sm text-muted-foreground" data-qqq-id="query-page-completeness">
+          <p>Completeness is unknown. Each page shows only records you can access. Later pages may contain records even when this page is empty. Next requests one page and remains available because the end cannot be determined.</p>
+          {sourceTables.length > 0 && (
+            <p className="mt-2">To narrow by source, choose a record and open its Files tab:{' '}
+              {sourceTables.map((source) => (
+                <Link key={source.name} href={`/app/${encodeURIComponent(source.name)}/`} className="mr-3 inline-flex min-h-[44px] items-center underline">{source.label || source.name}</Link>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
       {/* ============================================================
           Error state
       ============================================================ */}
@@ -235,7 +254,7 @@ export function RecordQueryContent({
       {/* ============================================================
           Data Grid / Card View
       ============================================================ */}
-      {(isLoading || records.length > 0) && (
+      {(isLoading || records.length > 0 || (pagePolicy && !isError)) && (
         <ErrorBoundary className="rounded-xl" resetLabel="Reset saved query and reload" onReset={() => {
           clearStoredQueryState(tableName)
           if (window.location.pathname.includes('/savedView/')) router.replace(`/app/${encodeURIComponent(tableName)}/`)
@@ -291,6 +310,7 @@ export function RecordQueryContent({
 
             {/* Pagination */}
             <Pagination
+              authorizationFiltered={pagePolicy}
               pageNum={pageNum}
               pageSize={pageSize}
               totalCount={totalCount}
@@ -321,6 +341,7 @@ export function RecordQueryContent({
  * @returns EmptyState title, description and width.
  */
 export function emptyStateText(tableMetaData: QTableMetaData, filtered: boolean): { title: string; description: string; wideDescription?: boolean } {
+  if (authorizationFilteredPagination(tableMetaData)) return { title: 'No authorized records on this page', description: 'Later pages may contain records. Use Next or narrow your search to a source record.' }
   const help = filtered ? undefined : selectSlotHelp(tableMetaData.helpContents, 'help', QUERY_SCREEN_HELP_ROLES)
   const text = help ? helpPlainText(help) : ''
   if (!text) return { title: 'No records found', description: 'Try adjusting your filters or search term.' }

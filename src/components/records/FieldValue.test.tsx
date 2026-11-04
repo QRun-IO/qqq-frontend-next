@@ -15,11 +15,14 @@
  */
 
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import type { FieldAdornment, QFieldMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { FieldValue } from './FieldValue'
+import * as attachmentDelivery from '@/lib/api/attachment-download'
+
+vi.mock('@/lib/api/attachment-download', () => ({ fetchTrackedAttachment: vi.fn(), safeAttachmentPreviewBlob: vi.fn(), saveAttachmentDownload: vi.fn() }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
@@ -77,6 +80,40 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(file).toHaveTextContent('a.txt')
     expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt')
     expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt?download=1')
+  })
+
+  it.each(['preview', 'download'] as const)('uses the verified delivery gate for native attachment %s metadata', async (kind) => {
+    const url = 'https://api.example/qqq/v1/qbit/record-files/files/7/downloads/00000000-0000-4000-8000-000000000001'
+    const name = `${kind}Url`
+    const adornments: FieldAdornment[] = [{ type: 'FILE_DOWNLOAD', values: { fileNameField: 'fileName', deliveryModeField: `${kind}Delivery`, ...(kind === 'download' ? { downloadUrlDynamic: true } : {}) } }]
+    if (kind === 'preview') adornments.push({ type: 'FILE_PREVIEW', values: { fileNameField: 'fileName', mimeTypeField: 'contentType', sizeBytesField: 'sizeBytes', thumbnailMaxSize: 48 } })
+    vi.mocked(attachmentDelivery.fetchTrackedAttachment).mockRejectedValue(new Error('Receipt unavailable'))
+    vi.mocked(attachmentDelivery.saveAttachmentDownload).mockRejectedValue(new Error('Current access revoked'))
+    const value = show(field(name, adornments), { [name]: url, [`${kind}Delivery`]: 'AUTHENTICATED_FETCH', fileName: 'Retained.pdf', contentType: 'application/pdf', sizeBytes: 13 },
+      kind === 'download' ? { downloadUrl: 'Retained.pdf', 'downloadUrl:downloadUrlDynamic': url } : {})
+    expect(value.querySelector('a,img,iframe')).toBeNull()
+    expect(value.innerHTML).not.toContain(url)
+    if (kind === 'preview') {
+      fireEvent.click(screen.getByRole('button', { name: 'Preview file' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Receipt unavailable'))
+      expect(attachmentDelivery.fetchTrackedAttachment).toHaveBeenCalledWith(url, expect.any(AbortSignal))
+      expect(value.querySelector('a,img,iframe')).toBeNull()
+    } else {
+      expect(screen.queryByRole('button', { name: 'Preview file' })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Download file' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Current access revoked'))
+      expect(attachmentDelivery.saveAttachmentDownload).toHaveBeenCalledWith({ url, delivery: 'AUTHENTICATED_FETCH' }, 'Retained.pdf', expect.any(AbortSignal))
+      expect(value.querySelector('a')).toBeNull()
+    }
+  })
+
+  it('keeps native signed downloads compatible and refuses a missing declared delivery mode', () => {
+    const nativeField = field('downloadUrl', [{ type: 'FILE_DOWNLOAD', values: { fileNameField: 'fileName', deliveryModeField: 'downloadDelivery', downloadUrlDynamic: true } }])
+    const url = 'https://storage.example/immutable'
+    const value = show(nativeField, { downloadUrl: url, fileName: 'Original.pdf', downloadDelivery: 'SIGNED_URL' }, { 'downloadUrl:downloadUrlDynamic': url })
+    expect(value.querySelector('a')).toHaveAttribute('href', url)
+    const missing = show(field('missingUrl', [{ type: 'FILE_DOWNLOAD', values: { deliveryModeField: 'missingDelivery' } }]), { missingUrl: url })
+    expect(missing.querySelector('a,button,img,iframe')).toBeNull()
   })
 
   it('reveals REVEAL values on request', () => {

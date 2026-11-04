@@ -331,11 +331,13 @@ function refusedResponse(error: unknown): ProcessErrorResponse {
  *
  * @param processName - Backend-registered name of the process to start.
  * @param request - Record selection, table name, input values and uploads.
+ * @param signal - Cancels observation of the request; does not cancel server execution.
  * @returns The normalized response (next step, async job, or error).
  */
 export async function processInit(
   processName: string,
-  request: ProcessInitRequest = {}
+  request: ProcessInitRequest = {},
+  signal?: AbortSignal
 ): Promise<ProcessResponse> {
   const values: Record<string, unknown> = { ...(request.values ?? {}) }
   const fields: Record<string, string> = {}
@@ -352,7 +354,7 @@ export async function processInit(
     const body = await apiClient.post<unknown>(
       `/processes/${encodeURIComponent(processName)}/init`,
       buildFormData(values, request.files, request.stepTimeoutMillis, fields),
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      { headers: { 'Content-Type': 'multipart/form-data' }, ...(signal ? { signal } : {}) }
     )
     return normalizeProcessResponse(body)
   } catch (error) {
@@ -408,17 +410,19 @@ export async function processStep(
  * @param jobUUID - UUID of the async job to poll.
  * @param tableVariant - JSON of the table variant the run started with, when its table has
  * variants (the backend serves a run's state only under the variant it started with).
+ * @param signal - Cancels this status request.
  * @returns The normalized job state (running with progress, complete, or error).
  */
 export async function processStatus(
   processName: string,
   processUUID: string,
   jobUUID: string,
-  tableVariant?: string
+  tableVariant?: string,
+  signal?: AbortSignal
 ): Promise<ProcessResponse> {
   const body = await apiClient.get<unknown>(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/status/${encodeURIComponent(jobUUID)}`,
-    ...(tableVariant ? [{ params: { tableVariant } }] : [])
+    ...(tableVariant || signal ? [{ ...(tableVariant ? { params: { tableVariant } } : {}), ...(signal ? { signal } : {}) }] : [])
   )
   return normalizeProcessResponse(body)
 }

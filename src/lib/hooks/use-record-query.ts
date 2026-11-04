@@ -21,6 +21,7 @@
 
 'use client'
 
+import { authorizationFilteredPagination } from '@/lib/utils/query-pagination'
 import { isRestricted, sanitizeAccessFilter } from '@/lib/utils/secured-data'
 import { toast } from 'sonner'
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react'
@@ -466,7 +467,8 @@ export function useRecordQuery({
   // Queries
   // ------------------------------------------------------------------
   const canQuery = hasCapability(tableMetaData, 'TABLE_QUERY')
-  const canCount = hasCapability(tableMetaData, 'TABLE_COUNT')
+  const authorizationFiltered = authorizationFilteredPagination(tableMetaData)
+  const canCount = !authorizationFiltered && hasCapability(tableMetaData, 'TABLE_COUNT')
   const needsVariant = Boolean(tableMetaData?.usesVariants) && !tableVariant
   const hasVariables = hasFilterVariables(state.userFilter)
   const enabled = Boolean(tableMetaData && allTables) && canQuery && !needsVariant && !paused && !hasVariables
@@ -525,7 +527,7 @@ export function useRecordQuery({
   const totalCount: number | null = canCount ? hasVariables ? 0 : countQuery.data?.count ?? 0 : null
   const distinctCount: number | null = canCount && includeDistinct && !hasVariables ? countQuery.data?.distinctCount ?? null : null
   const totalPages = totalCount === null
-    ? state.pageNum + (records.length >= state.pageSize ? 1 : 0)
+    ? state.pageNum + (authorizationFiltered || records.length >= state.pageSize ? 1 : 0)
     : Math.max(1, Math.ceil(totalCount / state.pageSize))
   const isLoading = enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading))
   // A failed count keeps the rows (Material shows its own "count" alert)

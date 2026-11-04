@@ -36,6 +36,7 @@ import { HelpTextComponent } from './HelpTextComponent'
 import { HtmlComponent } from './HtmlComponent'
 import { ProcessSummaryResultsComponent } from './ProcessSummaryResultsComponent'
 import { RecordListComponent } from './RecordListComponent'
+import { OrderedRecordListComponent } from './OrderedRecordListComponent'
 import { ValidationReviewComponent } from './ValidationReviewComponent'
 import { ViewFormComponent } from './ViewFormComponent'
 import { WidgetComponent } from './WidgetComponent'
@@ -57,7 +58,9 @@ export function ProcessComponent({ component, index }: ProcessComponentProps) {
     case 'HELP_TEXT': return <HelpTextComponent component={component} index={index} />
     case 'EDIT_FORM': return <EditFormComponent component={component} index={index} />
     case 'VIEW_FORM': return <ViewFormComponent index={index} />
-    case 'RECORD_LIST': return <RecordListComponent index={index} />
+    case 'RECORD_LIST': return component.values?.orderFieldName !== undefined
+      ? <OrderedRecordListComponent key={index} component={component} index={index} />
+      : <RecordListComponent index={index} />
     case 'VALIDATION_REVIEW_SCREEN': return <ValidationReviewComponent index={index} />
     case 'PROCESS_SUMMARY_RESULTS': return <ProcessSummaryResultsComponent index={index} />
     case 'DOWNLOAD_FORM': return <DownloadFormComponent index={index} />

@@ -101,8 +101,10 @@ export interface CollaborationAttachmentUploadRequestV1 {
 
 /** An attachment visible through its parent record; no storage coordinates are exposed. */
 export interface CollaborationAttachmentV1 {
-  /** Whether the caller may change or delete this attachment. */
+  /** Whether the caller may delete this attachment; retained files cannot be deleted. */
   canDelete?: boolean | null
+  /** Whether the caller may change the attachment filename or description; absent on legacy servers. */
+  canEdit?: boolean | null
   /** MIME content type. */
   contentType?: string | null
   /** Upload time. */
@@ -205,10 +207,12 @@ export interface CollaborationCommentV1 {
   threadId?: number | null
 }
 
-/** Temporary access to file bytes. Clients follow url. */
+/** Temporary access coordinates; the delivery mode determines transport. */
 export interface CollaborationDownloadV1 {
-  /** Presigned URL, valid for five minutes. Clients follow url; never persist it. */
+  /** Never persist this URL. Authenticated delivery requires receipt verification. */
   url?: string | null
+  /** Missing mode is compatible with legacy signed storage links. */
+  delivery?: 'SIGNED_URL' | 'AUTHENTICATED_FETCH' | null
 }
 
 /** Standard QQQ error response. */
@@ -597,6 +601,7 @@ export interface PresenceViewer {
 }
 /** Presence target and client lease identity. */
 export interface PresenceTarget {
+  sequence?: number
   connectionId: string
   table: string
   pk?: string

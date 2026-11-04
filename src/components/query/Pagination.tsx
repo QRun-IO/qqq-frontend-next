@@ -31,6 +31,8 @@ import { PAGE_SIZE_OPTIONS, type PageSize } from '@/lib/hooks/use-record-query'
  * Props for the Pagination component.
  */
 interface PaginationProps {
+  /** Parent authorization filters pages after selection, so completeness is unknown. */
+  authorizationFiltered?: boolean
   /** Current 1-based page number. */
   pageNum: number
   /** Number of records displayed per page (constrained to the PageSize union type). */
@@ -66,6 +68,7 @@ interface PaginationProps {
  * @returns The rendered pagination controls.
  */
 export function Pagination({
+  authorizationFiltered = false,
   pageNum,
   pageSize,
   totalCount,
@@ -121,7 +124,9 @@ export function Pagination({
       {/* Left: record count summary */}
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span aria-live="polite" aria-atomic="true" data-qqq-id="pagination-summary">
-          {isCounting && !uncounted ? (
+          {authorizationFiltered ? (
+            `${pageRowCount.toLocaleString()} visible records on page ${pageNum.toLocaleString()}`
+          ) : isCounting && !uncounted ? (
             'Counting...'
           ) : shown === 0 ? (
             'No records'

@@ -54,6 +54,12 @@ export const DYNAMIC_CALL_SITES: Record<string, string[]> = {
   'lib/api/developer.ts#developerPath(tableName, primaryKey)': ['GET /table/{}/{}/developer'],
   'lib/api/esb.ts#path': ['GET /esb/table/{}', 'GET /esb/process/{}', 'GET /esb/overview', 'GET /esb/messages/{}', 'GET /esb/deadLetters/{}'],
   'lib/api/assistant.ts#path': [],
+  'lib/api/scripting.ts#scriptProjectPath(scriptId)': ['GET /qbit/scripting/projects/{}'],
+  // Both routes are validated against the exact retained-file route before I/O.
+  'lib/api/attachment-download.ts#route': ['GET /qbit/record-files/files/{}/downloads/{}'],
+  'lib/api/attachment-download.ts#${route}/receipt': ['GET /qbit/record-files/files/{}/downloads/{}/receipt'],
+  // pdfPreviewSource admits exactly the standard native table-file operation.
+  'lib/api/pdf-preview.ts#url.href': ['GET /table/{}/{}/{}/{}'],
 }
 
 /** Path helper functions used inside call templates (`${helper(...)}/rest`), to their paths. */
@@ -61,4 +67,5 @@ export const PATH_HELPERS: Record<string, string> = {
   apiVersionPrefix: '/{}/{}',
   developerPath: '/table/{}/{}/developer',
   recordPath: '/qbit/collaboration/records/{}/{}',
+  scriptProjectPath: '/qbit/scripting/projects/{}',
 }

@@ -123,9 +123,11 @@ export function linkTarget(field: QFieldMetaData, record: QRecord): LinkTarget |
   if (!adornment || rawValue === null || rawValue === undefined || rawValue === '') return null
   const staticTable = adornmentString(field, 'LINK', 'toRecordFromTable')
   const dynamicTable = adornment.values?.toRecordFromTableDynamic ? record.displayValues?.[`${field.name}:toRecordFromTableDynamic`] : undefined
-  const tableName = staticTable ?? (typeof dynamicTable === 'string' && dynamicTable ? dynamicTable : undefined)
+  const tableField = adornmentString(field, 'LINK', 'toRecordFromTableField')
+  const tableValue = tableField ? record.values[tableField] : undefined
+  const tableName = staticTable ?? (typeof dynamicTable === 'string' && dynamicTable ? dynamicTable : typeof tableValue === 'string' && tableValue ? tableValue : undefined)
   if (tableName) return { kind: 'record', tableName, primaryKey: String(rawValue) }
-  if (adornment.values?.toRecordFromTableDynamic) return null
+  if (adornment.values?.toRecordFromTableDynamic || tableField) return null
   const href = String(rawValue).trim()
   const target = adornmentString(field, 'LINK', 'target') ?? '_self'
   if (/^https?:\/\//i.test(href)) return { kind: 'url', href, external: true, target }
@@ -144,20 +146,24 @@ export function linkTarget(field: QFieldMetaData, record: QRecord): LinkTarget |
  * @param tableVariant - Selected table variant as v1 JSON, for backend field URLs.
  * @returns The URL and file name, or `null` when there is no file.
  */
-export function fileDownload(field: QFieldMetaData, record: QRecord, tableVariant?: string): { url: string; fileName: string } | null {
+export function fileDownload(field: QFieldMetaData, record: QRecord, tableVariant?: string): { url: string; fileName: string; delivery?: 'SIGNED_URL' | 'AUTHENTICATED_FETCH' } | null {
   const adornment = findAdornment(field, 'FILE_DOWNLOAD')
   if (!adornment) return null
+  const modeField = adornment.values?.deliveryModeField
+  const delivery = typeof modeField === 'string' ? record.values[modeField] : undefined
+  if (modeField !== undefined && delivery !== 'SIGNED_URL' && delivery !== 'AUTHENTICATED_FETCH') return null
   const dynamic = adornment.values?.downloadUrlDynamic ? record.displayValues?.[`${field.name}:downloadUrlDynamic`] : undefined
   const url = typeof dynamic === 'string' && dynamic ? dynamic : record.values[field.name]
   if (typeof url !== 'string' || !url || (!url.startsWith('/') && !/^https?:\/\//i.test(url)) || url.startsWith('//')) return null
   const display = record.displayValues?.[field.name]
-  const fileName = typeof display === 'string' && display ? display : safeDecode(url.split('?')[0].split('/').pop() || field.label)
+  const named = typeof adornment.values?.fileNameField === 'string' ? record.values[adornment.values.fileNameField] : undefined
+  const fileName = typeof named === 'string' && named ? named : typeof display === 'string' && display ? display : safeDecode(url.split('?')[0].split('/').pop() || field.label)
   const backendUrl = FIELD_DOWNLOAD_PATH.test(url) && !dynamic
   const resolvedUrl = fieldDownloadUrl(url)
   const variant = backendUrl && tableVariant
     ? `${resolvedUrl.includes('?') ? '&' : '?'}tableVariant=${encodeURIComponent(tableVariant)}`
     : ''
-  return { url: resolvedUrl + variant, fileName }
+  return { url: resolvedUrl + variant, fileName, ...(delivery === 'SIGNED_URL' || delivery === 'AUTHENTICATED_FETCH' ? { delivery } : {}) }
 }
 
 /**

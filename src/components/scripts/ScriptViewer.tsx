@@ -44,6 +44,7 @@ import { getErrorMessage } from '@/lib/utils/error-utils'
 import { DateTimeText } from '@/components/ui/DateTimeText'
 import { CodeBlock } from './HighlightedCode'
 import { ScriptEditorDialog } from './ScriptEditorDialog'
+import { IsolatedScriptEditor } from './IsolatedScriptEditor'
 import { ALERT_CLASS, BUTTON_CLASS, INPUT_CLASS, ScriptDocs, ScriptTest, type ScriptTestFields } from './ScriptPanels'
 import {
   FILE_MODE_MULTI_PRE_DEFINED,
@@ -113,7 +114,22 @@ export interface ScriptViewerProps {
  * @param props - {@link ScriptViewerProps}
  * @returns The viewer.
  */
-export function ScriptViewer({
+export function ScriptViewer(props: ScriptViewerProps) {
+  if (props.script.values.executionMode === 'ISOLATED') {
+    return <IsolatedScriptEditor scriptId={props.scriptId} label={props.label} />
+  }
+  if (props.script.values.executionMode && props.script.values.executionMode !== 'LEGACY') {
+    return <p role="alert">This script execution mode is not supported by this editor.</p>
+  }
+  return <LegacyScriptViewer {...props} />
+}
+
+/**
+ * Existing trusted-project viewer, never mounted for isolated source.
+ * @param props - Legacy viewer properties.
+ * @returns The existing trusted workflow.
+ */
+function LegacyScriptViewer({
   idKey,
   label,
   scriptId,

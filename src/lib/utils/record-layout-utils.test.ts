@@ -33,6 +33,21 @@ function table(extra: Partial<QTableMetaData> = {}): QTableMetaData {
 afterEach(() => window.localStorage.clear())
 
 describe('record view layout from metadata', () => {
+  it('resolves native virtual fields in record-view alternatives without inventing or revealing hidden fields', () => {
+    const preview = { name: 'previewUrl', label: 'Preview', type: 'STRING', isHidden: false } as QTableMetaData['fields'][string]
+    const hidden = { ...preview, name: 'hiddenUrl', isHidden: true }
+    const base = { ...preview, label: 'Base wins' }
+    const native = table({ virtualFields: { previewUrl: preview, hiddenUrl: hidden }, sections: [
+      section('file', { fieldNames: ['absent'], alternatives: { RECORD_VIEW: section('file', { fieldNames: ['previewUrl'] }) } }),
+      section('hidden', { fieldNames: ['hiddenUrl', 'unknown'] }),
+    ] })
+    expect(recordSectionField(native, undefined, 'previewUrl')).toBe(preview)
+    expect(recordSectionField(native, undefined, 'unknown')).toBeUndefined()
+    expect(visibleRecordViewSections(native).map(({ name }) => name)).toEqual(['file'])
+    expect(recordSectionField({ ...native, fields: { previewUrl: base } }, undefined, 'previewUrl')).toBe(base)
+    expect(recordSectionQueryJoins(native, { lab: native })).toEqual([])
+  })
+
   it('does not ask for joins from widget-only sections without fieldNames', () => {
     const lab = table({ sections: [{ name: 'summary', label: 'Summary', widgetName: 'summaryWidget', isHidden: false } as QTableSection] })
     expect(recordSectionQueryJoins(lab, { lab: { ...lab, readPermission: true } })).toEqual([])

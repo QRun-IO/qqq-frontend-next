@@ -29,6 +29,7 @@ import { fetchProcessPossibleValues } from '@/lib/api/possible-values'
 
 import { useProcessStep } from './ProcessStepContext'
 import { formatProcessValue } from './process-values'
+import { FieldValue } from '@/components/records/FieldValue'
 
 /** Props for {@link ViewFormComponent}. */
 export interface ViewFormComponentProps {
@@ -48,6 +49,7 @@ interface ViewFieldScope {
  * @returns The rendered line.
  */
 function ViewField({ field, value, scope: { processName, values } }: { field: QFieldMetaData; value: unknown; scope: ViewFieldScope }) {
+  const { instance, tableMetaData } = useProcessStep()
   const hasValue = value !== null && value !== undefined && value !== ''
   const { data: label } = useQuery({
     queryKey: ['qqq', 'processViewValueLabel', processName, field.name, String(value), values],
@@ -58,6 +60,8 @@ function ViewField({ field, value, scope: { processName, values } }: { field: QF
   const text = formatProcessValue(field, value, label ?? undefined)
   const isError = field.adornments?.some((adornment) => adornment.type === 'ERROR')
 
+  if (!hasValue && field.adornments?.some((adornment) => ['LINK', 'FILE_DOWNLOAD', 'FILE_PREVIEW', 'CODE_EDITOR'].includes(adornment.type))) return null
+
   if (isError) {
     if (!text) return null
     return (
@@ -67,7 +71,10 @@ function ViewField({ field, value, scope: { processName, values } }: { field: QF
   return (
     <div className="flex flex-wrap gap-x-2 py-1 text-sm" data-qqq-id={`process-view-field-${field.name}`}>
       <span className="font-semibold text-foreground">{field.label}:</span>
-      <span className="text-foreground" data-qqq-id={`process-view-value-${field.name}`}>{text || <span className="text-muted-foreground">&mdash;</span>}</span>
+      <div className="min-w-0 text-foreground" data-qqq-id={`process-view-value-${field.name}`}>{field.adornments?.length || (field.possibleValueSourceName && instance?.tables?.[field.possibleValueSourceName])
+        ? <FieldValue field={field} record={{ tableName: tableMetaData?.name ?? '', values,
+          displayValues: label ? { [field.name]: label } : undefined }} allTables={instance?.tables} tableMetaData={tableMetaData} />
+        : text || <span className="text-muted-foreground">&mdash;</span>}</div>
     </div>
   )
 }

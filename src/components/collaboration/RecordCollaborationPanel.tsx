@@ -57,6 +57,8 @@ export function RecordCollaborationPanel({
     { id: 'TASKS', label: 'Tasks' },
     { id: 'TIMELINE', label: 'Activity' },
   ].filter((tab) => enabled.includes(tab.id as NonNullable<RecordFeaturesV1['features']>[number]))
+  // A panel whose only feature is attachments is a file list, not a collaboration surface.
+  const title = tabs.length === 1 && tabs[0].id === 'ATTACHMENTS' ? 'Files' : 'Collaboration'
   const [selected, setSelected] = useState(tabs[0]?.id)
   const [collapsed, setCollapsed] = useState(false)
   useEffect(() => {
@@ -87,15 +89,15 @@ export function RecordCollaborationPanel({
   const active = tabs.some((tab) => tab.id === selected) ? selected : tabs[0]?.id
   return (
     <aside
-      aria-label="Collaboration"
+      aria-label={title}
       className={`min-w-0 self-start rounded-xl border border-border bg-card ${collapsed ? 'xl:w-12' : 'xl:w-[360px]'}`}
       data-qqq-id="record-collaboration-panel"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border p-3">
-        <h2 className={`text-sm font-semibold ${collapsed ? 'xl:hidden' : ''}`}>Collaboration</h2>
+        <h2 className={`text-sm font-semibold ${collapsed ? 'xl:hidden' : ''}`}>{title}</h2>
         <button
           type="button"
-          aria-label={collapsed ? 'Expand collaboration' : 'Collapse collaboration'}
+          aria-label={collapsed ? `Expand ${title.toLowerCase()}` : `Collapse ${title.toLowerCase()}`}
           aria-expanded={!collapsed}
           className="hidden rounded p-1 hover:bg-accent xl:inline-flex"
           data-qqq-id="collaboration-collapse"

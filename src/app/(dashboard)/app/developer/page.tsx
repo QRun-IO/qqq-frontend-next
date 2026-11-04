@@ -43,6 +43,7 @@ import { loadMetaData } from '@/lib/api/metadata'
 import apiClient from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
+import { CreateIsolatedScript } from '@/components/scripts/CreateIsolatedScript'
 
 /** Duration in milliseconds before the "copied!" feedback resets to the copy icon. */
 const COPY_RESET_MS = 2000
@@ -251,6 +252,8 @@ export default function DeveloperPage() {
           Debug information for developers and support staff.
         </p>
       </div>
+
+      <CreateIsolatedScript />
 
       {/* Session Info */}
       <SectionCard

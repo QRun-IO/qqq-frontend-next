@@ -41,3 +41,5 @@ target/
 /log/
 /.playwright-mcp/
 /storybook-static/
+/public/scripting-generated/
+/public/pdf-generated/

@@ -64,8 +64,11 @@ export function ScriptViewerWidget({ widgetMetaData, data, recordContext }: Widg
     enabled: Boolean(scriptId),
     retry: false,
   })
+  const matchesIdentity = scriptQuery.data != null && String(scriptQuery.data.values.id) === String(scriptId)
+  const executionMode = scriptQuery.data?.values.executionMode
+  const isLegacy = !executionMode || executionMode === 'LEGACY'
   const scriptTypeId = scriptQuery.data?.values.scriptTypeId
-  const hasScriptType = typeof scriptTypeId === 'string' || typeof scriptTypeId === 'number'
+  const hasScriptType = matchesIdentity && isLegacy && (typeof scriptTypeId === 'string' || typeof scriptTypeId === 'number')
   const scriptTypeQuery = useQuery({
     queryKey: ['widget', 'scriptViewer', 'scriptType', scriptTypeId],
     queryFn: () => getRecordOrNull(SCRIPT_TYPE_TABLE, scriptTypeId as string | number),
@@ -80,7 +83,7 @@ export function ScriptViewerWidget({ widgetMetaData, data, recordContext }: Widg
     body = <p className="text-sm text-muted-foreground" aria-busy="true">Loading script…</p>
   } else if (scriptQuery.data === null) {
     body = <p role="alert" className="text-sm text-muted-foreground">Script could not be found.</p>
-  } else if (scriptQuery.isError) {
+  } else if (scriptQuery.isError || !matchesIdentity) {
     body = <p role="alert" className="text-sm text-destructive">Error loading script.</p>
   } else {
     body = (

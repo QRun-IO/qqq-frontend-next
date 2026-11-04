@@ -189,6 +189,88 @@ describe('Developer API', () => {
   })
 
   describe('script processes', () => {
+    it('does not start a test that is already cancelled or has an invalid wait limit', async () => {
+      const { processInit } = await import('./processes')
+      const { testScript } = await import('./developer')
+      const controller = new AbortController()
+      controller.abort(new Error('Panel closed'))
+      await expect(testScript({ scriptId: 1, files: {}, inputValues: {} }, { signal: controller.signal })).rejects.toThrow('Panel closed')
+      for (const timeoutMillis of [0, -1, NaN, Infinity, 30 * 60_000 + 1]) {
+        await expect(testScript({ scriptId: 1, files: {}, inputValues: {} }, { timeoutMillis })).rejects.toThrow('wait duration')
+      }
+      expect(processInit).not.toHaveBeenCalled()
+    })
+
+    it('cancels the polling delay without another request and clears the deadline', async () => {
+      vi.useFakeTimers()
+      try {
+        const { processInit, processStatus } = await import('./processes')
+        const { testScript } = await import('./developer')
+        vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'p', jobUUID: 'j' })
+        const controller = new AbortController()
+        const result = testScript({ scriptId: 1, files: {}, inputValues: {} }, { signal: controller.signal }).catch((error: Error) => error)
+        await vi.advanceTimersByTimeAsync(500)
+        controller.abort(new Error('Stopped waiting'))
+        expect(await result).toEqual(new Error('Stopped waiting'))
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(processStatus).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(0)
+      } finally { vi.useRealTimers() }
+    })
+
+    it('aborts an in-flight status request at the configured deadline and never polls again', async () => {
+      vi.useFakeTimers()
+      try {
+        const { processInit, processStatus } = await import('./processes')
+        const { testScript } = await import('./developer')
+        vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'p', jobUUID: 'j' })
+        let observedSignal: AbortSignal | undefined
+        vi.mocked(processStatus).mockImplementation((_name, _process, _job, _variant, signal) => {
+          observedSignal = signal
+          return new Promise((_resolve, reject) => signal?.addEventListener('abort', () => reject(signal.reason), { once: true }))
+        })
+        const result = testScript({ scriptId: 1, files: {}, inputValues: {} }, { timeoutMillis: 1500 }).catch((error: Error) => error)
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(observedSignal?.aborted).toBe(false)
+        await vi.advanceTimersByTimeAsync(500)
+        expect(await result).toMatchObject({ message: expect.stringContaining('server test may still be running') })
+        expect(observedSignal?.aborted).toBe(true)
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(processStatus).toHaveBeenCalledTimes(1)
+        expect(vi.getTimerCount()).toBe(0)
+      } finally { vi.useRealTimers() }
+    })
+
+    it('includes the initial request in the observation deadline', async () => {
+      vi.useFakeTimers()
+      try {
+        const { processInit, processStatus } = await import('./processes')
+        const { testScript } = await import('./developer')
+        vi.mocked(processInit).mockImplementation((_name, _request, signal) => new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+        }))
+        const result = testScript({ scriptId: 1, files: {}, inputValues: {} }, { timeoutMillis: 50 }).catch((error: Error) => error)
+        await vi.advanceTimersByTimeAsync(50)
+        expect(await result).toMatchObject({ message: expect.stringContaining('time limit') })
+        expect(processStatus).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(0)
+      } finally { vi.useRealTimers() }
+    })
+
+    it('releases the deadline after a successful asynchronous test', async () => {
+      vi.useFakeTimers()
+      try {
+        const { processInit, processStatus } = await import('./processes')
+        const { testScript } = await import('./developer')
+        vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'p', jobUUID: 'j' })
+        vi.mocked(processStatus).mockResolvedValue({ type: 'COMPLETE', processUUID: 'p', values: {} })
+        const result = testScript({ scriptId: 1, files: {}, inputValues: {} })
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(await result).toMatchObject({ outputObject: {} })
+        expect(vi.getTimerCount()).toBe(0)
+      } finally { vi.useRealTimers() }
+    })
+
     it('stores a revision through storeScriptRevision with one value per file', async () => {
       const { processInit } = await import('./processes')
       vi.mocked(processInit).mockResolvedValue({
@@ -260,7 +342,7 @@ describe('Developer API', () => {
       expect(processInit).toHaveBeenCalledWith('testScript', {
         values: { name: 'Ada', scriptId: 101, fileNames: 'Script.js', 'fileContents:Script.js': 'throw 1' },
         stepTimeoutMillis: 60000,
-      })
+      }, expect.any(AbortSignal))
       expect(result).toEqual({
         outputObject: { greeting: 'Hello, Ada!' },
         logLines: [{ timestamp: '2026-09-25T01:02:03Z', text: 'Tested with Ada' }],

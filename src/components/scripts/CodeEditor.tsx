@@ -39,7 +39,7 @@ import React, { useCallback, useLayoutEffect, useRef, useState, useSyncExternalS
 
 import type { CodeLanguage } from '@/lib/utils/code-highlight'
 import { cn } from '@/lib/utils/cn'
-import { findCodeCompletions, type CodeCompletionMatch } from '@/lib/utils/code-completions'
+import { findCodeCompletions, type CodeCompletion, type CodeCompletionMatch } from '@/lib/utils/code-completions'
 import { HighlightedCode } from './HighlightedCode'
 
 /** The text a Tab inserts. */
@@ -101,6 +101,8 @@ export interface CodeEditorProps {
   language: CodeLanguage
   /** Enable local code suggestions for script files. */
   autocomplete?: boolean
+  /** Runtime-specific helper suggestions; omitted for the existing trusted API. */
+  apiCompletions?: readonly CodeCompletion[]
   /** Read-only: selectable and focusable, never edited, never captures Tab. */
   readOnly?: boolean
   /** Visible rows. Defaults to 12. */
@@ -163,6 +165,7 @@ export function CodeEditor({
   language,
   readOnly = false,
   autocomplete = false,
+  apiCompletions,
   rows = 12,
   ariaLabel,
   describedBy,
@@ -200,7 +203,7 @@ export function CodeEditor({
       setCompletion(null)
       return
     }
-    const match = findCodeCompletions(textarea.value, textarea.selectionStart, language, explicit)
+    const match = findCodeCompletions(textarea.value, textarea.selectionStart, language, explicit, apiCompletions)
     if (!match) { setCompletion(null); return }
     const before = textarea.value.slice(0, textarea.selectionStart).split('\n')
     const metrics = metricsRef.current?.getBoundingClientRect()
