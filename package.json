@@ -6,9 +6,10 @@
   "scripts": {
     "scripting:worker": "node scripts/build-scripting-worker.mjs",
     "scripting:worker:check": "node scripts/build-scripting-worker.mjs && node scripts/check-scripting-worker.mjs",
-    "dev": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && next dev --turbopack",
-    "build": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && next build",
-    "build:export": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/build-export.mjs",
+    "dev": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && next dev --turbopack",
+    "build": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && next build",
+    "build:export": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && node scripts/build-export.mjs",
+    "workflow:bundle": "node scripts/stage-dynamic-components.mjs",
     "build:jar": "pnpm build:export && mvn -B -q clean package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",

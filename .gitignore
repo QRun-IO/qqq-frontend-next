@@ -43,3 +43,4 @@ target/
 /storybook-static/
 /public/scripting-generated/
 /public/pdf-generated/
+/public/dynamic-qfmd-components/

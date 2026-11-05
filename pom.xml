@@ -89,8 +89,10 @@
                            <files>
                               <file>${project.basedir}/out/index.html</file>
                               <file>${project.basedir}/out/app/_/_/index.html</file>
+                              <file>${project.basedir}/out/dynamic-qfmd-components/q-sequential-workflow.bundle.js</file>
+                              <file>${project.basedir}/out/dynamic-qfmd-components/q-sequential-workflow.bundle.js.map</file>
                            </files>
-                           <message>Run "QQQ_NEXT_OUTPUT=export pnpm build" (or pnpm build:jar) before packaging.</message>
+                           <message>Run pnpm build:export (or pnpm build:jar) before packaging; the export must contain the QSequentialWorkflow editor bundle staged from dynamic-components/.</message>
                         </requireFilesExist>
                      </rules>
                   </configuration>
