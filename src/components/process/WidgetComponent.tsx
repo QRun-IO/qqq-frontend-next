@@ -87,7 +87,7 @@ function NamedWidget({ widget, seeded, index }: { widget: QWidgetMetaData; seede
     produced.current = type === 'childRecordList' ? { frontendRecords: frontendRecordsJson(data) } : { ...(produced.current ?? {}), ...data }
   }, [type])
 
-  useSubmitContributor(`widget-${index}-${widget.name}`, () => ({ maySubmit: true, values: produced.current ?? undefined }))
+  useSubmitContributor(`widget-${index}-${widget.name}`, () => ({ maySubmit: type !== 'AUTHENTIK_ACCESS_EDITOR' || produced.current?.__accessEditorReady === true, values: produced.current ?? undefined }))
 
   return (
     <div data-qqq-id={`process-widget-${widget.name}`}>
