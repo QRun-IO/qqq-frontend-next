@@ -29,7 +29,7 @@ const optionSchema = z.object({ id: z.string(), label: z.string() })
 const fieldSchema = z.object({
   catalogWidget: z.string().optional(), name: z.string().min(1), label: z.string(), source: z.string().optional(),
   selected: z.array(optionSchema).default([]), choices: z.array(optionSchema).optional(),
-  inherited: z.record(z.array(z.string())).optional(), policyPermissions: z.array(z.string()).optional(),
+  inherited: z.record(z.string(), z.array(z.string())).optional(), policyPermissions: z.array(z.string()).optional(),
 })
 const payloadSchema = z.object({ fields: z.array(fieldSchema) })
 type Field = z.infer<typeof fieldSchema>
