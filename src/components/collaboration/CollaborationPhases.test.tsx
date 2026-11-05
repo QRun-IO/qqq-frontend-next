@@ -301,6 +301,16 @@ it('renders My work with overdue task, assigned table and unread mentions links'
   )
   expect(screen.getByText(/Overdue:/)).toBeVisible()
   expect(screen.getByRole('link', { name: '3 unread mentions' })).toBeVisible()
+  vi.mocked(api.getMyWork).mockResolvedValue({
+    openTaskCount: 1,
+    tasks: [],
+    assignedRecordsByTable: { person: 1 },
+    unreadMentionCount: 0,
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Mark all mentions read' }))
+  await waitFor(() => expect(api.markMentionsRead).toHaveBeenCalledTimes(1))
+  expect(await screen.findByRole('link', { name: '0 unread mentions' })).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Mark all mentions read' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: /People \(1\)|Person \(1\)/ })).toHaveAttribute(
     'href',
     expect.stringContaining('CurrentUser')
