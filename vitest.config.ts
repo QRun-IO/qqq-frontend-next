@@ -5,9 +5,9 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
-    globals: true,
-    // Bound jsdom/MSW workers so high-core development hosts do not exhaust sockets or starve timers.
+    // Keep DOM suites within a predictable memory/CPU budget on shared build hosts.
     maxWorkers: 4,
+    globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
