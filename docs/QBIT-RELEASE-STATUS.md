@@ -4,7 +4,7 @@ Updated: 2026-11-05. Source integration is prepared; no published release or dep
 
 Current main `3d162dce741d5e4525d38d1048e5bc849b4f6384` (companion Tools workspace) merged without conflicts. Typecheck, changed-file lint, license headers and all 61 focused account-menu/widget/Tools/UI-API cases passed across focused runs. The initial four-file cold run timed out in the unchanged lazy-chart case; its full 34-case file then passed with one worker and the original timeout/assertions. No application code or test threshold was changed for that result. The broader verification below predates this merge and must not be presented as release CI on the merged source.
 
-Core release PR1343 is still in CI; Collaboration must then consume its published version. Next also needs its original tag-based JAR publication contract integrated with the Gitea publisher. Current shared Maven/Central publisher profiles cover Core/QBits, and there is no Next JAR enrollment. The npm publisher and qualification-only Maven artifact workflow are not substitutes.
+Core PR1343 merged as7825261ab after full CI4482 passed; develop publication4515 and candidate promotion PR1345 remain in progress. Collaboration must consume the resulting published version. Next publisher support merged in Praetor PR238 (664f9498), and its shared producer merged in platform-ci PR67 (327e9b3a). The source caller pins that exact producer. The publisher runtime passed736 Linux tests and a scan with no HIGH/CRITICAL findings, but runtime rollout and the exact Next GitOps enrollment are still pending. No Next publication is claimed.
 
 ## Changes
 
