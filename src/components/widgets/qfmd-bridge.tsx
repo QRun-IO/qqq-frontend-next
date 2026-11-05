@@ -38,6 +38,8 @@ import { DynamicForm } from '@/components/forms/DynamicForm'
 import type { BlockActionCallback } from './widget-types'
 import { isPlainObject } from './widget-types'
 import { widgetField } from './widget-field-values'
+import { runProcessToCompletion } from '@/lib/api/process-run'
+import type { ProcessRunResult } from '@/lib/api/process-run'
 import { WidgetIcon } from './WidgetIcon'
 import { ConnectedWidget } from './ConnectedWidget'
 
@@ -63,6 +65,8 @@ export interface QfmdBridge {
   makeWidget: (widgetName: string, tableName?: string, entityPrimaryKey?: string, record?: BridgeRecord, actionCallback?: BlockActionCallback) => React.ReactElement
   /** A Material icon by name. */
   makeIcon: (name: string) => React.ReactElement
+  /** Material's `QController` subset: `processRun` runs a screen-less process to completion (the headers and async flag are accepted and ignored). */
+  qController: { processRun: (processName: string, input?: unknown, formDataHeaders?: unknown, dontGoAsyncOnBackend?: boolean) => Promise<ProcessRunResult> }
 }
 
 /**
@@ -304,6 +308,7 @@ function BridgeWidget({ widgetName, tableName, entityPrimaryKey, record, actionC
 
 /** The bridge handed to every customComponent widget's component. */
 export const qfmdBridge: QfmdBridge = {
+  qController: { processRun: (processName, input) => runProcessToCompletion(processName, input) },
   makeAlert: (text, color, mayManuallyClose) => <BridgeAlert text={text} color={color} mayManuallyClose={mayManuallyClose} />,
   makeButton: (label, onClick, extra) => <BridgeButton label={label} onClick={onClick} extra={extra} />,
   makeForm: (fields, record, handleChange, handleSubmit, helpRoles) => (

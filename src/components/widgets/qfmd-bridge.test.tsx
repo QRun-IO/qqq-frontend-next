@@ -148,4 +148,19 @@ describe('customComponent widget', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Recolor' }))
     expect(screen.getByTestId('accent')).toHaveTextContent('#123456')
   })
+  it('hands the component Material-style defaultValues: a Map with get(), still readable as plain properties', async () => {
+    const meta: QWidgetMetaData = { name: 'accDefaults', label: 'Defaults', type: 'customComponent', hasPermission: true,
+      defaultValues: { componentName: 'OwnedDefaultsComponent', componentSourceUrl: 'http://127.0.0.1:9/owned-defaults.js', readonlyState: 'initially' } }
+    render(<QContextProvider><QqqCustomComponentWidget widgetMetaData={meta} data={{}} /></QContextProvider>)
+    const script = document.head.querySelector('script[src="http://127.0.0.1:9/owned-defaults.js"]') as HTMLScriptElement
+    type DefaultsProps = { props: { widgetMetaData: { defaultValues: Map<string, unknown> & Record<string, unknown> } } }
+    ;(window as unknown as Record<string, unknown>).OwnedDefaultsComponent = {
+      OwnedDefaultsComponent: ({ props }: DefaultsProps) => {
+        const values = props.widgetMetaData.defaultValues
+        return <span data-testid="defaults">{String(values.get('readonlyState'))}/{String(values.readonlyState)}/{String(values.get('missing') ?? 'none')}</span>
+      },
+    }
+    await act(async () => { script.dispatchEvent(new Event('load')) })
+    expect(await screen.findByTestId('defaults')).toHaveTextContent('initially/initially/none')
+  })
 })
