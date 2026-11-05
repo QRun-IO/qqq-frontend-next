@@ -1,0 +1,27 @@
+{
+  "component": {
+    "repository": "QRun-IO/qqq-frontend-component-sequential-workflow",
+    "sourceCommit": "e6036d2a474a90d80c72bc4c5f242e666b3415f6",
+    "sourceTree": "9efc09210a81dc4121aa53e156443b7f4fcb6dd7",
+    "mainCommit": "ede4eba875ca17c5921ad4caf61a08bdff6f794d",
+    "build": {
+      "node": "v22.20.0",
+      "npm": "10.9.3",
+      "image": "node@sha256:b21fe589dfbe5cc39365d0544b9be3f1f33f55f3c86c87a76ff65a02f8f5848e",
+      "commands": [
+        "npm ci --ignore-scripts",
+        "npm test (existing 3 suites, 62 tests)",
+        "npx webpack"
+      ],
+      "packageLockSha256": "737cc1a3e416d942c050076dfae36345e9ba3f62d679dec71f04c2a2382b1a21",
+      "qualifiedUtc": "2026-11-05T12:31Z"
+    },
+    "mainTree": "9efc09210a81dc4121aa53e156443b7f4fcb6dd7",
+    "mainMerge": "normal merge of PR 5 (parents a32a7b4d437f09c09b03eb8828fccfd7de4eae7a, e6036d2a474a90d80c72bc4c5f242e666b3415f6); its tree equals the qualified source tree, so the qualified assets are the canonical main build output"
+  },
+  "assetDirectory": "dynamic-components/q-sequential-workflow",
+  "files": {
+    "q-sequential-workflow.bundle.js": "9f8358b105d0c157cb32a476313a7750281549f8e9423dd7d125ceaaafe8f32d",
+    "q-sequential-workflow.bundle.js.map": "776c716690a357213e00d109652ab7eb9c9025073b362c995564e11ca5c5ee92"
+  }
+}

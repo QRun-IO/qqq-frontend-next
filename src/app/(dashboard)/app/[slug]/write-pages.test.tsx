@@ -17,7 +17,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import apiClient from '@/lib/api/client'
 import { QContextProvider } from '@/lib/context/q-context'
@@ -54,6 +54,8 @@ function renderPage(page: React.ReactNode) {
 }
 
 describe('Create and base edit use full metadata and actual write contracts', () => {
+  // The pages lazy-load the form; transforming its module graph cold must not count against the first test's waits
+  beforeAll(async () => { await import('@/components/forms/EntityForm') }, 120_000)
   beforeEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); localStorage.clear(); fixture() })
 
   it('edits the base without requesting denied children or replacing associations', async () => {

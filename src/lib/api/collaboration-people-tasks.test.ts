@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/** @file Directory search, presence beacon, personal task page, comment reply ordering and realtime transport edges. */
+/** @file Directory search, presence departure, personal task page, comment reply ordering and realtime transport edges. */
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import apiClient from './client'
 import { beaconPresence, listMyTasks, normalizeComment, searchPeople } from './collaboration'
@@ -46,14 +46,20 @@ it('searches the directory with a bounded page and normalizes each person', asyn
   expect(result.items[1].userId).toBeNull()
 })
 
-it('sends the last presence lease as a JSON beacon, and tolerates browsers without one', () => {
-  const sendBeacon = vi.fn()
-  Object.defineProperty(navigator, 'sendBeacon', { value: sendBeacon, configurable: true })
-  beaconPresence({ table: 'person', pk: '1', mode: 'VIEWING' } as never)
-  expect(sendBeacon).toHaveBeenCalledWith('/qqq/v1/qbit/collaboration/presence', expect.any(Blob))
-  expect((sendBeacon.mock.calls[0][1] as Blob).type).toBe('application/json')
-  Object.defineProperty(navigator, 'sendBeacon', { value: undefined, configurable: true })
-  expect(() => beaconPresence({ table: 'person', pk: '1', mode: 'VIEWING' } as never)).not.toThrow()
+it('sends an authenticated keepalive departure for the last lease and tolerates network loss', async () => {
+  const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }))
+  const lease = { connectionId: 'lease-1', table: 'person', pk: '1', sequence: 3, mode: 'VIEWING' as const }
+  beaconPresence(lease)
+  expect(request).toHaveBeenCalledWith('/qqq/v1/qbit/collaboration/presence', {
+    method: 'DELETE',
+    credentials: 'include',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json', 'X-QQQ-Client': 'next-ui' },
+    body: JSON.stringify({ connectionId: 'lease-1', table: 'person', pk: '1', sequence: 3 }),
+  })
+  request.mockRejectedValue(new TypeError('Network unavailable'))
+  expect(() => beaconPresence(lease)).not.toThrow()
+  await Promise.resolve()
 })
 
 it('reads open personal tasks and rejects a task without an identifier', async () => {

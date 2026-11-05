@@ -45,6 +45,17 @@ describe('adornment-utils (backend value keys)', () => {
     expect(linkTarget(url, record({ site: null }))).toBeNull()
   })
 
+  it('resolves native process record references and preserves authenticated delivery declarations', () => {
+    const link = field('record', [{ type: 'LINK', values: { toRecordFromTableField: 'table' } }])
+    expect(linkTarget(link, record({ record: '7', table: 'retained' }))).toEqual({ kind: 'record', tableName: 'retained', primaryKey: '7' })
+    expect(linkTarget(link, record({ record: 'https://wrong.example' }))).toBeNull()
+    const file = field('url', [{ type: 'FILE_DOWNLOAD', values: { deliveryModeField: 'mode', fileNameField: 'name' } }])
+    expect(fileDownload(file, record({ url: 'https://api.example/transfer', mode: 'AUTHENTICATED_FETCH', name: 'Packing.pdf' })))
+      .toEqual({ url: 'https://api.example/transfer', fileName: 'Packing.pdf', delivery: 'AUTHENTICATED_FETCH' })
+    expect(fileDownload(file, record({ url: 'https://api.example/transfer', mode: 'unknown' }))).toBeNull()
+    expect(fileDownload(file, record({ url: 'https://api.example/transfer' }))).toBeNull()
+  })
+
   it('reads CHIP color.<value> and icon.<value> with a default color', () => {
     const status = field('status', [{ type: 'CHIP', values: { 'color.ACTIVE': 'success', 'icon.ACTIVE': 'check_circle', 'color.OLD': 'not-a-color' } }])
     expect(chipStyle(status, 'ACTIVE')).toEqual({ color: 'success', icon: 'check_circle' })

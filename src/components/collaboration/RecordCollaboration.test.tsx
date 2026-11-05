@@ -72,6 +72,35 @@ beforeEach(() => {
   })
   vi.mocked(api.putRecordTags).mockResolvedValue({ items: [], nextCursor: null })
 })
+it('shows metadata recovery navigation pinned to the source after an interrupted upload', async () => {
+  vi.mocked(api.uploadAttachment).mockRejectedValue(new Error('Registration interrupted'))
+  const recoveryView = {
+    tableName: 'owner_pending_uploads', label: 'Review interrupted uploads',
+    filter: { booleanOperator: 'AND', criteria: [
+      { fieldName: 'createdByUserId', operator: 'EQUALS', values: [{ type: 'CurrentUser' }] },
+      { fieldName: 'state', operator: 'IN', values: ['PREPARED', 'REGISTERED'] },
+    ] },
+  }
+  const source = { table: 'purchase_order', pk: 'a/b & 雪' }
+  const { container } = mount(<FilesTab record={source} features={{ ...features, settings: { ATTACHMENTS: { maxBytes: 10, recoveryView } } }} />)
+  const link = screen.getByRole('link', { name: recoveryView.label })
+  const target = new URL(link.getAttribute('href')!, 'https://app.example')
+  expect(target.pathname).toBe('/app/owner_pending_uploads')
+  expect(JSON.parse(target.searchParams.get('filter')!).criteria).toEqual([
+    ...recoveryView.filter.criteria,
+    { fieldName: 'tableName', operator: 'EQUALS', values: [source.table] },
+    { fieldName: 'recordId', operator: 'EQUALS', values: [source.pk] },
+  ])
+  fireEvent.change(container.querySelector('input[type=file]')!, { target: { files: [new File(['a'], 'bol.txt')] } })
+  expect(await screen.findByRole('alert')).toHaveTextContent('Registration interrupted')
+  expect(screen.getByText('An interrupted upload may have saved the file. Review it before uploading again.')).toBeVisible()
+  expect(screen.queryByText('bol.txt Uploaded')).not.toBeInTheDocument()
+})
+it('preserves ordinary Files tabs when no recovery metadata is supplied', async () => {
+  mount(<FilesTab record={record} features={features} />)
+  expect(await screen.findByText('No files yet.')).toBeVisible()
+  expect(document.querySelector('[data-qqq-id="files-upload-recovery"]')).toBeNull()
+})
 it('inserts a mention with the keyboard, warns and submits the literal token', async () => {
   const submit = vi.fn().mockResolvedValue(undefined)
   mount(<CommentComposer record={record} onSubmit={submit} />)
@@ -172,6 +201,76 @@ it('does not offer file uploads without attach permission', async () => {
   mount(<FilesTab record={record} features={{ ...features, capabilities: { attach: false } }} />)
   expect(document.querySelector('[data-qqq-id="files-picker"]')).toBeNull()
   expect(screen.getByText(/permission to attach/)).toBeVisible()
+})
+it.each([
+  { canEdit: true, canDelete: false, edit: true, remove: false },
+  { canEdit: false, canDelete: true, edit: false, remove: true },
+  { canEdit: null, canDelete: true, edit: false, remove: true },
+  { canEdit: undefined, canDelete: true, edit: false, remove: true },
+  { canDelete: true, edit: true, remove: true },
+])('keeps attachment editing separate from deletion: %j', async (permissions) => {
+  const { edit, remove, ...capabilities } = permissions
+  vi.mocked(api.listAttachments).mockResolvedValue({ items: [{ id: 9, fileName: 'retained.txt', ...capabilities }], nextCursor: null })
+  mount(<FilesTab record={record} features={features} />)
+  await screen.findByText('retained.txt')
+  expect(screen.queryByRole('button', { name: 'Rename / describe' }) !== null).toBe(edit)
+  expect(screen.queryByRole('button', { name: 'Delete' }) !== null).toBe(remove)
+})
+
+it('resolves a fresh download action from an attachment preview', async () => {
+  vi.mocked(api.listAttachments).mockResolvedValue({ items: [{ id: 9, fileName: 'retained.png', contentType: 'image/png' }], nextCursor: null })
+  vi.mocked(api.attachmentUrl).mockImplementation(async (_id, mode) => ({ url: mode === 'preview' ? '/preview.png' : '/authorized-download.png' }))
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  try {
+    mount(<FilesTab record={record} features={features} />)
+    fireEvent.click(await screen.findByRole('button', { name: /retained.png/ }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Download retained.png' }))
+    await waitFor(() => expect(api.attachmentUrl).toHaveBeenCalledWith(9, 'download'))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect(click.mock.instances[0]).toHaveAttribute('href', '/authorized-download.png')
+    expect(dialog.querySelector('[data-qqq-id="file-preview-download"]')).not.toHaveAttribute('href')
+  } finally {
+    click.mockRestore()
+  }
+})
+it('reports a failed thumbnail as preview unavailable and still offers a separate native download', async () => {
+  vi.mocked(api.listAttachments).mockResolvedValue({ items: [{ id: 9, fileName: 'scan.jpg', contentType: 'image/jpeg', canEdit: false, canDelete: false }], nextCursor: null })
+  vi.mocked(api.attachmentUrl).mockImplementation(async (_id, mode) => {
+    if (mode === 'preview') throw new Error('HTTP 500: private storage diagnostics')
+    return { url: '/authorized-original.jpg' }
+  })
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  try {
+    mount(<FilesTab record={record} features={features} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Preview unavailable. Try again or use Download.')
+    expect(screen.queryByText(/private storage|update or open/i)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Open' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() => expect(api.attachmentUrl).toHaveBeenCalledWith(9, 'download'))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect(click.mock.instances[0]).toHaveAttribute('href', '/authorized-original.jpg')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  } finally {
+    click.mockRestore()
+  }
+})
+it('keeps a denied direct download separate from preview and editing errors without exposing server details', async () => {
+  vi.mocked(api.listAttachments).mockResolvedValue({ items: [{ id: 9, fileName: 'original.bin', contentType: 'application/octet-stream' }], nextCursor: null })
+  vi.mocked(api.attachmentUrl).mockRejectedValue(new Error('private backend path'))
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  try {
+    mount(<FilesTab record={record} features={features} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Download' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Download unavailable. Please try again.')
+    expect(screen.queryByText(/private backend|update or open/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
+    expect(click).not.toHaveBeenCalled()
+    expect(api.attachmentUrl).toHaveBeenCalledExactlyOnceWith(9, 'download')
+  } finally {
+    click.mockRestore()
+  }
 })
 it('pages activity with the returned cursor and shows audit details', async () => {
   vi.mocked(api.listTimeline)
@@ -284,4 +383,19 @@ it('follows and exposes notification preferences and follower count', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Follow preferences' }))
   expect(await screen.findByText('1 follower')).toBeVisible()
   expect(within(screen.getByRole('dialog')).getByLabelText('Notify me about changes')).toBeChecked()
+})
+
+it('renders only valid server-defined related views pinned to this source record', async () => {
+  mount(<FilesTab record={record} features={{ ...features, settings: { ATTACHMENTS: { relatedViews: [
+    { tableName: 'evidence_history', label: 'Retained evidence', filter: { booleanOperator: 'AND', criteria: [{ fieldName: 'tableName', operator: 'EQUALS', values: [record.table] }] } },
+    { tableName: '../outside', label: 'Unsafe', filter: { booleanOperator: 'AND', criteria: [] } },
+  ] } } }} />)
+  const link = screen.getByRole('link', { name: 'Retained evidence' })
+  const url = new URL(link.getAttribute('href')!, 'https://app.example')
+  expect(url.pathname).toBe('/app/evidence_history')
+  expect(JSON.parse(url.searchParams.get('filter')!).criteria).toEqual(expect.arrayContaining([
+    { fieldName: 'tableName', operator: 'EQUALS', values: [record.table] },
+    { fieldName: 'recordId', operator: 'EQUALS', values: [record.pk] },
+  ]))
+  expect(screen.queryByRole('link', { name: 'Unsafe' })).toBeNull()
 })

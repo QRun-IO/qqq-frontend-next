@@ -21,7 +21,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
@@ -112,9 +112,14 @@ export function ScriptTest({ idKey, scriptId, files, inputFields, outputFields, 
 }) {
   const [inputValues, setInputValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(inputFields.map((field) => [field.name, text(field.defaultValue)])))
+  const activeTest = useRef<AbortController | null>(null)
+  useEffect(() => () => activeTest.current?.abort(new DOMException('Stopped waiting because the test panel closed. The server test may still be running.', 'AbortError')), [])
   const run = useMutation({
-    mutationFn: () => testScript({ scriptId, files, inputValues, apiName, apiVersion }),
+    mutationFn: (controller: AbortController) => testScript({ scriptId, files, inputValues, apiName, apiVersion }, { signal: controller.signal }),
     meta: HANDLES_OWN_ERRORS,
+    onSettled: (_data, _error, controller) => {
+      if (activeTest.current === controller) activeTest.current = null
+    },
   })
   const result = run.data
   const outputs = result?.outputObject ?? {}
@@ -130,7 +135,10 @@ export function ScriptTest({ idKey, scriptId, files, inputFields, outputFields, 
         onSubmit={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          run.mutate()
+          if (activeTest.current) return
+          const controller = new AbortController()
+          activeTest.current = controller
+          run.mutate(controller)
         }}
       >
         <h4 className="text-base font-semibold text-foreground">Test Input</h4>
@@ -154,6 +162,11 @@ export function ScriptTest({ idKey, scriptId, files, inputFields, outputFields, 
           )
         })}
         <div className="flex justify-end">
+          {run.isPending && <button type="button" className={BUTTON_CLASS}
+            data-qqq-id={`button-stop-waiting-script-${idKey}`}
+            onClick={() => activeTest.current?.abort(new DOMException('Stopped waiting. The server test may still be running.', 'AbortError'))}>
+            Stop waiting
+          </button>}
           <button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={run.isPending} data-qqq-id={`button-test-script-${idKey}`}>
             {run.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Submit

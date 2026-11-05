@@ -155,6 +155,15 @@ function findCalls(): { calls: FoundCall[]; dynamicSites: Set<string>; unknownDy
         }
         continue
       }
+      // A template containing a validated dynamic route is still a computed path.
+      // Resolve only the exact file/expression entry, and require every mapped
+      // operation to exist in the generated documents below.
+      const templateKey = literal === undefined ? undefined : `${relative}#${literal}`
+      if (templateKey && templateKey in DYNAMIC_CALL_SITES) {
+        dynamicSites.add(templateKey)
+        for (const listed of DYNAMIC_CALL_SITES[templateKey]) calls.push({ key: listed, site })
+        continue
+      }
       let method = match[1]?.toUpperCase() ?? 'GET'
       if (match[3]) {
         const init = /method:\s*'([A-Z]+)'/.exec(source.slice(match.index, match.index + 300))
@@ -207,5 +216,7 @@ describe('UI API contract', () => {
     expect(normalisePath('/qqq/v1/table/{tableName}/query')).toBe('/table/{}/query')
     expect(normalisePath('/reports/${encodeURIComponent(name)}?${params}')).toBe('/reports/{}')
     expect(normalisePath('/table/${t}/${pk}/${f}/${file}${query}')).toBe('/table/{}/{}/{}/{}')
+    expect(normalisePath(resolveConstants('${scriptProjectPath(scriptId)}/builds/${id.parse(buildId)}/test-hook', ''))).toBe('/qbit/scripting/projects/{}/builds/{}/test-hook')
+    expect(resolveConstants('${path(scriptId)}/builds', '')).toBe('${path(scriptId)}/builds')
   })
 })

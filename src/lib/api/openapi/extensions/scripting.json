@@ -1,0 +1,2755 @@
+{
+  "components": {
+    "schemas": {
+      "BasicErrorResponseV1": {
+        "description": "The error body of every UI API operation (core and extensions).",
+        "properties": {
+          "error": {
+            "description": "The error message (the same as message; kept for clients of UI API 1.0 to 1.5).",
+            "type": "string"
+          },
+          "code": {
+            "description": "A stable, machine-readable code. Well-known values: BAD_REQUEST (400), UNAUTHENTICATED (401),\nPERMISSION_DENIED (403), NOT_FOUND (404), CONFLICT (409), RATE_LIMITED (429), INTERNAL_ERROR (500),\nERROR (other). Extensions may add codes; treat an unknown code by the HTTP status. Since 1.6.0.",
+            "type": "string"
+          },
+          "message": {
+            "description": "A message to show the user. Since 1.6.0.",
+            "type": "string"
+          },
+          "fieldErrors": {
+            "description": "Errors about particular request fields, when known. Since 1.6.0.",
+            "items": {
+              "properties": {
+                "field": {
+                  "description": "The field (or parameter) name.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "The error about that field.",
+                  "type": "string"
+                },
+                "code": {
+                  "description": "An optional machine-readable code, e.g. REQUIRED, TOO_LONG, PATTERN.",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "traceId": {
+            "description": "Identifies this request in the server logs (also the X-QQQ-Trace-Id response header); quote it when reporting a problem. Since 1.6.0.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingBindRequestV1": {
+        "additionalProperties": false,
+        "description": "Create an enabled pinned hook binding, separate from publication.",
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingCapabilityV1"
+            },
+            "type": "array"
+          },
+          "event": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "patchableFields": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "publicationId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "tableName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingBindingStateRequestV1": {
+        "additionalProperties": false,
+        "description": "Change enabled state through the binding service and atomic audit.",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingBindingV1": {
+        "additionalProperties": false,
+        "description": "Pinned binding and current enabled state.",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "event": {
+            "nullable": true,
+            "type": "string"
+          },
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingCapabilityV1"
+            },
+            "type": "array"
+          },
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "patchableFields": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "publicationId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "tableName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingBuildV1": {
+        "additionalProperties": false,
+        "description": "Compile status; success alone is not publication.",
+        "properties": {
+          "artifactId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "artifactVersion": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "buildId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingDiagnosticV1"
+            },
+            "type": "array"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingCapabilityV1": {
+        "additionalProperties": false,
+        "description": "Read-only declared capability, checked again on every broker call.",
+        "properties": {
+          "fields": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxCalls": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "maxRows": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "operation": {
+            "enum": [
+              "READ"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "table": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingCheckRequestV1": {
+        "additionalProperties": false,
+        "description": "Compile a saved revision with a strict pinned toolchain.",
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingCapabilityV1"
+            },
+            "type": "array"
+          },
+          "entryPoint": {
+            "nullable": true,
+            "type": "string"
+          },
+          "revisionId": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingCreateProjectRequestV1": {
+        "additionalProperties": false,
+        "description": "Create an isolated project; execution mode is server-controlled.",
+        "properties": {
+          "name": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingDiagnosticV1": {
+        "additionalProperties": false,
+        "description": "Bounded compiler location and message.",
+        "properties": {
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "column": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "file": {
+            "nullable": true,
+            "type": "string"
+          },
+          "line": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingDraftRequestV1": {
+        "additionalProperties": false,
+        "description": "Save appends a revision; baseRevisionId must match the latest revision (null for first save).",
+        "properties": {
+          "baseRevisionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingFileV1"
+            },
+            "type": "array"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingDraftV1": {
+        "additionalProperties": false,
+        "description": "Authorized source snapshot.",
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingFileV1"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ScriptingImportProvenanceV1",
+            "nullable": true
+          },
+          "revisionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "sourceSha256": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingFileV1": {
+        "additionalProperties": false,
+        "description": "One bounded TypeScript source file.",
+        "properties": {
+          "content": {
+            "nullable": true,
+            "type": "string"
+          },
+          "path": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHookDecisionV1": {
+        "additionalProperties": false,
+        "description": "Bounded simulated decision; patch is never applied by the test endpoint.",
+        "properties": {
+          "action": {
+            "nullable": true,
+            "type": "string"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "patch": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHookPhaseV1": {
+        "additionalProperties": false,
+        "description": "Installed phase and current permitted patch fields.",
+        "properties": {
+          "event": {
+            "nullable": true,
+            "type": "string"
+          },
+          "patchableFields": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHookTargetV1": {
+        "additionalProperties": false,
+        "description": "Host-installed target visible to this actor.",
+        "properties": {
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingHookPhaseV1"
+            },
+            "type": "array"
+          },
+          "tableName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHookTestRequestV1": {
+        "additionalProperties": false,
+        "description": "Read-only selected-record simulation; no mutation or native write validation occurs.",
+        "properties": {
+          "changes": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "event": {
+            "nullable": true,
+            "type": "string"
+          },
+          "recordId": {
+            "description": "Scalar record primary key, converted by native field metadata.",
+            "type": "string"
+          },
+          "tableName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHookTestV1": {
+        "additionalProperties": false,
+        "description": "Audited dry-run result, never a record write result.",
+        "properties": {
+          "contextJson": {
+            "nullable": true,
+            "type": "string"
+          },
+          "executionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "hook": {
+            "$ref": "#/components/schemas/ScriptingHookDecisionV1",
+            "nullable": true
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingHooksV1": {
+        "additionalProperties": false,
+        "description": "Up to200 targets and100 bindings across all publications; nextBindingId continues retained binding history.",
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingBindingV1"
+            },
+            "type": "array"
+          },
+          "historyLimited": {
+            "type": "boolean"
+          },
+          "nextBindingId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingHookTargetV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingIdV1": {
+        "additionalProperties": false,
+        "description": "Immutable result identity.",
+        "properties": {
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingImportProvenanceV1": {
+        "additionalProperties": false,
+        "description": "Retained immutable repository source receipt.",
+        "properties": {
+          "commitSha": {
+            "nullable": true,
+            "type": "string"
+          },
+          "importedBy": {
+            "nullable": true,
+            "type": "string"
+          },
+          "repository": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sourceSha256": {
+            "nullable": true,
+            "type": "string"
+          },
+          "subdirectory": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingImportRequestV1": {
+        "additionalProperties": false,
+        "description": "Explicit exact-commit import as a new draft, never build or publish.",
+        "properties": {
+          "baseRevisionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "commitSha": {
+            "nullable": true,
+            "type": "string"
+          },
+          "repository": {
+            "nullable": true,
+            "type": "string"
+          },
+          "subdirectory": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingProjectV1": {
+        "additionalProperties": false,
+        "description": "Recent100 revisions/builds/publications and current authorized actions.",
+        "properties": {
+          "actions": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "builds": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingStatusV1"
+            },
+            "type": "array"
+          },
+          "executionMode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "importAvailable": {
+            "type": "boolean"
+          },
+          "latestRevisionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "publications": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingStatusV1"
+            },
+            "type": "array"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingRevisionV1"
+            },
+            "type": "array"
+          },
+          "scriptId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "workerAvailable": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingPublishRequestV1": {
+        "additionalProperties": false,
+        "description": "Publish an already built and tested immutable artifact.",
+        "properties": {
+          "note": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingRevisionV1": {
+        "additionalProperties": false,
+        "description": "Immutable source revision summary.",
+        "properties": {
+          "author": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sequence": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingStatusV1": {
+        "additionalProperties": false,
+        "description": "Recent lifecycle status, no executable content.",
+        "properties": {
+          "actor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "artifactId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "createdAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "revisionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "status": {
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingTestRequestV1": {
+        "additionalProperties": false,
+        "description": "Test one built context script with bounded JSON and narrowed read grants.",
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingCapabilityV1"
+            },
+            "type": "array"
+          },
+          "input": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingTestV1": {
+        "additionalProperties": false,
+        "description": "Audited context test outcome; no hook shape is accepted.",
+        "properties": {
+          "contextJson": {
+            "nullable": true,
+            "type": "string"
+          },
+          "executionId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "hook": {
+            "nullable": true,
+            "type": "object"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingTypesRequestV1": {
+        "additionalProperties": false,
+        "description": "Generate scoped editor typings for explicit capabilities.",
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptingCapabilityV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptingTypesV1": {
+        "additionalProperties": false,
+        "description": "Editor assistance; runtime broker authorization is independent.",
+        "properties": {
+          "declarations": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "sessionUuidCookie": {
+        "description": "The session cookie set by POST /qqq/v1/manageSession (web clients).",
+        "in": "cookie",
+        "name": "sessionUUID",
+        "type": "apiKey"
+      },
+      "bearerAuth": {
+        "bearerFormat": "JWT or session UUID",
+        "description": "`Authorization: Bearer <token>`, where the token is either\n- an OAuth2 access token (a signed JWT) issued by the app's identity provider to the app's client,\n  or to its native client (`values.nativeClientId` in GET /qqq/v1/metaData/authentication), for\n  example from the device-authorization grant or auth-code + PKCE. It is verified against the\n  provider's keys (issuer, audience, expiry, signature) and gives the same user and permissions\n  as signing in on the web. When it expires (401), refresh it at the provider and retry; or\n- a session UUID returned by POST /qqq/v1/manageSession, which the server keeps refreshed.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "oauth2": {
+        "description": "The app's OAuth2 / OpenID Connect provider. The real endpoints come from the provider's discovery\ndocument: `{values.baseUrl}.well-known/openid-configuration`, with values from\nGET /qqq/v1/metaData/authentication. Native clients use `values.nativeClientId` (a public client)\nwith auth-code + PKCE (loopback or custom-scheme redirect URI registered at the provider) or the\ndevice-authorization grant (`device_authorization_endpoint`, RFC 8628), then send the access token\nas `Authorization: Bearer`.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "/authorize",
+            "scopes": {
+              "email": "Email address",
+              "offline_access": "A refresh token, to renew the access token without signing in again",
+              "openid": "OpenID Connect sign-in",
+              "profile": "Name, username and groups (permissions come from the groups)"
+            },
+            "tokenUrl": "/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "contact@kingsrook.com"
+    },
+    "description": "Isolated TypeScript source authoring, strict builds, tests and immutable publication",
+    "title": "QQQ Middleware API extension: scripting",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/qqq/v1/qbit/scripting/projects": {
+      "post": {
+        "description": "Requires draft permission and ordinary core project insert authorization. Never migrates legacy source.",
+        "operationId": "postQbitScriptingProjects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingCreateProjectRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Create an isolated TypeScript project",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}": {
+      "get": {
+        "description": "Read project status and recent history. Requires current action permission and owning-project access.",
+        "operationId": "getQbitScriptingProjectsByScriptId",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingProjectV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Read project status and recent history",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/revisions/{revisionId}": {
+      "get": {
+        "description": "Read one immutable source revision. Requires current action permission and owning-project access.",
+        "operationId": "getQbitScriptingProjectsByScriptIdRevisionsByRevisionId",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable revisionId.",
+            "in": "path",
+            "name": "revisionId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingDraftV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Read one immutable source revision",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/drafts": {
+      "post": {
+        "description": "Save a new draft without activating it. Requires current action permission and owning-project access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdDrafts",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingDraftRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Save a new draft without activating it",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/imports": {
+      "post": {
+        "description": "Explicit repository import requires current draft permission and host-managed repository access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdImports",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingImportRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Import exact Git commit as draft",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/builds": {
+      "post": {
+        "description": "Compile one saved revision. Requires current action permission and owning-project access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBuilds",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingCheckRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingBuildV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Compile one saved revision",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/builds/{buildId}": {
+      "get": {
+        "description": "Read compile diagnostics. Requires current action permission and owning-project access.",
+        "operationId": "getQbitScriptingProjectsByScriptIdBuildsByBuildId",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable buildId.",
+            "in": "path",
+            "name": "buildId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingBuildV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Read compile diagnostics",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/builds/{buildId}/test-context": {
+      "post": {
+        "description": "Test a built context script. Requires current action permission and owning-project access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBuildsByBuildIdTestContext",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable buildId.",
+            "in": "path",
+            "name": "buildId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingTestRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingTestV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Test a built context script",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/builds/{buildId}/publications": {
+      "post": {
+        "description": "Publish a tested immutable build. Requires current action permission and owning-project access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBuildsByBuildIdPublications",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable buildId.",
+            "in": "path",
+            "name": "buildId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingPublishRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Publish a tested immutable build",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/typings": {
+      "post": {
+        "description": "Generate permission-scoped API declarations. Requires current action permission and owning-project access.",
+        "operationId": "postQbitScriptingProjectsByScriptIdTypings",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingTypesRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingTypesV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Generate permission-scoped API declarations",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/hooks": {
+      "get": {
+        "description": "Read authorized hook targets and recent bindings. Current project and native target permissions are enforced; no script receives credentials.",
+        "operationId": "getQbitScriptingProjectsByScriptIdHooks",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Exclusive binding id from nextBindingId.",
+            "in": "query",
+            "name": "beforeBindingId",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingHooksV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Read authorized hook targets and recent bindings",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/bindings": {
+      "post": {
+        "description": "Bind a publication to a host-installed record phase. Current project and native target permissions are enforced; no script receives credentials.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBindings",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingBindRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Bind a publication to a host-installed record phase",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/bindings/{bindingId}/state": {
+      "post": {
+        "description": "Enable or disable a pinned hook binding. Current project and native target permissions are enforced; no script receives credentials.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBindingsByBindingIdState",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable bindingId.",
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingBindingStateRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingIdV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Enable or disable a pinned hook binding",
+        "tags": [
+          "scripting"
+        ]
+      }
+    },
+    "/qqq/v1/qbit/scripting/projects/{scriptId}/builds/{buildId}/test-hook": {
+      "post": {
+        "description": "Dry-run a hook against an authorized selected record. Current project and native target permissions are enforced; no script receives credentials.",
+        "operationId": "postQbitScriptingProjectsByScriptIdBuildsByBuildIdTestHook",
+        "parameters": [
+          {
+            "description": "Positive immutable scriptId.",
+            "in": "path",
+            "name": "scriptId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Positive immutable buildId.",
+            "in": "path",
+            "name": "buildId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptingHookTestRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptingHookTestV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Current permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Project or revision unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Source or artifact integrity conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Too many requests (code RATE_LIMITED); retry later."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Request could not be completed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasicErrorResponseV1"
+                }
+              }
+            },
+            "description": "Isolated runtime unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "N/A"
+            ]
+          },
+          {
+            "oauth2": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        ],
+        "summary": "Dry-run a hook against an authorized selected record",
+        "tags": [
+          "scripting"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "The QQQ server that serves this document (paths include /qqq/v1).",
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations of the scripting extension.",
+      "name": "scripting"
+    }
+  ]
+}

@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/lib/api/tables', () => ({ getRecord: vi.fn(() => new Promise(() => {})), queryRecords: vi.fn(() => new Promise(() => {})) }))
@@ -87,6 +87,8 @@ describe('WidgetRenderer', () => {
         <WidgetRenderer widgetMetaData={{ name: 'untyped', label: 'Untyped', hasPermission: true }} data={{ type: 'chart', title: 'Persons', chartData: { labels: ['Jan'], datasets: [{ label: 'People', data: [17] }] } }} />
       </QueryClientProvider>
     )
+    // Await the real lazy chunk before checking content under a busy full-suite worker pool.
+    await act(async () => { await vi.dynamicImportSettled() })
     expect(await screen.findByText('Persons', { selector: '[data-qqq-id="chart-title-untyped"]' })).toBeInTheDocument()
   })
 

@@ -1,8 +1,11 @@
 # QQQ Frontend Next
 
+> **QBit integration branch (2026-11-04).** File delivery/preview, TypeScript editing and generic process controls use the QQQ UIUX APIs. See [current verification and dependency setup](docs/QBIT-RELEASE-STATUS.md) and [remaining release requirements](docs/QBIT-KNOWN-ISSUES.md). These changes are source/local snapshots, not part of the published RC.36 baseline described below.
+
+
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-**This checkout targets Next UI 1.0.0-RC.36**, which adds accessibility fixes: readable link text, 24px clear targets, h2 widget titles and skip-link focus to RC35. Confirm availability in the [RC36 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.36) before installing; see the [RC36 notes](docs/releases/1.0.0-RC.36.md) for the preparation checkpoint and verification scope. [RC35](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.35) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
+**Published baseline: Next UI 1.0.0-RC.36**, which adds accessibility fixes: readable link text, 24px clear targets, h2 widget titles and skip-link focus to RC35. Confirm availability in the [RC36 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.36) before installing; see the [RC36 notes](docs/releases/1.0.0-RC.36.md) for the preparation checkpoint and verification scope. [RC35](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.35) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
 
 **Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
 

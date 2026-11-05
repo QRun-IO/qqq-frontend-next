@@ -10,6 +10,8 @@
 
 # next.js
 /.next/
+/.next-collaboration/
+/.next-presence-live/
 /out/
 
 # production
@@ -41,3 +43,6 @@ target/
 /log/
 /.playwright-mcp/
 /storybook-static/
+/public/scripting-generated/
+/public/pdf-generated/
+/public/dynamic-qfmd-components/

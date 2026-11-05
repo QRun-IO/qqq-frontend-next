@@ -23,7 +23,7 @@
 
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react'
 
@@ -31,9 +31,12 @@ import type { FilePreviewItem } from '@/lib/utils/file-preview'
 import { apiUrl } from '@/lib/api/client'
 import { attachmentUrl } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
-import { formatBytes, isBackendFileUrl, isSameOrigin } from '@/lib/utils/file-preview'
+import { formatBytes } from '@/lib/utils/file-preview'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { FileKindIcon } from './FileKindIcon'
+import { pdfPreviewSource } from '@/lib/api/pdf-preview'
+
+const PdfPreview = lazy(() => import('./PdfPreview').then((module) => ({ default: module.PdfPreview })))
 
 /** Zoom steps of an image preview (1 = fit to the window). */
 export const ZOOM_STEPS = [1, 1.5, 2, 3, 4]
@@ -48,6 +51,8 @@ export interface FilePreviewLightboxProps {
   onIndexChange: (index: number) => void
   /** Called when the preview closes. */
   onClose: () => void
+  /** Authorizes a fresh download; when supplied, the preview URL is never used to download. */
+  onDownload?: (item: FilePreviewItem) => Promise<void>
 }
 
 /**
@@ -58,7 +63,7 @@ export interface FilePreviewLightboxProps {
  * @param props - See {@link FilePreviewLightboxProps}.
  * @returns The dialog.
  */
-export function FilePreviewLightbox({ items, index, onIndexChange, onClose }: FilePreviewLightboxProps) {
+export function FilePreviewLightbox({ items, index, onIndexChange, onClose, onDownload }: FilePreviewLightboxProps) {
   const restoreFocus = useRestoreFocus(true)
   const item = items[Math.min(Math.max(index, 0), items.length - 1)]
   const count = items.length
@@ -156,7 +161,7 @@ export function FilePreviewLightbox({ items, index, onIndexChange, onClose }: Fi
                   <ToolbarButton label="Zoom in" onClick={() => zoomBy(1)} disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]} id="zoom-in"><ZoomIn className="h-4 w-4" aria-hidden="true" /></ToolbarButton>
                 </>
               )}
-              <FileActions item={item} />
+              <FileActions key={item.url} item={item} onDownload={onDownload} />
               <Dialog.Close asChild>
                 <button type="button" aria-label="Close preview" data-qqq-id="file-preview-close"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -246,15 +251,10 @@ function PreviewStage({ item, zoom, failed, onFailed, onNaturalSize, onToggleZoo
   }
 
   if (item.kind === 'pdf') {
-    // frames are limited to the dashboard's own origin by its Content-Security-Policy, and within
-    // it to backend file paths, so a stored URL cannot frame another page of the dashboard
-    if (!isSameOrigin(item.url)) {
-      return <Unavailable item={item} reason="This PDF is on another site, so it opens in a new tab instead of here." />
+    try { pdfPreviewSource(item.url) } catch {
+      return <Unavailable item={item} reason="This PDF is not available through a trusted file preview source." />
     }
-    if (!isBackendFileUrl(item.url)) {
-      return <Unavailable item={item} reason="This PDF is not a file served by the application, so it opens in a new tab instead of here." />
-    }
-    return <iframe src={item.url} title={item.fileName} className="absolute inset-0 h-full w-full border-0 bg-white" data-qqq-id="file-preview-pdf" />
+    return <Suspense fallback={<p role="status" className="p-4">Loading PDF viewer…</p>}><PdfPreview key={item.url} url={item.url} fileName={item.fileName} /></Suspense>
   }
 
   if (item.kind === 'video') {
@@ -297,7 +297,9 @@ function Unavailable({ item, reason }: { item: FilePreviewItem; reason: string }
  * @param props - The item.
  * @returns The links.
  */
-function FileActions({ item }: { item: FilePreviewItem }) {
+function FileActions({ item, onDownload }: { item: FilePreviewItem; onDownload?: (item: FilePreviewItem) => Promise<void> }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState(false)
   if (!item.url) return null
   // backend field downloads honour ?download=1; other URLs rely on the download attribute (same origin)
   const backendFile = item.url.startsWith(apiUrl('/table/'))
@@ -305,14 +307,32 @@ function FileActions({ item }: { item: FilePreviewItem }) {
   const linkClass = 'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
   return (
     <>
-      <a href={item.url} target="_blank" rel="noopener noreferrer" className={linkClass} title="Open original" data-qqq-id="file-preview-open">
+      {item.kind !== 'pdf' && <a href={item.url} target="_blank" rel="noopener noreferrer" className={linkClass} title="Open original" data-qqq-id="file-preview-open">
         <ExternalLink className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">Open original (opens in a new tab)</span>
-      </a>
-      <a href={downloadHref} download={item.fileName} className={linkClass} title="Download" data-qqq-id="file-preview-download">
+      </a>}
+      {onDownload ? (
+        <button type="button" disabled={pending} aria-busy={pending} className={cn(linkClass, 'disabled:opacity-50')}
+          title="Download" data-qqq-id="file-preview-download"
+          onClick={async () => {
+            setPending(true)
+            setError(false)
+            try {
+              await onDownload(item)
+            } catch {
+              setError(true)
+            } finally {
+              setPending(false)
+            }
+          }}>
+          <Download className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">{pending ? 'Preparing download' : `Download ${item.fileName}`}</span>
+        </button>
+      ) : <a href={downloadHref} download={item.fileName} className={linkClass} title="Download" data-qqq-id="file-preview-download">
         <Download className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">Download {item.fileName}</span>
-      </a>
+      </a>}
+      {error && <p role="alert" className="max-w-xs text-xs text-destructive">Could not authorize this download. Please try again.</p>}
     </>
   )
 }

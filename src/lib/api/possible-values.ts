@@ -102,8 +102,8 @@ const possibleValuesResponse = z.union([
     options: z.array(z.object({
       id: z.union([z.string(), z.number().finite()]),
       label: z.string(),
-      values: z.record(z.unknown()).optional(),
-      displayValues: z.record(z.string()).optional(),
+      values: z.record(z.string(), z.unknown()).optional(),
+      displayValues: z.record(z.string(), z.string()).optional(),
     }).passthrough()),
     hasMore: z.boolean().optional(),
   }),

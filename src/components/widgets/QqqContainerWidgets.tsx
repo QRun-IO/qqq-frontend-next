@@ -243,6 +243,19 @@ interface DynamicComponentProps {
 }
 
 /**
+ * Material's `QWidgetMetaData.defaultValues` is a `Map`, and bundles such as the QSequentialWorkflow editor read it with
+ * `defaultValues.get(name)`. Hand them a Map that also keeps plain property access, so existing readers keep working.
+ *
+ * @param values - The widget's default values as delivered by the API.
+ * @returns A Map of the same entries that is also readable as an object.
+ */
+function materialDefaultValues(values: Record<string, unknown> | undefined): Map<string, unknown> & Record<string, unknown> {
+  const map = new Map<string, unknown>(Object.entries(values ?? {}))
+  for (const [key, value] of map) if (!(key in map)) Object.defineProperty(map, key, { value, enumerable: true })
+  return map as Map<string, unknown> & Record<string, unknown>
+}
+
+/**
  * Renders a QQQ `customComponent`: loads the bundle at the widget's
  * `componentSourceUrl` default value and renders `window[componentName][componentName]`
  * with Material's contract: `{ props: { widgetMetaData, widgetData, record } }`, the live
@@ -284,7 +297,7 @@ export function QqqCustomComponentWidget({ widgetMetaData, data, recordContext }
   const sx = widgetMetaData.defaultValues?.sx
   return (
     <div data-qqq-id={`custom-component-${widgetMetaData.name}`} style={isPlainObject(sx) ? (sx as React.CSSProperties) : undefined}>
-      <Component props={{ widgetMetaData, widgetData: data, record: recordContext?.record }} qContext={qContext ?? {}} qfmdBridge={qfmdBridge} />
+      <Component props={{ widgetMetaData: { ...widgetMetaData, defaultValues: materialDefaultValues(widgetMetaData.defaultValues) }, widgetData: data, record: recordContext?.record }} qContext={qContext ?? {}} qfmdBridge={qfmdBridge} />
     </div>
   )
 }

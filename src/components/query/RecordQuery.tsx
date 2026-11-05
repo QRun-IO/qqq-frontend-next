@@ -876,6 +876,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </div>
       ) : (
         <RecordQueryContent
+          allTables={allTables}
           tableName={tableName}
           tableMetaData={tableMetaData}
           viewMode={viewMode}

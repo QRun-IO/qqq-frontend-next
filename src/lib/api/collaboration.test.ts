@@ -22,6 +22,7 @@ import {
   listFavorites,
   listRecents,
   normalizeCollaborationList,
+  normalizeAttachment,
   recordRecent,
   reorderFavorites,
   starFavorite,
@@ -56,6 +57,14 @@ const item = {
 beforeEach(() => vi.resetAllMocks())
 
 describe('collaboration normalization', () => {
+  it('separates edit and delete capabilities and only falls back when edit is absent', () => {
+    expect(normalizeAttachment({ id: 1, canDelete: false, canEdit: true })).toMatchObject({ canDelete: false, canEdit: true })
+    expect(normalizeAttachment({ id: 1, canDelete: true, canEdit: false })).toMatchObject({ canDelete: true, canEdit: false })
+    expect(normalizeAttachment({ id: 1, canDelete: true })).toMatchObject({ canEdit: true })
+    for (const canEdit of [null, undefined, 'true', 1]) {
+      expect(normalizeAttachment({ id: 1, canDelete: true, canEdit }).canEdit).toBe(false)
+    }
+  })
   it('normalizes nullable fields, drops malformed identities and preserves cursor and order', () => {
     expect(
       normalizeCollaborationList({

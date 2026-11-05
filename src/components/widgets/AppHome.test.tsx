@@ -66,6 +66,18 @@ describe('AppHome', () => {
     server.use(http.post('*/table/carrier/count', () => HttpResponse.json({ count: 11 })))
   })
 
+  it('does not request unsafe totals for authorization-filtered tables even when count capability is present', async () => {
+    const filteredCount = vi.fn(() => HttpResponse.json({ count: 999 }))
+    server.use(http.post('*/table/history/count', filteredCount))
+    renderHome({ name: 'historyApp', label: 'History', sections: [{ name: 'records', label: 'Records', tables: ['carrier', 'history'] }] }, {
+      ...instance,
+      tables: { ...instance.tables, history: table('history', 'History', { supplementalMetaData: { queryPagination: { authorizationFiltered: true } } }) },
+    })
+    expect(await screen.findByText('11 total records')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'History –' })).toBeInTheDocument()
+    expect(filteredCount).not.toHaveBeenCalled()
+  })
+
   it.each([
     { widgets: ['navigation'], hint: undefined, apps: false, sections: true },
     { widgets: undefined, hint: undefined, apps: true, sections: true },

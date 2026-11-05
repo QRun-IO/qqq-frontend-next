@@ -25,7 +25,7 @@
  */
 
 /** Languages the highlighter knows. Anything else is shown as plain text. */
-export type CodeLanguage = 'javascript' | 'java' | 'python' | 'json' | 'sql' | 'velocity' | 'html' | 'text'
+export type CodeLanguage = 'javascript' | 'typescript' | 'java' | 'python' | 'json' | 'sql' | 'velocity' | 'html' | 'text'
 
 /** Kinds of token the highlighter colors (`qqq-code-<type>` CSS classes). */
 export type CodeTokenType =
@@ -55,6 +55,7 @@ export const MAX_HIGHLIGHT_LENGTH = 100_000
 /** Display names of the languages, for the editor badge. */
 export const LANGUAGE_LABELS: Record<CodeLanguage, string> = {
   javascript: 'JavaScript',
+  typescript: 'TypeScript',
   java: 'Java',
   python: 'Python',
   json: 'JSON',
@@ -75,9 +76,10 @@ export function languageFor(mode: string | null | undefined): CodeLanguage {
   switch (normalized) {
     case 'javascript':
     case 'js':
+      return 'javascript'
     case 'typescript':
     case 'ts':
-      return 'javascript'
+      return 'typescript'
     case 'java':
     case 'groovy':
     case 'kotlin':
@@ -135,6 +137,10 @@ const JAVA_KEYWORDS = [
   ...JS_KEYWORDS, 'abstract', 'boolean', 'byte', 'char', 'def', 'double', 'enum', 'final', 'float', 'implements', 'int',
   'interface', 'long', 'package', 'private', 'protected', 'public', 'short', 'synchronized', 'throws', 'transient', 'volatile',
 ]
+const TS_KEYWORDS = [
+  ...JS_KEYWORDS, 'interface', 'type', 'readonly', 'unknown', 'never', 'keyof', 'declare', 'namespace',
+  'implements', 'abstract', 'as', 'satisfies', 'any', 'string', 'number', 'boolean', 'infer', 'is',
+]
 const PYTHON_KEYWORDS = [
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally',
   'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
@@ -155,6 +161,7 @@ const SQL_KEYWORDS = [
 export function codeKeywords(language: CodeLanguage): readonly string[] {
   switch (language) {
     case 'javascript': return [...JS_KEYWORDS, 'true', 'false', 'null', 'undefined']
+    case 'typescript': return [...TS_KEYWORDS, 'true', 'false', 'null', 'undefined']
     case 'java': return [...JAVA_KEYWORDS, 'true', 'false', 'null']
     case 'python': return [...PYTHON_KEYWORDS, 'True', 'False', 'None']
     case 'sql': return [...SQL_KEYWORDS, 'null', 'true', 'false']
@@ -193,6 +200,7 @@ const HTML_RULES: Rule[] = [
 
 const RULES: Record<Exclude<CodeLanguage, 'text'>, Rule[]> = {
   javascript: C_LIKE(JS_KEYWORDS),
+  typescript: C_LIKE(TS_KEYWORDS),
   java: C_LIKE(JAVA_KEYWORDS),
   python: [
     { pattern: /#[^\n]*/y, type: 'comment' },

@@ -38,6 +38,18 @@ const record = { tableName: 'lab', values: { id: 1, title: 'Visible title' } } a
 afterEach(() => window.localStorage.clear())
 
 describe('RecordViewSection widget headings', () => {
+  it('renders native virtual values while excluding hidden and absent fields', () => {
+    const metadata = { ...table, virtualFields: {
+      previewUrl: { name: 'previewUrl', label: 'Preview', type: 'STRING', isHidden: false },
+      hiddenUrl: { name: 'hiddenUrl', label: 'Hidden', type: 'STRING', isHidden: true },
+    } } as unknown as QTableMetaData
+    const section = { name: 'file', label: 'File', fieldNames: ['previewUrl', 'hiddenUrl', 'absent'], isHidden: false } as QTableSection
+    render(<RecordViewSection section={section} tableMetaData={metadata} record={{ ...record, values: { previewUrl: 'visible virtual value', hiddenUrl: 'must stay hidden' } }} />)
+    expect(screen.getByText('visible virtual value')).toBeVisible()
+    expect(screen.queryByText('must stay hidden')).not.toBeInTheDocument()
+    expect(screen.queryByText('undefined')).not.toBeInTheDocument()
+  })
+
   it('leaves the heading to the widget card when the card has the same label', () => {
     const section = { name: 'progress', label: 'Live Progress', fieldNames: [], widgetName: 'progressWidget', isHidden: false } as QTableSection
     const widget = { name: 'progressWidget', label: 'Live Progress', hasPermission: true } as QWidgetMetaData

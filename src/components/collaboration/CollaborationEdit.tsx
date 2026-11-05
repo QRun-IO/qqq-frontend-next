@@ -167,6 +167,7 @@ export function CollaborationEdit({
   return (
     <div className="space-y-3">
       <PresenceAvatars viewers={presence.viewers} />
+      {presence.unavailable && <span role="status">Presence temporarily unavailable</span>}
       {conflict && (
         <div
           role="alert"

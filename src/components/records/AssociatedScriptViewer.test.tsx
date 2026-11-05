@@ -331,7 +331,7 @@ describe('AssociatedScriptViewer', () => {
     await user.type(input, 'Ada')
     await user.click(byQqqId(`button-test-script-${FIELD}`)!)
 
-    expect(testScript).toHaveBeenCalledWith({ scriptId: 101, files: { 'Script.js': "return 'Hello, friend';" }, inputValues: { name: 'Ada' } })
+    expect(testScript).toHaveBeenCalledWith({ scriptId: 101, files: { 'Script.js': "return 'Hello, friend';" }, inputValues: { name: 'Ada' } }, { signal: expect.any(AbortSignal) })
     const output = byQqqId(`script-test-output-${FIELD}`)!
     await waitFor(() => expect(byQqqId(`script-test-output-${FIELD}-greeting`)).toHaveTextContent('Greeting: Hello, Ada! (22 characters)'))
     expect(within(output).queryByRole('alert')).toBeNull()

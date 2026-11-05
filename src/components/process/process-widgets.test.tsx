@@ -95,6 +95,20 @@ function instanceWith(...widgets: QWidgetMetaData[]): QInstance {
 describe('process screens: fields and chrome (#725)', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('submits TypeScript source unchanged through a native EDIT_FORM CODE_EDITOR field', async () => {
+    const source = '  export async function main(): Promise<string> {\n  return "日本語";\n}\n\n'
+    const step: QFrontendStepMetaData = {
+      name: 'source', label: 'Source', components: [{ type: 'EDIT_FORM' }],
+      formFields: [field('source', 'TypeScript source', {
+        type: 'TEXT', adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'typescript' } }],
+      })],
+    }
+    const { onSubmit } = renderStep(step, { source: '// initial\n' })
+    fireEvent.change(screen.getByRole('textbox', { name: 'TypeScript source' }), { target: { value: source } })
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ source }, undefined))
+  })
+
   it('adds inputFieldList fields to a screen with an edit form, searching their source, and submits them', async () => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'input', label: 'Input', components: [{ type: 'EDIT_FORM' }], formFields: [field('note', 'Note')] }

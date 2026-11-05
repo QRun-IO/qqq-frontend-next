@@ -37,7 +37,7 @@ import nextConfig from '../../next.config'
 
 /** The policy NextDashboardSecurityHeaders builds with no additions, before script hashes. */
 const JAVALIN_DEFAULT_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
-  + "font-src 'self' data:; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' data: blob:; "
+  + "font-src 'self' data:; connect-src 'self' blob:; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' data: blob:; "
   + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 const sha256 = (text: string) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`
@@ -104,7 +104,7 @@ describe('dashboard policy (QRun-IO/qqq#734)', () => {
       scriptHashes: ["'sha256-abc='"],
     })
     const directives = Object.fromEntries(policy.split('; ').map((part) => [part.split(' ')[0], part.split(' ').slice(1)]))
-    expect(directives['connect-src']).toEqual(["'self'", 'https://idp.example'])
+    expect(directives['connect-src']).toEqual(["'self'", 'blob:', 'https://idp.example'])
     expect(directives['frame-src']).toEqual(["'self'", 'https://*.quicksight.aws.amazon.com', 'http://127.0.0.1:9'])
     expect(directives['script-src']).toEqual(["'self'", 'https://cdn.example', "'sha256-abc='"])
     expect(directives['report-uri']).toEqual(['/csp'])
@@ -122,7 +122,7 @@ describe('dashboard policy (QRun-IO/qqq#734)', () => {
       scriptHashes: ["'sha256-owned='"],
     })
     expect(policy).toContain("script-src 'self' https://cdn.example.test 'sha256-owned='")
-    expect(policy).toContain("connect-src 'self' https://*.google-analytics.com")
+    expect(policy).toContain("connect-src 'self' blob: https://*.google-analytics.com")
     expect(policy).toContain("frame-src 'self' https://*.quicksight.aws.amazon.com")
     expect(policy).toContain("style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style")
     expect(policy).toContain("object-src 'none'")
@@ -174,7 +174,7 @@ describe('dashboard policy (QRun-IO/qqq#734)', () => {
     const policy = buildContentSecurityPolicy({ additions: qaCaptureSourceAdditions(' TRUE ') })
     expect(policy).toContain("script-src 'self' https://js.jam.dev")
     expect(policy).toContain("frame-src 'self' https://*.jam.dev")
-    expect(policy).toContain("connect-src 'self' https://*.jam.dev")
+    expect(policy).toContain("connect-src 'self' blob: https://*.jam.dev")
     expect(buildContentSecurityPolicy()).not.toContain('jam.dev')
   })
 
@@ -250,7 +250,7 @@ describe('identity provider origins from the authentication metadata', () => {
     const captured = await inputs()
     first.dashboardCspSources.scriptSrc[0] = 'https://changed.example'
     expect(buildContentSecurityPolicy(captured)).toContain("script-src 'self' https://cdn.example")
-    expect(buildContentSecurityPolicy(captured)).toContain("connect-src 'self' https://idp.example")
+    expect(buildContentSecurityPolicy(captured)).toContain("connect-src 'self' blob: https://idp.example")
     now += 200
     await inputs()
     await vi.waitFor(() => expect(console.warn).toHaveBeenCalled())

@@ -122,6 +122,23 @@ it('invalidates records, panel counts, tasks, notifications and resync queries',
   invalidateRealtime(cache, { event: 'resync', data: {} })
   expect(invalidate).toHaveBeenLastCalledWith({ queryKey: queryKeys.all() })
 })
+it('presence hints invalidate only their record or table room without trusting viewer payloads', () => {
+  const cache = new QueryClient()
+  const invalidate = vi.spyOn(cache, 'invalidateQueries')
+  const recordKey = queryKeys.collaborationResource('person', '1', 'presence')
+  cache.setQueryData(recordKey, { viewers: [] })
+  invalidateRealtime(cache, {
+    event: 'presence.invalidated',
+    data: { table: 'person', pk: 1, viewers: [{ userId: 'untrusted' }] },
+  })
+  expect(invalidate).toHaveBeenCalledExactlyOnceWith({ queryKey: recordKey })
+  expect(cache.getQueryData(recordKey)).toEqual({ viewers: [] })
+  invalidate.mockClear()
+  invalidateRealtime(cache, { event: 'presence.invalidated', data: { table: 'person' } })
+  expect(invalidate).toHaveBeenCalledExactlyOnceWith({
+    queryKey: queryKeys.collaborationResource('person', '', 'presence'),
+  })
+})
 class Bus {
   static peers = new Set<Bus>()
   onmessage?: (event: MessageEvent) => void

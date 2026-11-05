@@ -36,6 +36,7 @@ import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permi
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { cn } from '@/lib/utils/cn'
 import { cssMaxWidth } from '@/lib/utils/responsive-grid'
+import { authorizationFilteredPagination } from '@/lib/utils/query-pagination'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
@@ -109,7 +110,7 @@ function resolveEntries(names: string[] | undefined, type: QAppTreeNode['type'],
 /**
  * Renders "N total records" for a table, counted by the backend.
  *
- * Tables without the `TABLE_COUNT` capability or read permission show a dash.
+ * Tables without count permission, or with authorization-filtered pages, show a dash.
  *
  * @param props - Component properties.
  * @param props.tableName - Table to count.
@@ -118,7 +119,7 @@ function resolveEntries(names: string[] | undefined, type: QAppTreeNode['type'],
  */
 function TableCount({ tableName, instance }: { tableName: string; instance: QInstance }) {
   const table = instance.tables?.[tableName]
-  const countable = Boolean(table?.readPermission && table.capabilities?.includes('TABLE_COUNT'))
+  const countable = Boolean(table?.readPermission && table.capabilities?.includes('TABLE_COUNT')) && !authorizationFilteredPagination(table)
   const { data, isError, isPending } = useQuery({
     queryKey: queryKeys.tableCount(tableName, '{}'),
     queryFn: () => countRecords(tableName, { filter: {} }),

@@ -28,6 +28,12 @@ vi.mock('@/lib/api/tables', () => ({
   queryRecords: vi.fn(),
 }))
 
+vi.mock('@/components/scripts/IsolatedScriptEditor', () => ({
+  IsolatedScriptEditor: ({ scriptId, label }: { scriptId: string | number; label: string }) => (
+    <div data-testid="isolated-editor" data-script-id={scriptId}>{label}</div>
+  ),
+}))
+
 const metaState = vi.hoisted(() => ({ processes: {} as Record<string, unknown>, tables: {} as Record<string, unknown> }))
 vi.mock('@/lib/hooks/use-metadata', () => ({
   useMetaData: () => ({ data: { processes: metaState.processes, tables: metaState.tables, apps: {} } }),
@@ -106,6 +112,42 @@ describe('ScriptViewerWidget', () => {
     queryRecordsMock.mockReset()
     metaState.processes = {}
     metaState.tables = {}
+  })
+
+  it('dispatches isolated metadata to the isolated editor without reading legacy tables', async () => {
+    getRecordMock.mockResolvedValue({ ...script, values: { ...script.values, executionMode: 'ISOLATED' } })
+    renderWidget()
+    expect(await screen.findByTestId('isolated-editor')).toHaveAttribute('data-script-id', '1')
+    expect(screen.getByTestId('isolated-editor')).toHaveTextContent('Owned script')
+    expect(getRecordMock).toHaveBeenCalledTimes(1)
+    expect(getRecordMock).toHaveBeenCalledWith('script', '1')
+    expect(queryRecordsMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses unknown execution modes without loading legacy tables', async () => {
+    getRecordMock.mockResolvedValue({ ...script, values: { ...script.values, executionMode: 'FUTURE' } })
+    renderWidget()
+    expect(await screen.findByRole('alert')).toHaveTextContent('execution mode is not supported')
+    expect(screen.queryByTestId('isolated-editor')).not.toBeInTheDocument()
+    expect(getRecordMock).toHaveBeenCalledTimes(1)
+    expect(queryRecordsMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses a returned script with a different identity before mounting either editor', async () => {
+    getRecordMock.mockResolvedValue({ ...script, values: { ...script.values, id: 2, executionMode: 'ISOLATED' } })
+    renderWidget()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Error loading script')
+    expect(screen.queryByTestId('isolated-editor')).not.toBeInTheDocument()
+    expect(getRecordMock).toHaveBeenCalledTimes(1)
+    expect(queryRecordsMock).not.toHaveBeenCalled()
+  })
+
+  it('shows a failed record lookup without mounting an editor or querying legacy tables', async () => {
+    getRecordMock.mockRejectedValue(new Error('Unavailable'))
+    renderWidget()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Error loading script')
+    expect(screen.queryByTestId('isolated-editor')).not.toBeInTheDocument()
+    expect(queryRecordsMock).not.toHaveBeenCalled()
   })
 
   it('selects the current revision by default and shows its highlighted file', async () => {

@@ -52,6 +52,18 @@ describe('Processes API', () => {
     vi.clearAllMocks()
   })
 
+  it('propagates observation signals for init and status without changing table variant', async () => {
+    const { default: client } = await import('./client')
+    const { processInit, processStatus } = await import('./processes')
+    const controller = new AbortController()
+    vi.mocked(client.post).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'p', jobUUID: 'j' })
+    vi.mocked(client.get).mockResolvedValue({ type: 'RUNNING', processUUID: 'p' })
+    await processInit('testScript', {}, controller.signal)
+    expect(client.post).toHaveBeenCalledWith('/processes/testScript/init', expect.any(FormData), expect.objectContaining({ signal: controller.signal }))
+    await processStatus('testScript', 'p', 'j', 'variant', controller.signal)
+    expect(client.get).toHaveBeenCalledWith('/processes/testScript/p/status/j', { params: { tableVariant: 'variant' }, signal: controller.signal })
+  })
+
   it('posts a typed durable job as JSON through the UI client', async () => {
     const { default: client } = await import('./client')
     const { processJob } = await import('./processes')

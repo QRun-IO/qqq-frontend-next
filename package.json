@@ -1,12 +1,15 @@
 {
   "name": "qqq-frontend-next",
-  "version": "1.0.0-RC.36",
+  "version": "1.0.0-RC.38",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "build:export": "QQQ_NEXT_OUTPUT=export NEXT_PUBLIC_MOCK_API=false next build",
+    "scripting:worker": "node scripts/build-scripting-worker.mjs",
+    "scripting:worker:check": "node scripts/build-scripting-worker.mjs && node scripts/check-scripting-worker.mjs",
+    "dev": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && next dev --turbopack",
+    "build": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && next build",
+    "build:export": "node scripts/build-scripting-worker.mjs && node scripts/build-pdf-worker.mjs && node scripts/stage-dynamic-components.mjs && node scripts/build-export.mjs",
+    "workflow:bundle": "node scripts/stage-dynamic-components.mjs",
     "build:jar": "pnpm build:export && mvn -B -q clean package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",
@@ -22,17 +25,20 @@
     "test:acceptance": "node scripts/acceptance.mjs",
     "perf:budget": "node scripts/perf-budget.mjs",
     "ui-api:check": "node scripts/check-ui-api-spec.mjs",
-    "tsc": "tsc",
-    "typecheck": "tsc --noEmit",
+    "tsc": "node node_modules/typescript/bin/tsc",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "prepare": "git config core.hooksPath .githooks || true",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "pdf:worker": "node scripts/build-pdf-worker.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.18.6",
     "@codemirror/commands": "6.8.1",
+    "@codemirror/lang-javascript": "6.2.5",
     "@codemirror/lang-sql": "6.9.0",
     "@codemirror/language": "6.11.2",
+    "@codemirror/lint": "6.8.5",
     "@codemirror/state": "6.5.2",
     "@codemirror/view": "6.38.1",
     "@hookform/resolvers": "^5.2.2",
@@ -54,10 +60,11 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "lodash": "^4.18.1",
     "lucide-react": "^0.485.0",
-    "next": "16.4.1",
+    "next": "16.4.3",
+    "pdfjs-dist": "6.4.299",
     "rapidoc": "10.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -70,15 +77,16 @@
     "sonner": "^2.0.7",
     "sql-formatter": "15.6.6",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.25.76"
+    "typescript-editor": "npm:typescript@6.0.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.4",
     "@playwright/test": "1.64.0-alpha-2026-10-01",
-    "@storybook/addon-docs": "10.6.0",
-    "@storybook/nextjs-vite": "10.6.0",
-    "@storybook/react": "10.6.0",
+    "@storybook/addon-docs": "10.6.2",
+    "@storybook/nextjs-vite": "10.6.2",
+    "@storybook/react": "10.6.2",
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -89,8 +97,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "@vitest/coverage-v8": "^4.1.11",
-    "@vitest/ui": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/ui": "^4.1.12",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.3",
     "eslint-config-next": "16.4.1",
@@ -101,10 +109,11 @@
     "msw": "^2.12.10",
     "postcss": "^8.5.28",
     "prettier": "^3.8.1",
-    "storybook": "10.6.0",
+    "storybook": "10.6.2",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vite": "7.3.7",
+    "vitest": "^4.1.12"
   },
   "msw": {
     "workerDirectory": [
@@ -113,10 +122,19 @@
   },
   "pnpm": {
     "overrides": {
+      "@codemirror/autocomplete": "6.18.6",
+      "@codemirror/commands": "6.8.1",
+      "@codemirror/language": "6.11.2",
+      "@codemirror/lint": "6.8.5",
+      "@codemirror/state": "6.5.2",
+      "@codemirror/view": "6.38.1",
       "serialize-javascript": ">=7.0.3",
       "@humanfs/node": ">=0.16.8",
       "@babel/core": ">=7.29.6 <8",
-      "source-map-js": ">=1.2.2"
+      "source-map-js": ">=1.2.2",
+      "follow-redirects": ">=1.16.2",
+      "undici@>=7 <8": ">=7.30.1 <8",
+      "fast-uri@>=3 <4": ">=3.1.9 <4"
     },
     "ignoredOptionalDependencies": [
       "electron"

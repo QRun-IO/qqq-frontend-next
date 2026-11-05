@@ -113,9 +113,8 @@ function renderPage() {
 }
 
 describe('RecordDeveloperViewPage', () => {
-  // Transform the real lazy module before DOM waits begin. Cold Vitest transforms
-  // on Windows can otherwise consume the first test's entire five-second wait.
-  beforeAll(async () => { await import('@/components/developer/RecordDeveloperView') })
+  // The page lazy-loads this view; transforming its module graph cold must not count against the first test's waits
+  beforeAll(async () => { await import('@/components/developer/RecordDeveloperView') }, 120_000)
 
   beforeEach(() => {
     vi.mocked(getRecord).mockResolvedValue(record)

@@ -37,7 +37,8 @@ export const DEFAULT_DIRECTIVES = [
   ['style-src', ["'self'", "'unsafe-inline'"]],
   ['img-src', ["'self'", 'data:', 'blob:', 'https:']],
   ['font-src', ["'self'", 'data:']],
-  ['connect-src', ["'self'"]],
+  // Receipt-verified file previews read local blobs before canvas rendering.
+  ['connect-src', ["'self'", 'blob:']],
   ['frame-src', ["'self'"]],
   ['worker-src', ["'self'", 'blob:']],
   ['manifest-src', ["'self'"]],

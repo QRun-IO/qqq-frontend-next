@@ -1,0 +1,11 @@
+# QBit integration known issues and release requirements
+
+Updated: 2026-11-05.
+
+- The Core, Collaboration and Next UI changes are verified source branches and local snapshots, not a published dependency set. Public Core RC.21 / Collaboration RC.6 lack the required retention contracts. Merge and publication through the existing release process remain separate from local verification.
+- The frontend checks include real Core/Collaboration sessions and file storage, plus browser protocol fixtures for retained receipts. They do not establish end-to-end document generation/printing or deployed untrusted-script execution. Those QBits and workers retain their own qualification requirements.
+- External signed PDF storage needs CORS for the dashboard origin and its origin in CSP `connect-src`. Application credentials are never sent to those URLs. Hosts replacing dashboard CSP must retain `blob:` in `connect-src` for verified local previews.
+- Lint reports six existing warnings in unchanged files. The unit suite has one existing skipped test. Canonical Next 16.4.1 and Zod 3 are preserved; dependency patch upgrades remain a separate release review.
+- The local artifact is `qqq-frontend-next:1.0.0-SNAPSHOT`, built with an explicit Maven revision override. It includes generated PDF and TypeScript workers. The prepared release-managed version is `1.0.0-RC.38`; RC.36 and RC.37 already exist in Central and must never be overwritten.
+- Next publisher support and the shared producer are merged (Praetor PR238, platform-ci PR67); the local caller pins327e9b3a9d45a08665fa9468f0f9741e972d8e3e. Runtime qualification passed736 Linux tests and its vulnerability scan. GitOps PR269 deployed the qualified runtime and exact workflow/GAV enrollment; ArgoCD adoption and the scheduled publisher startup are verified. The signed application tag and resulting Central artifact still remain. The existing tag, package.json and POM version agreement, typecheck/lint/tests/static export and signed Central delivery are preserved. Neither the local JAR nor source merge proves publication.
+- The full application acceptance matrix across all browsers and deployment-specific storage/printer/scanner behavior is not claimed by the scoped QBit integration checks.
