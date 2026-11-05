@@ -2,9 +2,9 @@
 
 Updated: 2026-11-05. Source integration is prepared; no published release or deployment is claimed.
 
-Current main `3d162dce741d5e4525d38d1048e5bc849b4f6384` (companion Tools workspace) merged without conflicts. Typecheck, changed-file lint, license headers and all 61 focused account-menu/widget/Tools/UI-API cases passed across focused runs. The initial four-file cold run timed out in the unchanged lazy-chart case; its full 34-case file then passed with one worker and the original timeout/assertions. No application code or test threshold was changed for that result. The broader verification below predates this merge and must not be presented as release CI on the merged source.
+Current main `090f5febeaacf3f9c39a22952e5c93c859cdbeb7` (permission editor and companion Tools workspace) is integrated. The latest merge passed all 110 affected Authentik/widget/process tests, typecheck and the copyright-header gate. Both branches supplied the same worker limit; the merged configuration retains one setting. Prior focused Tools/UI-API checks covered 61 cases. These are integration checks, not completed release CI.
 
-Core PR1343 merged as7825261ab after full CI4482 passed; develop publication4515 and candidate promotion PR1345 remain in progress. Collaboration must consume the resulting published version. Next publisher support merged in Praetor PR238 (664f9498), and its shared producer merged in platform-ci PR67 (327e9b3a). The source caller pins that exact producer. The publisher runtime passed736 Linux tests and a scan with no HIGH/CRITICAL findings, but runtime rollout and the exact Next GitOps enrollment are still pending. No Next publication is claimed.
+Core PR1343 merged as7825261ab after full CI4482 passed; develop publication4515 and candidate promotion PR1345 remain in progress. Collaboration must consume the resulting published version. Next publisher support merged in Praetor PR238 and platform-ci PR67. GitOps PR269 merged as883e1ce3; ArgoCD adopted the exact configuration and a scheduled publisher is running image sha256:ea068b2a02147280cacedd095fbc55114daa9e3db72f1b0ca8511bc43bfd12c7 with the exact Next enrollment. Its 736 Linux tests and vulnerability scan passed. The dashboard candidate version is 1.0.0-RC.38; this source preparation is not a published release.
 
 ## Changes
 
