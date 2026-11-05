@@ -49,11 +49,9 @@ vi.mock('@/lib/hooks/use-metadata', () => ({
 }))
 vi.mock('@/lib/api/tables', () => ({
   getRecord: vi.fn(),
-  queryRecords: vi
-    .fn()
-    .mockResolvedValue({
-      records: [{ tableName: 'person', values: { id: 1 }, recordLabel: 'Alice' }],
-    }),
+  queryRecords: vi.fn().mockResolvedValue({
+    records: [{ tableName: 'person', values: { id: 1 }, recordLabel: 'Alice' }],
+  }),
 }))
 vi.mock('@/lib/api/collaboration', () => ({
   searchPeople: vi.fn(),
@@ -66,6 +64,7 @@ vi.mock('@/lib/api/collaboration', () => ({
   createTask: vi.fn(),
   patchTask: vi.fn(),
   getMyWork: vi.fn(),
+  markMentionsRead: vi.fn().mockResolvedValue({ success: true }),
   listMyTasks: vi.fn(),
 }))
 const record = { table: 'person', pk: '1' }

@@ -20,6 +20,8 @@ const BACKEND_PREFIXES: string[] = backendPrefixes
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Allow acceptance servers to run without sharing the developer server's lock/cache.
+  distDir: process.env.QQQ_NEXT_DIST_DIR || '.next',
   // Reported to the backend as frontendVersion and shown on the developer page.
   env: { NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || packageJson.version },
   ...(exportBuild

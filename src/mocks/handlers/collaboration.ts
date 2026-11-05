@@ -601,6 +601,8 @@ const viewers = [
   { userId: 'sam', displayName: 'Sam Parker', mode: 'EDITING', fieldName: 'firstName' },
   { userId: 'alex', displayName: 'Alex Rivera', mode: 'VIEWING' },
 ]
+// Demo peers are fixed fixtures; only the current browser's issued handles are tracked.
+const presenceLeases = new Map<string, { table: string; pk?: string }>()
 const taskStore: import('@/types/collaboration').CollaborationTaskV1[] = [
   {
     id: 8001,
@@ -671,11 +673,28 @@ collaborationHandlers.push(
     const params = new URL(request.url).searchParams
     return HttpResponse.json({ table: params.get('table'), pk: params.get('pk'), viewers })
   }),
-  http.post(`${BASE}/presence`, async ({ request }) => {
-    const input = (await request.json()) as Record<string, unknown>
+  http.post(`${BASE}/presence/leases`, async ({ request }) => {
+    const target = (await request.json()) as { table: string; pk?: string }
+    const connectionId = `lease:${crypto.randomUUID()}`
+    presenceLeases.set(connectionId, target)
+    return HttpResponse.json({ connectionId })
+  }),
+  http.post(`${BASE}/presence/leases/renew`, async ({ request }) => {
+    const input = (await request.json()) as {
+      table: string
+      pk?: string
+      connectionId: string
+    }
+    const target = presenceLeases.get(input.connectionId)
+    if (!target || target.table !== input.table || target.pk !== input.pk)
+      return HttpResponse.json({ code: 'PRESENCE_LEASE_EXPIRED' }, { status: 409 })
     return HttpResponse.json({ table: input.table, pk: input.pk, viewers })
   }),
-  http.delete(`${BASE}/presence`, () => HttpResponse.json({ success: true })),
+  http.delete(`${BASE}/presence`, async ({ request }) => {
+    const input = (await request.json()) as { connectionId: string }
+    presenceLeases.delete(input.connectionId)
+    return HttpResponse.json({ success: true })
+  }),
   http.get(`${BASE}/people`, ({ request }) => {
     const q = new URL(request.url).searchParams.get('q')?.toLowerCase() ?? ''
     return HttpResponse.json({
@@ -770,7 +789,11 @@ collaborationHandlers.push(
         completedByDisplayName: nameOf('me'),
       })
     if (input.status === 'OPEN')
-      Object.assign(task, { completedAt: null, completedByUserId: null, completedByDisplayName: null })
+      Object.assign(task, {
+        completedAt: null,
+        completedByUserId: null,
+        completedByDisplayName: null,
+      })
     publishCollaborationEvent('task.changed', {
       table: task.tableName,
       pk: task.recordId,

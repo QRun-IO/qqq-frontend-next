@@ -17,11 +17,11 @@
 /** @file Personal tasks, assigned record links and unread mentions. */
 'use client'
 import Link from 'next/link'
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useCollaborationAvailable } from '@/lib/hooks/use-collaboration-core'
 import { useRealtimeChannel } from '@/lib/hooks/use-realtime-channel'
-import { getMyWork, listMyTasks } from '@/lib/api/collaboration'
+import { getMyWork, listMyTasks, markMentionsRead } from '@/lib/api/collaboration'
 import { queryRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { collaborationButton } from './CollaborationDialog'
@@ -78,6 +78,11 @@ function AssignedTable({ name, label, count }: { name: string; label: string; co
  * @returns Work page.
  */
 export function MyWork() {
+  const cache = useQueryClient()
+  const read = useMutation({
+    mutationFn: markMentionsRead,
+    onSuccess: () => cache.invalidateQueries({ queryKey: queryKeys.collaborationMyWork() }),
+  })
   const available = useCollaborationAvailable()
   const metadata = useMetaData()
   const work = useQuery({
@@ -158,6 +163,17 @@ export function MyWork() {
           </section>
           <section className="rounded-xl border border-border bg-card p-4">
             <h2 className="text-lg font-semibold">Unread mentions</h2>
+            {!!work.data.unreadMentionCount && (
+              <button
+                type="button"
+                className={collaborationButton}
+                disabled={read.isPending}
+                onClick={() => read.mutate()}
+              >
+                Mark all mentions read
+              </button>
+            )}
+            {read.isError && <p role="alert">Could not mark mentions read.</p>}
             <Link
               href="/app/notifications?status=unread"
               className="text-sm underline"

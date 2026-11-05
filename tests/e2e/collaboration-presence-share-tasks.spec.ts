@@ -19,9 +19,25 @@ import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 
 async function openRecord(page: Page) {
+  const opened = page.waitForResponse(
+    (r) => r.url().endsWith('/presence/leases') && r.request().method() === 'POST'
+  )
+  const renewed = page.waitForResponse(
+    (r) => r.url().endsWith('/presence/leases/renew') && r.request().method() === 'POST'
+  )
   await page.goto('/app/person/1')
+  expect((await opened).status()).toBe(200)
+  const renewal = await renewed
+  expect(renewal.status()).toBe(200)
+  expect(renewal.request().postDataJSON()).toMatchObject({
+    table: 'person',
+    pk: '1',
+    mode: 'VIEWING',
+    connectionId: expect.stringMatching(/^lease:/),
+  })
   await expect(page.locator('[data-qqq-id="record-view-title-person"]')).toHaveText('Alice Johnson')
   await expect(page.locator('[data-qqq-id="presence-sam"]')).toBeVisible()
+  await expect(page.getByText('Presence temporarily unavailable', { exact: true })).toHaveCount(0)
 }
 async function concurrentEdit(page: Page) {
   await page.evaluate(async () => {
