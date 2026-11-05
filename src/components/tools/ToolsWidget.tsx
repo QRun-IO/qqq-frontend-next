@@ -32,7 +32,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { apiUrl } from '@/lib/api/client'
+import apiClient from '@/lib/api/client'
 import { useMetaData } from '@/lib/hooks/use-metadata'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { connectionUrl, downloadLink, toolsCatalogSchema, type Tool } from './tools-catalog'
@@ -376,7 +376,11 @@ export default function ToolsWidget({ data }: { data: unknown }) {
   const server =
     typeof window === 'undefined'
       ? undefined
-      : connectionUrl(catalog.serverUrl, apiUrl(''), window.location.origin)
+      : connectionUrl(
+          catalog.serverUrl,
+          apiClient.getInstance().defaults.baseURL ?? '',
+          window.location.origin
+        )
   const available = catalog.tools.filter((tool) => tool.available)
   const unavailable = catalog.tools.filter((tool) => !tool.available)
   const selected = available.find((tool) => tool.id === selectedId) ?? available[0]
