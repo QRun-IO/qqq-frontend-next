@@ -77,6 +77,7 @@ const LineChartWidget = lazy(() => import('./LineChartWidget').then((m) => ({ de
 const PieChartWidget = lazy(() => import('./PieChartWidget').then((m) => ({ default: m.PieChartWidget })))
 const FilterAndColumnsSetupWidget = lazy(() => import('./FilterAndColumnsSetupWidget').then((m) => ({ default: m.FilterAndColumnsSetupWidget })))
 const PivotTableSetupWidget = lazy(() => import('./PivotTableSetupWidget').then((m) => ({ default: m.PivotTableSetupWidget })))
+const ToolsWidget = lazy(() => import('@/components/tools/ToolsWidget'))
 const SqlWorkbenchWidget = lazy(() => import('@/components/sql-workbench/SqlWorkbenchWidget'))
 const AuthentikAccessEditorWidget = lazy(() => import('@/components/authentik/AuthentikAccessEditorWidget'))
 const AuthentikPolicyEditorWidget = lazy(() => import('@/components/authentik/AuthentikPolicyEditorWidget'))
@@ -153,6 +154,8 @@ export function WidgetRenderer({ widgetMetaData, data, recordContext, formContex
   }
 
   switch (resolvedType) {
+    case 'QQQ_TOOLS':
+      return <Suspense fallback={SetupFallback}><ToolsWidget data={data} /></Suspense>
     case 'statistics':
       return 'count' in data
         ? <QqqStatisticsWidget {...common} data={data} />
