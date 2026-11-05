@@ -25,7 +25,10 @@
 import React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Bug, ChevronDown, LogOut, Moon, Settings } from 'lucide-react'
+import { Bug, ChevronDown, LogOut, Moon, Settings, Wrench } from 'lucide-react'
+
+import { useMetaData } from '@/lib/hooks/use-metadata'
+import { toolsTarget } from '@/components/tools/tools-catalog'
 
 import { getPreferences } from '@/lib/api/preferences'
 import { useMediaQuery } from '@/lib/hooks/use-media-query'
@@ -107,6 +110,8 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
   compactItems?: (close: (then?: () => void) => void) => React.ReactNode
 }) {
   const { theme, isDarkMode, setDarkMode } = useTheme()
+  const metadata = useMetaData()
+  const tools = toolsTarget(metadata.data)
   const capability = useQaCaptureCapability()
   const preferences = useQuery({ queryKey: queryKeys.preferencesIndex(), queryFn: getPreferences, retry: false })
   const qaSection = capability?.enabled && capability.reason === 'QA_MODE' ? capability.qaMode.preferenceSection : undefined
@@ -127,6 +132,9 @@ function AccountMenuItems({ displayName, userEmail, logout, close, compactItems 
           <HeaderMenuSeparator />
         </div>
       )}
+      {tools && <Link href={tools.path} role="menuitem" onClick={() => close()} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-tools">
+        <Wrench className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{tools.label}
+      </Link>}
       <Link href="/app/preferences" role="menuitem" onClick={() => close()} className={HEADER_MENU_ITEM_CLASS} data-qqq-id="menu-item-preferences">
         <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         Preferences
