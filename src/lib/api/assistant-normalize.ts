@@ -49,7 +49,7 @@ const nullableText = z.preprocess((value) => (typeof value === 'number' || typeo
 const idValue = z.union([z.string(), z.number()]).catch('')
 const optionalText = z.string().optional().catch(undefined)
 const optionalNumber = z.number().finite().optional().catch(undefined)
-const record = z.record(z.unknown()).catch({})
+const record = z.record(z.string(), z.unknown()).catch({})
 
 /**
  * A list whose items are parsed one by one: a non-list becomes `[]` and an item that is not an
@@ -66,13 +66,14 @@ function list<T extends z.ZodTypeAny>(item: T) {
       const parsed = item.safeParse(entry)
       return parsed.success ? [parsed.data] : []
     })
-  })
+  // zod 4 treats an absent key of a bare unknown().transform() as required; catch repairs it to [] as before
+  }).catch([] as Array<z.output<T>>)
 }
 
 // ─── Renders ──────────────────────────────────────────────────────────────────
 
 const recordRef = z.object({ tableName: text, tableLabel: text, id: idValue, label: text, href: text })
-const cellValues = z.record(nullableText).catch({})
+const cellValues = z.record(z.string(), nullableText).catch({})
 
 const RENDER_SCHEMAS = {
   records: z.object({
@@ -126,7 +127,7 @@ const BLOCK_SCHEMAS: Record<string, z.ZodTypeAny> = {
   table: z.object({
     kind: z.literal('table'), title: optionalText,
     columns: list(z.object({ key: text, label: text, align: z.enum(['left', 'center', 'right']).optional().catch(undefined) })),
-    rows: list(z.object({ cells: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()]).catch(null)).catch({}), display: z.record(z.string()).optional().catch(undefined), href: optionalText })),
+    rows: list(z.object({ cells: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]).catch(null)).catch({}), display: z.record(z.string(), z.string()).optional().catch(undefined), href: optionalText })),
   }),
   chart: z.object({
     kind: z.literal('chart'), chartType: z.string().catch(''), title: optionalText,
@@ -160,7 +161,7 @@ export function normalizePresentationPart(raw: Record<string, unknown>): Assista
       const schema = BLOCK_SCHEMAS[kind]
       if (!schema) return [block as { kind: string }]
       const parsed = schema.safeParse(block)
-      return parsed.success ? [parsed.data] : []
+      return parsed.success ? [parsed.data as { kind: string }] : []
     }),
   }
 }

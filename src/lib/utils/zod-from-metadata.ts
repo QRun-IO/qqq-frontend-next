@@ -43,7 +43,7 @@ function buildStringSchema(isRequired: boolean, label: string, maxLength?: numbe
   let schema = z.string()
   if (isRequired) schema = schema.min(1, requiredMessage(label))
   const limited = maxLength !== undefined
-    ? schema.refine((value) => value.length <= maxLength, () => ({ message: tooLongMessage(label, maxLength) }))
+    ? schema.refine((value) => value.length <= maxLength, { message: tooLongMessage(label, maxLength) })
     : schema
   return isRequired ? limited : limited.optional()
 }
@@ -151,7 +151,7 @@ function buildNumberSchema(
   minInclusive = true,
   maxInclusive = true
 ): z.ZodTypeAny {
-  let schema: z.ZodNumber = isInteger
+  let schema = isInteger
     ? z.coerce.number({ message: notANumberMessage(label, true) }).int(notANumberMessage(label, true))
     : z.coerce.number({ message: notANumberMessage(label, false) })
   if (minValue !== undefined && minValue !== null) {
@@ -161,7 +161,7 @@ function buildNumberSchema(
     schema = schema[maxInclusive ? 'max' : 'lt'](Number(maxValue), outOfRangeMessage(label, 'max', maxValue, maxInclusive))
   }
   return isRequired
-    ? z.union([z.string().trim().min(1, requiredMessage(label)), z.number()]).pipe(schema)
+    ? z.union([z.string().trim().min(1, requiredMessage(label)), z.number()]).pipe(schema as unknown as z.ZodType<number, string | number>)
     : blankOr(schema).optional()
 }
 
@@ -214,7 +214,7 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
       // unset (QRun-IO/qqq#761). A required one needs true or false, as in Material.
       const message = requiredMessage(label ?? type)
       return isRequired
-        ? z.boolean({ required_error: message, invalid_type_error: message })
+        ? z.boolean({ error: message })
         : z.boolean().nullable().optional()
     }
 
@@ -226,7 +226,7 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
     case 'BLOB': {
       // A new File, the stored value (download URL or bytes) left unchanged, or null when
       // the stored file is removed. A required file must be present.
-      const file = z.union([z.instanceof(File), z.string(), z.null()], { errorMap: () => ({ message: `${label ?? type} must be a file` }) })
+      const file = z.union([z.instanceof(File), z.string(), z.null()], { error: `${label ?? type} must be a file` })
       return isRequired
         ? file.refine((value) => value instanceof File || (typeof value === 'string' && value !== ''), requiredMessage(label ?? type))
         : file.optional()
@@ -237,8 +237,8 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
     case 'HTML':
     case 'STRING':
     default:
-      return buildStringSchema(isRequired ?? false, label ?? type, maxLength).refine((value: string | undefined) => {
-        if (!value || !field.validation?.pattern) return true
+      return buildStringSchema(isRequired ?? false, label ?? type, maxLength).refine((value: unknown) => {
+        if (typeof value !== 'string' || !value || !field.validation?.pattern) return true
         try { return new RegExp('^(?:' + field.validation.pattern + ')$').test(value) }
         catch { return true } // An unsupported server pattern must not prevent submitting to the authority.
       }, field.validation?.patternMessage ?? `${label} has an invalid format`)

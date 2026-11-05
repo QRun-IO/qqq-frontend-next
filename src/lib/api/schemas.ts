@@ -47,17 +47,17 @@ import { z } from 'zod'
 const StatusMessageSchema = z.union([z.string(), z.object({ message: z.string() })])
   .transform((status) => typeof status === 'string' ? status : status.message)
 
-export const QRecordSchema: z.ZodType<import('@/types').QRecord, z.ZodTypeDef, unknown> = z.object({
+export const QRecordSchema: z.ZodType<import('@/types').QRecord> = z.object({
   /** Name of the table this record belongs to. */
   tableName: z.string(),
   /** Human-readable label computed by the backend. */
   recordLabel: z.string().optional(),
   /** Raw field values keyed by field name. */
-  values: z.record(z.unknown()),
+  values: z.record(z.string(), z.unknown()),
   /** Pre-formatted display strings keyed by field name. */
-  displayValues: z.record(z.string()).optional(),
+  displayValues: z.record(z.string(), z.string()).optional(),
   /** Optional map of relationship name → associated records for joined or child data. */
-  associatedRecords: z.record(z.array(z.lazy(() => QRecordSchema))).optional(),
+  associatedRecords: z.record(z.string(), z.array(z.lazy(() => QRecordSchema))).optional(),
   /** Validation or server-side errors associated with this record. */
   errors: z.array(StatusMessageSchema).optional(),
   /** Non-fatal warnings associated with this record. */
@@ -106,13 +106,13 @@ export const CountRecordsResponseSchema = z.object({
  */
 export const QInstanceMinimalSchema = z.object({
   /** All registered apps (sidebar navigation source). */
-  apps: z.record(z.unknown()),
+  apps: z.record(z.string(), z.unknown()),
   /** Navigation tree nodes. */
   appTree: z.array(z.unknown()),
   /** All registered tables (drives every record page). */
-  tables: z.record(z.unknown()),
+  tables: z.record(z.string(), z.unknown()),
   /** All registered processes. */
-  processes: z.record(z.unknown()),
+  processes: z.record(z.string(), z.unknown()),
   /** Branding configuration; every field is optional in QQQ branding, and branding itself may be absent. */
   branding: z.object({
     companyName: z.string().optional(),

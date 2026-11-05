@@ -48,11 +48,11 @@ export interface FormAdjusterOutput {
 
 /** Unknown keys (and a null) are tolerated; each known key is checked where the form uses it. */
 const FormAdjusterOutputSchema = z.object({
-  updatedFieldMetaData: z.record(z.object({ name: z.string().optional() }).passthrough()).nullish(),
-  updatedFieldValues: z.record(z.unknown()).nullish(),
-  updatedFieldDisplayValues: z.record(z.string().nullable()).nullish(),
+  updatedFieldMetaData: z.record(z.string(), z.object({ name: z.string().optional() }).passthrough()).nullish(),
+  updatedFieldValues: z.record(z.string(), z.unknown()).nullish(),
+  updatedFieldDisplayValues: z.record(z.string(), z.string().nullable()).nullish(),
   fieldsToClear: z.array(z.string()).nullish(),
-  updatedSectionMetaData: z.record(z.object({ name: z.string().optional() }).passthrough()).nullish(),
+  updatedSectionMetaData: z.record(z.string(), z.object({ name: z.string().optional() }).passthrough()).nullish(),
   isFormDisabled: z.boolean().nullish(),
   formDisabledMessage: z.string().nullish(),
 }).passthrough()

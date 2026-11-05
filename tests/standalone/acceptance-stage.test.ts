@@ -41,6 +41,8 @@ afterEach(() => { for (const directory of directories.splice(0)) rmSync(director
 
 it('keeps the variant build, static assets and entrypoint after the main build directory is replaced', () => {
   const { source, staged } = fixture()
+  const serverMode = statSync(path.join(source, '.next/standalone/server.js')).mode & 0o777
+  const staticMode = statSync(path.join(source, '.next/static')).mode & 0o777
   stageStandalone(staged, backend, source)
   rmSync(path.join(source, '.next'), { recursive: true })
   expect(() => assertStandaloneTarget(staged, backend)).not.toThrow()
@@ -49,8 +51,13 @@ it('keeps the variant build, static assets and entrypoint after the main build d
   expect(readFileSync(path.join(staged, 'public/icon.svg'), 'utf8')).toBe('<svg/>')
   expect(readFileSync(path.join(staged, 'qqq-server.mjs'), 'utf8')).toBe('container entrypoint')
   expect(readFileSync(path.join(staged, 'branding-assets.mjs'), 'utf8')).toBe('declared branding aliases')
-  expect(path.normalize(readlinkSync(path.join(staged, 'node_modules/example')))).toBe(path.join('.pnpm', 'example'))
+  const dependencyLink = readlinkSync(path.join(staged, 'node_modules/example'))
+  expect(path.isAbsolute(dependencyLink)).toBe(false)
+  expect(path.normalize(dependencyLink)).toBe(path.join('.pnpm', 'example'))
   expect(readFileSync(path.join(staged, 'node_modules/example/index.js'), 'utf8')).toBe('independent dependency')
+  // Preserve the permissions represented by the host; Windows mode bits are not POSIX ACLs.
+  expect(statSync(path.join(staged, 'server.js')).mode & 0o777).toBe(serverMode)
+  expect(statSync(path.join(staged, '.next/static')).mode & 0o777).toBe(staticMode)
 })
 
 // Windows permissions are ACL-based; Node's mode bits do not represent this policy.
