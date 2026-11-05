@@ -22,8 +22,11 @@ test.describe('Keyboard shortcuts', () => {
     await page.route('**/qqq/v1/preferences/keyboard', (route) => route.fulfill({ status: 404, json: { error: 'No keyboard section' } }))
     await page.goto('/app/person')
     await waitForAppReady(page)
-    // Ensure no input is focused so single-key shortcuts fire
-    await page.locator('body').click()
+    // Clear focus without clicking a record at the center of the page.
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    })
+    await expect(page).toHaveURL(/\/app\/person\/?$/)
   })
 
   // ── '.' key — opens command palette ──────────────────────────────────────

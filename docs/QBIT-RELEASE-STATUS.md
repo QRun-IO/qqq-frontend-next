@@ -1,6 +1,10 @@
 # Next UI QBit integration status
 
-Updated: 2026-11-04. Implementation and local integration verification complete for this branch. No published release or deployment is claimed.
+Updated: 2026-11-05. Source integration is prepared; no published release or deployment is claimed.
+
+Current main `3d162dce741d5e4525d38d1048e5bc849b4f6384` (companion Tools workspace) merged without conflicts. Typecheck, changed-file lint, license headers and all 61 focused account-menu/widget/Tools/UI-API cases passed across focused runs. The initial four-file cold run timed out in the unchanged lazy-chart case; its full 34-case file then passed with one worker and the original timeout/assertions. No application code or test threshold was changed for that result. The broader verification below predates this merge and must not be presented as release CI on the merged source.
+
+Core release PR1343 is still in CI; Collaboration must then consume its published version. Next also needs its original tag-based JAR publication contract integrated with the Gitea publisher. Current shared Maven/Central publisher profiles cover Core/QBits, and there is no Next JAR enrollment. The npm publisher and qualification-only Maven artifact workflow are not substitutes.
 
 ## Changes
 

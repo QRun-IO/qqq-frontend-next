@@ -4,6 +4,8 @@
 
 ## Features
 
+- **Tools:** the `QQQ_TOOLS` widget provides a shared setup workspace for CLI/TUI, mobile scanners and Print Client, with platform-specific install commands, copyable scripts and instance connection details. An account-menu shortcut follows visible Tools metadata. Requires the Tools Qbit; existing device enrollment and permissions remain unchanged.
+
 - **UI API 1.6.0 (QQQ 4.1.0-RC.15).** Next reads the typed `clientCapabilities` of table metadata for saved views, sharing, bulk processes and audits, applies `field.validation` (required, length, inclusive and exclusive bounds, patterns) before a request, reads client-neutral `uiSettings` setting by setting with the deprecated `materialDashboard` values as fallback, and shows the process error `traceId`. The full `materialDashboardTheme` still wins over the `uiSettings.theme` subset. Error messages keep their order (`userFacingError`, `error`, then the new `message`). Audits fall back to the permission-filtered instance metadata when a table's capability is unavailable, since RC.15 marks unaudited tables unavailable although explicit audits can exist. Off-spec calls stay at 0.
 - **What's new:** a paged release history with new badges, safe links and screenshots, notification deep links, and an unread count in the user menu. Uses UI API extension `release-notes` 1.0.0; requires qbit-release-notes 0.1.0-RC.1+.
 - **Profile photo and avatars everywhere** (QQQ 4.1.0-RC.17, UI API 1.8.0 `avatars`):
