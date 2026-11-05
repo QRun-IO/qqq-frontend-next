@@ -5,6 +5,8 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
+    // Keep DOM suites within a predictable memory/CPU budget on shared build hosts.
+    maxWorkers: 4,
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],

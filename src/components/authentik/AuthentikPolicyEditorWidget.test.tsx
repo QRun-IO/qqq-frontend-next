@@ -17,6 +17,8 @@
 // Tests for the AUTHENTIK_POLICY_EDITOR widget: matrix, select-all, search, unknowns, JSON output
 
 import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fetchWidgetData } from '@/lib/api/widgets'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { axe } from 'jest-axe'
@@ -26,6 +28,8 @@ import type { QWidgetMetaData } from '@/types'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { AuthentikPolicyEditorWidget, isPolicyPermission } from './AuthentikPolicyEditorWidget'
 import type { PolicyEditorPayload } from './AuthentikPolicyEditorWidget'
+
+vi.mock('@/lib/api/widgets', () => ({ fetchWidgetData: vi.fn() }))
 
 const widget = { name: 'authentikPolicyEditor', type: 'AUTHENTIK_POLICY_EDITOR', label: 'Policy' } as unknown as QWidgetMetaData
 
@@ -74,7 +78,7 @@ const documentFor = (actions: string[], resources = ['person']) => JSON.stringif
  */
 function setup(data: PolicyEditorPayload) {
   const onWidgetData = vi.fn()
-  const view = render(<AuthentikPolicyEditorWidget widgetMetaData={widget} data={data as unknown as Record<string, unknown>} onWidgetData={onWidgetData} />)
+  const view = render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AuthentikPolicyEditorWidget widgetMetaData={widget} data={data as unknown as Record<string, unknown>} onWidgetData={onWidgetData} /></QueryClientProvider>)
   const last = () => String(onWidgetData.mock.calls.at(-1)?.[0]?.policyDocument ?? '')
   return { onWidgetData, last, ...view }
 }
@@ -373,5 +377,43 @@ describe('AuthentikPolicyEditorWidget', () => {
   it('knows a policy permission', () => {
     expect(isPolicyPermission('a.read')).toBe(true)
     expect(isPolicyPermission('a.b.read')).toBe(false)
+  })
+})
+
+
+describe('Large policy catalogs', () => {
+  it('bounds rendering and preserves off-page grants when selecting one page', async () => {
+    const { last } = setup(payload({ catalog: [{ app: 'large', label: 'Large', resources: Array.from({ length: 1000 }, (_, i) => ({ name: 'resource' + i, label: 'Resource ' + i, kind: 'TABLE', actions: ['read'] })) }] }))
+    expect(screen.getByLabelText('Read: Resource 0')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Read: Resource 25')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Everything in Large (this page)'))
+    await userEvent.click(screen.getByRole('button', { name: 'Next resources' }))
+    expect(screen.queryByLabelText('Read: Resource 0')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Read: Resource 25'))
+    const doc = JSON.parse(last())
+    const resources = doc.Statement.flatMap((statement: { Resource: string[] }) => statement.Resource)
+    expect(resources).toHaveLength(26)
+    expect(resources).toContain('resource0')
+    expect(resources).toContain('resource25')
+    await userEvent.type(screen.getByLabelText('Find a resource'), 'Resource 999')
+    expect(screen.getByLabelText('Read: Resource 999')).toBeInTheDocument()
+    expect(JSON.parse(last())).toEqual(doc)
+  })
+})
+
+
+describe('Server-paged policies', () => {
+  it('keeps controlled selection synchronized with unknown removal and clear all', async () => {
+    vi.mocked(fetchWidgetData).mockResolvedValue({ type: 'AUTHENTIK_ACCESS_EDITOR', fields: [{ total: 1, page: 0, pageSize: 25, apps: [], rows: [{ name: 'cms_page', label: 'Pages', kind: 'TABLE', app: '', permissions: [{ id: 'cms_page.read', label: 'read' }, { id: 'cms_page.edit', label: 'edit' }] }] }] })
+    const { last } = setup(payload({ catalog: [], catalogWidget: 'pagedPolicy', unknownPermissions: ['legacy.read'], document: documentFor(['read'], ['legacy']) }))
+    await userEvent.click(await screen.findByLabelText('cms_page.read'))
+    expect(last()).toContain('legacy')
+    await userEvent.click(screen.getByRole('button', { name: 'Remove legacy.read' }))
+    await userEvent.click(screen.getByLabelText('cms_page.edit'))
+    expect(last()).not.toContain('legacy')
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(screen.getByLabelText('cms_page.read')).not.toBeChecked()
+    expect(screen.getByLabelText('cms_page.edit')).not.toBeChecked()
+    expect(JSON.parse(last()).Statement).toEqual([])
   })
 })

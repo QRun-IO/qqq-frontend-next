@@ -29,6 +29,7 @@ import React, { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } fr
 import type { WidgetComponentProps } from '@/components/widgets/widget-types'
 import { asList, isPlainObject } from '@/components/widgets/widget-types'
 import { ALERT_CLASS, INPUT_CLASS, WARNING_CLASS, buttonClass } from '@/components/ui/controls'
+import { PermissionMatrix } from './PermissionMatrix'
 import { cn } from '@/lib/utils/cn'
 import type { PolicyAction, PolicyFormat } from './policy-document'
 import { ACTION_LABELS, FULL_ACCESS_PERMISSION, POLICY_ACTIONS, generatePolicy, parsePolicy, permissionName, roundTrips, splitPermission } from './policy-document'
@@ -65,6 +66,10 @@ export interface PolicyEditorPayload {
   /** The group the policy belongs to (display only). */
   groupLabel?: string
   catalog: PolicyCatalogGroup[]
+  /** Server-paged catalog source; older hosts send the full catalog. */
+  catalogWidget?: string
+  /** Unknown grants identified against the complete server catalog. */
+  unknownPermissions?: string[]
   /** The group's current document (JSON text), or empty for none. */
   document?: string
   /** Whether the current document grants full access; older servers omit this. */
@@ -172,11 +177,12 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initial.permissions))
   const fullAccess = selected.has(FULL_ACCESS_PERMISSION)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
   const [memberUsername, setMemberUsername] = useState('')
   const member = payload.members?.find((candidate) => candidate.username === memberUsername)
 
   const generated = useMemo(() => generatePolicy(selected, format), [format, selected])
-  const unknown = useMemo(() => fullAccess ? [] : [...selected].filter((permission) => !known.has(permission)).sort(), [fullAccess, known, selected])
+  const unknown = useMemo(() => fullAccess ? [] : [...selected].filter((permission) => payload.catalogWidget ? payload.unknownPermissions?.includes(permission) : !known.has(permission)).sort(), [fullAccess, known, selected, payload.catalogWidget, payload.unknownPermissions])
   const valid = useMemo(() => roundTrips(selected, format), [format, selected])
 
   useEffect(() => {
@@ -193,6 +199,16 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
           || resource.features?.some((feature) => feature.label.toLowerCase().includes(term))),
     }))
     .filter((group) => group.resources.length > 0), [catalog, term])
+
+  const matchingCount = visibleGroups.reduce((sum, group) => sum + group.resources.length, 0)
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(matchingCount / 25) - 1))
+  const pageResources = visibleGroups.flatMap((group) => group.resources.map((resource) => ({ group, resource })))
+    .slice(currentPage * 25, (currentPage + 1) * 25)
+  const pageGroups = visibleGroups.map((group) => ({
+    ...group,
+    resources: pageResources.filter((entry) => entry.group === group).map((entry) => entry.resource),
+    label: matchingCount > 25 ? group.label + ' (this page)' : group.label,
+  })).filter((group) => group.resources.length > 0)
 
   const set = (permissions: string[], on: boolean) => {
     setSelected((current) => {
@@ -235,7 +251,7 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
 
       <fieldset disabled={fullAccess} aria-disabled={fullAccess} hidden={fullAccess} className="min-w-0">
         <div className="flex flex-col gap-2 @xl:flex-row @xl:items-end @xl:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div hidden={Boolean(payload.catalogWidget)} className="flex min-w-0 flex-1 flex-col gap-1">
             <label htmlFor={searchId} className="text-sm font-medium text-foreground">Find a resource</label>
             <input
               id={searchId}
@@ -244,7 +260,7 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
               placeholder="App, table, process or report"
               value={search}
               aria-disabled={fullAccess}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(0) }}
               data-qqq-id="policy-editor-search"
             />
           </div>
@@ -262,11 +278,18 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
           {fullAccess && <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Individual resource selection is disabled while full access is on.</p>}
           <div hidden={fullAccess}>
             <div className="flex min-w-0 flex-col gap-3">
+              {payload.catalogWidget ? <PermissionMatrix field={{ name: 'policyPermissions', label: 'Policy permissions', catalogWidget: payload.catalogWidget, selected: [] }} selection={selected} onSelectionChange={setSelected} /> : <>
               {resourceCount === 0 && <p className="text-sm text-muted-foreground">This app has no resources that a policy can grant.</p>}
               {resourceCount > 0 && visibleGroups.length === 0 && <p className="text-sm text-muted-foreground" role="status">No resource matches the search.</p>}
-              {visibleGroups.map((group) => (
+              {matchingCount > 25 && <div className="flex items-center gap-3 text-sm">
+                <button type="button" className={buttonClass('secondary', 'sm')} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous resources</button>
+                <span role="status">{matchingCount} resources · Page {currentPage + 1} of {Math.ceil(matchingCount / 25)}. Bulk controls affect only this page.</span>
+                <button type="button" className={buttonClass('secondary', 'sm')} disabled={(currentPage + 1) * 25 >= matchingCount} onClick={() => setPage(currentPage + 1)}>Next resources</button>
+              </div>}
+              {pageGroups.map((group) => (
                 <PolicyGroupSection key={group.app ?? '(other)'} group={group} selected={selected} onSet={set} />
               ))}
+              </>}
             </div>
           </div>
         </fieldset>
