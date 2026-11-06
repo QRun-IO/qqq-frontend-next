@@ -1,7 +1,13 @@
+# Copyright 2026 QRun.IO, Inc.
+# Licensed under the Apache License, Version 2.0.
+# https://www.apache.org/licenses/LICENSE-2.0
 name: build
 on:
   push:
 jobs:
   maven:
-    uses: self:KofTwentyTwo/ci-workflows/.gitea/workflows/maven.yaml@main
+    uses: self:KofTwentyTwo/ci-workflows/.gitea/workflows/maven.yaml@v1
     secrets: inherit
+    with:
+      node-version: '22.20.0'
+      prebuild: corepack enable && pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm build:export
